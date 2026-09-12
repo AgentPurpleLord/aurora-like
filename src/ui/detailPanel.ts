@@ -2,7 +2,13 @@
 
 import type { Game } from "../state/game";
 import { classLabel, orbitSummary, type Body } from "../sim/system";
-import { INSTALLATIONS, INSTALLATION_BY_ID } from "../state/installations";
+import { INSTALLATION_BY_ID } from "../sim/economy/installations";
+import {
+  colonyOutput,
+  effectiveColonyCost,
+  populationCapacity,
+} from "../sim/economy/production";
+import { fullName } from "../sim/people/officers";
 import { AU_KM } from "../sim/orbit";
 import {
   compact,
@@ -35,7 +41,7 @@ export class DetailPanel {
   constructor(
     private root: HTMLElement,
     private game: Game,
-    private onZoomTo: (body: Body) => void,
+    private actions: { zoomTo: (body: Body) => void; openEconomy: () => void },
   ) {
     this.header = el("div", "detail-head");
     this.tabBar = el("div", "tabs");
@@ -84,7 +90,7 @@ export class DetailPanel {
     this.header.append(el("div", "detail-sub", subtitle));
 
     const zoom = el("button", "ghost-btn", "Centre on map");
-    zoom.addEventListener("click", () => this.onZoomTo(body));
+    zoom.addEventListener("click", () => this.actions.zoomTo(body));
     this.header.append(zoom);
 
     switch (this.tab) {
@@ -171,7 +177,11 @@ export class DetailPanel {
     }
 
     const hab = this.section("Habitability");
-    const cost = body.colonyCost;
+    const colony = this.game.empire.colony(body.id);
+    const cost = effectiveColonyCost(body, colony, this.game.empire.stats);
+    if (Number.isFinite(cost) && Math.abs(cost - body.colonyCost) > 0.001) {
+      this.stat(hab, "Unmodified Colony Cost", body.colonyCost.toFixed(2));
+    }
     if (!Number.isFinite(cost)) {
       this.stat(hab, "Colony Cost", "Not colonisable");
       hab.append(el("p", "notes", "No solid surface. Orbital habitats and gas harvesting only."));
@@ -187,6 +197,9 @@ export class DetailPanel {
               : "Extreme. Only automated or short-duration operations are practical.";
       hab.append(el("p", "notes", verdict));
       this.stat(hab, "Infrastructure / 1m pop", cost === 0 ? "0" : num(Math.ceil(cost * 100)));
+      if (colony && colony.terraformed > 0) {
+        this.stat(hab, "Terraformed", `-${colony.terraformed.toFixed(2)} colony cost`);
+      }
     }
   }
 
@@ -216,7 +229,8 @@ export class DetailPanel {
   }
 
   private renderColony(body: Body): void {
-    const colony = this.game.colonyFor(body);
+    const { empire } = this.game;
+    const colony = empire.colony(body.id);
     const sec = this.section("Colony");
 
     if (!Number.isFinite(body.colonyCost)) {
@@ -225,26 +239,47 @@ export class DetailPanel {
     }
 
     if (!colony) {
-      sec.append(
-        el("p", "muted", `No colony on ${body.name}. Colony cost ${body.colonyCost.toFixed(2)}.`),
-      );
+      const cost = effectiveColonyCost(body, undefined, empire.stats);
+      sec.append(el("p", "muted", `No colony on ${body.name}. Colony cost ${cost.toFixed(2)}.`));
       const btn = el("button", "primary-btn", "Establish Colony");
       btn.addEventListener("click", () => {
-        this.game.foundColony(body.id, 0, {});
+        empire.foundColony(body.id, this.game.clock.seconds);
+        empire.addLog(
+          this.game.clock.seconds,
+          "colony",
+          `A colony has been established on ${body.name}.`,
+        );
         this.game.emit();
       });
       sec.append(btn);
       return;
     }
 
-    this.stat(sec, "Population", population(colony.population));
-    this.stat(sec, "Colony Cost", body.colonyCost.toFixed(2));
+    const output = colonyOutput(empire, body, colony, empire.stats);
+    const capacity = populationCapacity(body, colony, empire.stats);
+    const governor = empire.governorOf(body.id);
 
-    const required = Math.ceil(body.colonyCost * 100 * colony.population);
-    if (required > 0) {
-      const have = colony.installations["infrastructure"] ?? 0;
-      this.stat(sec, "Infrastructure", `${num(have)} / ${num(required)}`);
-    }
+    this.stat(sec, "Population", population(colony.population));
+    this.stat(sec, "Supported Population", capacity > 0 ? population(capacity) : "none");
+    this.stat(
+      sec,
+      "Annual Growth",
+      `${output.populationGrowth >= 0 ? "+" : ""}${population(output.populationGrowth)}`,
+    );
+    this.stat(sec, "Colony Cost", effectiveColonyCost(body, colony, empire.stats).toFixed(2));
+    this.stat(sec, "Governor", governor ? fullName(governor) : "vacant");
+    this.stat(
+      sec,
+      "Workforce",
+      `${Math.round(output.employment * 100)}% staffed`,
+    );
+
+    const industry = this.section("Output");
+    this.stat(industry, "Construction", `${num(output.buildPoints)} BP / year`);
+    this.stat(industry, "Research", `${num(output.researchPoints)} RP / year`);
+    this.stat(industry, "Wealth", `${num(output.wealth)} / year`);
+    const mined = Object.values(output.mining).reduce((sum, v) => sum + (v ?? 0), 0);
+    this.stat(industry, "Mining", `${num(mined)} tons / year`);
 
     const built = this.section("Installations");
     const entries = Object.entries(colony.installations).filter(([, n]) => n > 0);
@@ -259,27 +294,27 @@ export class DetailPanel {
       built.append(row);
     }
 
-    const build = this.section("Construction");
-    build.append(
-      el("p", "muted", "Prototype: installations are added instantly, with no cost or queue."),
-    );
-    for (const type of INSTALLATIONS) {
-      const row = el("div", "build-row");
-      const name = el("span", "install-name", type.name);
-      name.title = `${type.blurb}  (${num(type.cost)} BP)`;
-      row.append(name);
-      const minus = el("button", "step-btn", "-");
-      minus.addEventListener("click", () => this.game.addInstallation(body.id, type.id, -1));
-      const plus = el("button", "step-btn", "+");
-      plus.addEventListener("click", () => this.game.addInstallation(body.id, type.id, 1));
-      const plus10 = el("button", "step-btn", "+10");
-      plus10.addEventListener("click", () => this.game.addInstallation(body.id, type.id, 10));
-      row.append(minus, plus, plus10);
-      build.append(row);
+    const queue = this.section("Build Queue");
+    if (!colony.buildQueue.length) {
+      queue.append(el("p", "muted", "Nothing queued."));
+    }
+    for (const order of colony.buildQueue) {
+      const type = INSTALLATION_BY_ID.get(order.installationId);
+      if (!type) continue;
+      const row = el("div", "install-row");
+      row.append(el("span", "install-name", `${type.name} x${num(order.quantity)}`));
+      row.append(
+        el(
+          "span",
+          `install-count${order.starved ? " bad" : ""}`,
+          order.starved ? "no minerals" : `${Math.round((order.progress / type.cost) * 100)}%`,
+        ),
+      );
+      queue.append(row);
     }
 
-    const danger = el("button", "ghost-btn", "Abandon Colony");
-    danger.addEventListener("click", () => this.game.abandonColony(body.id));
-    build.append(danger);
+    const manage = el("button", "primary-btn", "Manage in Economy View");
+    manage.addEventListener("click", () => this.actions.openEconomy());
+    queue.append(manage);
   }
 }

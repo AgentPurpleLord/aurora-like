@@ -1,4 +1,4 @@
-/** Wires the map, the panels and input into a running application. */
+/** Wires the map, the views, the panels and input into a running application. */
 
 import { SystemMapRenderer, formatAu, type RenderOptions } from "../render/map";
 import { Game } from "../state/game";
@@ -7,7 +7,10 @@ import { AU_KM } from "../sim/orbit";
 import { BodyTreePanel } from "./bodyTree";
 import { DetailPanel } from "./detailPanel";
 import { TimeControls } from "./timeControls";
-import { distance, el, lightTime } from "./format";
+import { EconomyView } from "./views/economyView";
+import { ResearchView } from "./views/researchView";
+import { OfficersView } from "./views/officersView";
+import { distance, el, lightTime, num } from "./format";
 
 interface ZoomPreset {
   label: string;
@@ -26,13 +29,37 @@ const ZOOM_PRESETS: ZoomPreset[] = [
   { label: "Kuiper", spanAu: 75 },
 ];
 
+export type ViewId = "map" | "economy" | "research" | "officers";
+
+const VIEW_TABS: { id: ViewId; label: string; key: string }[] = [
+  { id: "map", label: "System Map", key: "m" },
+  { id: "economy", label: "Economy", key: "e" },
+  { id: "research", label: "Research", key: "r" },
+  { id: "officers", label: "Officers", key: "o" },
+];
+
+export interface AppRoots {
+  tree: HTMLElement;
+  detail: HTMLElement;
+  time: HTMLElement;
+  tools: HTMLElement;
+  overlay: HTMLElement;
+  tabs: HTMLElement;
+  empireBar: HTMLElement;
+  views: Record<ViewId, HTMLElement>;
+}
+
 export class App {
   private game = new Game();
   private renderer: SystemMapRenderer;
   private tree: BodyTreePanel;
   private detail: DetailPanel;
   private time: TimeControls;
-  private overlay: HTMLElement;
+  private economy: EconomyView;
+  private research: ResearchView;
+  private officers: OfficersView;
+
+  private view: ViewId = "map";
   private hovered: Body | null = null;
   private lastFrame = performance.now();
   private dragging = false;
@@ -46,23 +73,25 @@ export class App {
     showGrid: true,
   };
 
-  constructor(private canvas: HTMLCanvasElement, roots: {
-    tree: HTMLElement;
-    detail: HTMLElement;
-    time: HTMLElement;
-    tools: HTMLElement;
-    overlay: HTMLElement;
-  }) {
+  constructor(private canvas: HTMLCanvasElement, private roots: AppRoots) {
     this.renderer = new SystemMapRenderer(canvas, this.game.system);
     this.tree = new BodyTreePanel(roots.tree, this.game, (b) => this.zoomTo(b));
-    this.detail = new DetailPanel(roots.detail, this.game, (b) => this.zoomTo(b));
+    this.detail = new DetailPanel(roots.detail, this.game, {
+      zoomTo: (b) => this.zoomTo(b),
+      openEconomy: () => this.setView("economy"),
+    });
     this.time = new TimeControls(roots.time, this.game);
-    this.overlay = roots.overlay;
+    this.economy = new EconomyView(roots.views.economy, this.game);
+    this.research = new ResearchView(roots.views.research, this.game);
+    this.officers = new OfficersView(roots.views.officers, this.game);
+
+    this.buildViewTabs();
     this.buildTools(roots.tools);
 
     this.game.subscribe(() => {
       this.detail.render();
       this.tree.rebuild();
+      this.renderActiveView();
     });
 
     this.bindCanvas();
@@ -71,8 +100,70 @@ export class App {
 
     // Open on the inner system, framed on Sol.
     this.setSpan(2.6);
+    this.renderActiveView();
     this.frame();
   }
+
+  // ----------------------------------------------------------------- views
+
+  private buildViewTabs(): void {
+    for (const tab of VIEW_TABS) {
+      const btn = el("button", "view-tab", tab.label);
+      btn.dataset.view = tab.id;
+      btn.title = `${tab.label}  (${tab.key.toUpperCase()})`;
+      btn.addEventListener("click", () => this.setView(tab.id));
+      this.roots.tabs.append(btn);
+    }
+    this.syncViewTabs();
+  }
+
+  setView(view: ViewId): void {
+    this.view = view;
+    for (const [id, node] of Object.entries(this.roots.views)) {
+      node.classList.toggle("active", id === view);
+    }
+    this.syncViewTabs();
+    this.renderActiveView();
+    if (view === "map") this.renderer.resize();
+  }
+
+  private syncViewTabs(): void {
+    for (const btn of Array.from(this.roots.tabs.children) as HTMLElement[]) {
+      btn.classList.toggle("active", btn.dataset.view === this.view);
+    }
+  }
+
+  private renderActiveView(): void {
+    switch (this.view) {
+      case "economy": this.economy.render(); break;
+      case "research": this.research.render(); break;
+      case "officers": this.officers.render(); break;
+      case "map": break;
+    }
+    this.renderEmpireBar();
+  }
+
+  private renderEmpireBar(): void {
+    const { empire } = this.game;
+    const bar = this.roots.empireBar;
+    bar.textContent = "";
+
+    const add = (label: string, value: string, tone?: string) => {
+      const item = el("div", "empire-stat");
+      item.append(el("span", "empire-label", label));
+      item.append(el("span", `empire-value${tone ? ` ${tone}` : ""}`, value));
+      bar.append(item);
+    };
+
+    const net = empire.snapshot.income - empire.snapshot.expenses;
+    add("Treasury", num(empire.treasury), empire.treasury < 0 ? "bad" : undefined);
+    add("Net", `${net >= 0 ? "+" : ""}${num(net)}/yr`, net >= 0 ? "good" : "bad");
+    add("Research", `${num(empire.snapshot.researchPoints)} RP`);
+    add("Build", `${num(empire.snapshot.buildPoints)} BP`);
+    if (this.game.catchingUp) add("", "catching up...", "warn");
+  }
+
+  // ------------------------------------------------------------- map tools
 
   private buildTools(root: HTMLElement): void {
     const zooms = el("div", "tool-group");
@@ -141,6 +232,7 @@ export class App {
   }
 
   private zoomTo(body: Body): void {
+    this.setView("map");
     this.game.select(body);
     this.game.follow = true;
     const camera = this.renderer.camera;
@@ -155,6 +247,8 @@ export class App {
     this.setSpan(Math.max(span, 5e-6));
     this.syncToggles();
   }
+
+  // ----------------------------------------------------------------- input
 
   private bindCanvas(): void {
     const canvas = this.canvas;
@@ -212,7 +306,14 @@ export class App {
 
   private bindKeys(): void {
     window.addEventListener("keydown", (e) => {
-      if (e.target instanceof HTMLInputElement) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+
+      const tab = VIEW_TABS.find((t) => t.key === e.key);
+      if (tab) {
+        this.setView(tab.id);
+        return;
+      }
+
       switch (e.key) {
         case " ":
           e.preventDefault();
@@ -240,6 +341,8 @@ export class App {
     });
   }
 
+  // ------------------------------------------------------------ frame loop
+
   private frame = (): void => {
     const now = performance.now();
     const dt = Math.min(0.1, (now - this.lastFrame) / 1000);
@@ -247,15 +350,16 @@ export class App {
 
     this.game.tick(dt);
 
-    if (this.game.follow && this.game.selected) {
-      const target = this.game.selected;
-      this.renderer.camera.centerOn(target.world.x, target.world.y);
+    if (this.view === "map") {
+      if (this.game.follow && this.game.selected) {
+        const target = this.game.selected;
+        this.renderer.camera.centerOn(target.world.x, target.world.y);
+      }
+      this.renderer.draw(this.game.selected, this.hovered, this.options);
+      this.tree.refresh();
+      this.updateOverlay();
     }
-
-    this.renderer.draw(this.game.selected, this.hovered, this.options);
     this.time.refresh();
-    this.tree.refresh();
-    this.updateOverlay();
 
     requestAnimationFrame(this.frame);
   };
@@ -279,6 +383,6 @@ export class App {
         parts.push(`${distance(d)} from Earth (${lightTime(d)} light)`);
       }
     }
-    this.overlay.textContent = parts.join("   |   ");
+    this.roots.overlay.textContent = parts.join("   |   ");
   }
 }

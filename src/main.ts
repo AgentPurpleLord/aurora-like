@@ -1,15 +1,26 @@
 import "./style.css";
-import { App } from "./ui/app";
+import { App, type ViewId } from "./ui/app";
 
-const canvas = document.getElementById("map") as HTMLCanvasElement | null;
-const tree = document.getElementById("system-panel");
-const detail = document.getElementById("detail-panel");
-const time = document.getElementById("time-controls");
-const tools = document.getElementById("map-tools");
-const overlay = document.getElementById("map-overlay");
-
-if (!canvas || !tree || !detail || !time || !tools || !overlay) {
-  throw new Error("application shell is missing required elements");
+function need<T extends HTMLElement>(id: string): T {
+  const node = document.getElementById(id) as T | null;
+  if (!node) throw new Error(`application shell is missing #${id}`);
+  return node;
 }
 
-new App(canvas, { tree, detail, time, tools, overlay });
+const views: Record<ViewId, HTMLElement> = {
+  map: need("view-map"),
+  economy: need("view-economy"),
+  research: need("view-research"),
+  officers: need("view-officers"),
+};
+
+new App(need<HTMLCanvasElement>("map"), {
+  tree: need("system-panel"),
+  detail: need("detail-panel"),
+  time: need("time-controls"),
+  tools: need("map-tools"),
+  overlay: need("map-overlay"),
+  tabs: need("view-tabs"),
+  empireBar: need("empire-bar"),
+  views,
+});
