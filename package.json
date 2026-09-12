@@ -1,0 +1,19 @@
+{
+  "name": "aurora-like",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "A prototype 4X strategy game in the spirit of Aurora 4X - the dawn of the trans-Newtonian age.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "check": "esbuild tools/sanity.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/sanity.mjs --log-level=warning && node node_modules/.cache/sanity.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0",
+    "esbuild": "^0.21.5"
+  }
+}
