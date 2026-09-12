@@ -18,6 +18,7 @@ import {
   type Vec3,
 } from "./orbit";
 import { mineralsFor, type MineralDeposit } from "./minerals";
+import { mulberry32 } from "./rng";
 
 const G = 6.674e-11;
 const EARTH_G = 9.80665;
@@ -48,14 +49,6 @@ export interface Body {
   minerals: MineralDeposit[];
   /** Cached orbit path in the parent's frame, AU. */
   orbitPath: Vec3[];
-}
-
-export interface Colony {
-  bodyId: string;
-  /** Millions of people. */
-  population: number;
-  installations: Record<string, number>;
-  founded: number;
 }
 
 /** A dust-mote object: belt filler with an orbit but no detail panel. */
@@ -211,26 +204,6 @@ export function colonyCost(def: BodyDef, gravity: number): number {
 }
 
 // --------------------------------------------------------------------------
-
-/** Deterministic PRNG so the belts look the same on every load. */
-export function mulberry32(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-export function hashString(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
 
 /**
  * Background populations: the main belt, both Jupiter Trojan camps and the

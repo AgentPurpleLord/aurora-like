@@ -13,22 +13,29 @@
           <span class="brand-name">AURORA<span class="brand-dim">-LIKE</span></span>
           <span class="brand-sub">Trans-Newtonian Prototype</span>
         </div>
+        <nav id="view-tabs" class="view-tabs"></nav>
         <div id="time-controls" class="time-controls"></div>
+        <div id="empire-bar" class="empire-bar"></div>
       </header>
       <main class="workspace">
-        <aside id="system-panel" class="panel panel-left"></aside>
-        <section class="map-pane">
-          <canvas id="map"></canvas>
-          <div id="map-tools" class="map-tools"></div>
-          <div class="map-status">
-            <div class="map-hint">
-              drag to pan &middot; scroll to zoom &middot; click to select &middot; double-click to
-              enter a subsystem &middot; space to pause
+        <div id="view-map" class="view view-map active">
+          <aside id="system-panel" class="panel panel-left"></aside>
+          <section class="map-pane">
+            <canvas id="map"></canvas>
+            <div id="map-tools" class="map-tools"></div>
+            <div class="map-status">
+              <div class="map-hint">
+                drag to pan &middot; scroll to zoom &middot; click to select &middot; double-click to
+                enter a subsystem &middot; space to pause
+              </div>
+              <div id="map-overlay" class="map-overlay"></div>
             </div>
-            <div id="map-overlay" class="map-overlay"></div>
-          </div>
-        </section>
-        <aside id="detail-panel" class="panel panel-right"></aside>
+          </section>
+          <aside id="detail-panel" class="panel panel-right"></aside>
+        </div>
+        <div id="view-economy" class="view"></div>
+        <div id="view-research" class="view"></div>
+        <div id="view-officers" class="view"></div>
       </main>
     </div>
     <script type="module" src="/src/main.ts"></script>

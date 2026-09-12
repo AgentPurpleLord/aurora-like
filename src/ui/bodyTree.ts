@@ -59,7 +59,7 @@ export class BodyTreePanel {
           : distance(body.def.orbit.a);
       row.append(meta);
 
-      if (this.game.colonies.has(body.id)) {
+      if (this.game.empire.colonies.has(body.id)) {
         const flag = el("span", "colony-flag", "C");
         flag.title = "Colony present";
         row.append(flag);

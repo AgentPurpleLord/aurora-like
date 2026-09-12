@@ -8,7 +8,7 @@
  */
 
 import type { BodyDef } from "../data/bodies";
-import { hashString, mulberry32 } from "./system";
+import { hashString, mulberry32 } from "./rng";
 
 export const MINERALS = [
   "Duranium",
@@ -34,8 +34,38 @@ export interface MineralDeposit {
   accessibility: number;
 }
 
+/**
+ * The opening position is hand-authored rather than rolled: the homeworld and
+ * the two bodies that start colonised need known deposits, or a campaign can
+ * begin with nothing to mine.
+ */
+const AUTHORED: Record<string, [MineralName, number, number][]> = {
+  earth: [
+    ["Duranium", 120_000, 1.0], ["Neutronium", 48_000, 0.8], ["Corbomite", 36_000, 0.7],
+    ["Tritanium", 72_000, 0.9], ["Boronide", 40_000, 0.8], ["Mercassium", 30_000, 0.6],
+    ["Vendarite", 34_000, 0.7], ["Sorium", 60_000, 0.9], ["Uridium", 44_000, 0.8],
+    ["Corundium", 56_000, 1.0], ["Gallicite", 38_000, 0.7],
+  ],
+  luna: [
+    ["Duranium", 18_000, 0.8], ["Neutronium", 9_000, 0.7],
+    ["Corundium", 14_000, 0.9], ["Uridium", 6_000, 0.6],
+  ],
+  mars: [
+    ["Duranium", 26_000, 0.9], ["Corbomite", 9_000, 0.7], ["Tritanium", 12_000, 0.8],
+    ["Boronide", 7_000, 0.5], ["Mercassium", 4_500, 0.6],
+  ],
+};
+
 export function mineralsFor(def: BodyDef): MineralDeposit[] {
   if (def.cls === "star") return [];
+
+  const authored = AUTHORED[def.id];
+  if (authored) {
+    return authored.map(([mineral, amount, accessibility]) => ({
+      mineral, amount, accessibility,
+    }));
+  }
+
   const rng = mulberry32(hashString(`minerals:${def.id}`));
 
   const gasGiant = def.cls === "planet" && def.massKg > 5e25;

@@ -6,9 +6,15 @@
  * not an attempt at arcsecond accuracy.
  */
 
-import { AU_KM, DEG, eccentricAnomaly, positionAt, vecLength, vecSub } from "../src/sim/orbit";
+import {
+  AU_KM, DAYS_PER_YEAR, DEG, SECONDS_PER_DAY, eccentricAnomaly, positionAt, vecLength, vecSub,
+} from "../src/sim/orbit";
 import { StarSystem } from "../src/sim/system";
 import { GameClock, CAMPAIGN_START_SECONDS } from "../src/sim/clock";
+import { Game } from "../src/state/game";
+import { CYCLE_DAYS, colonyOutput, employmentRatio } from "../src/sim/economy/production";
+import { MINERALS } from "../src/sim/minerals";
+import { ageOf } from "../src/sim/people/officers";
 
 // Declared locally so the project does not need @types/node.
 declare const process: { exit(code: number): never };
@@ -115,6 +121,156 @@ assert("Venus colony cost is extreme", system.byId.get("venus")!.colonyCost > 5)
 
 // The tree covers every body exactly once.
 assert(`system tree lists all ${system.bodies.length} bodies`, system.tree().length === system.bodies.length);
+
+// ==========================================================================
+// Economy, research and people
+// ==========================================================================
+
+console.log("");
+
+const game = new Game("sanity");
+const empire = game.empire;
+const bodies = game.system;
+
+function totalMinerals(): number {
+  let total = 0;
+  for (const colony of empire.colonies.values()) {
+    for (const mineral of MINERALS) total += colony.stockpile[mineral];
+    // Refined fuel is Sorium that has left the stockpile.
+    total += colony.fuel / 2000;
+  }
+  for (const body of bodies.bodies) {
+    for (const deposit of body.minerals) total += deposit.amount;
+  }
+  return total;
+}
+
+/** Advance the simulation by whole production cycles. */
+function runYears(years: number): void {
+  const cycles = Math.round((years * DAYS_PER_YEAR) / CYCLE_DAYS);
+  for (let i = 0; i < cycles; i++) game.step(CYCLE_DAYS * SECONDS_PER_DAY);
+}
+
+const startingMinerals = totalMinerals();
+const startingPopulation = empire.colony("earth")!.population;
+
+// Nothing is queued at the start, so minerals only move between deposits,
+// stockpiles and fuel - the total must be conserved exactly.
+runYears(1);
+check("minerals conserved over 1 year (tons)", totalMinerals(), startingMinerals, 1e-6);
+assert(
+  `Earth population grew (${startingPopulation.toFixed(0)} -> ${empire.colony("earth")!.population.toFixed(0)}m)`,
+  empire.colony("earth")!.population > startingPopulation,
+);
+assert("Earth mined minerals into its stockpile", empire.colony("earth")!.stockpile.Duranium > 50_000);
+assert("research is accumulating", empire.projects.every((p) => p.progress > 0));
+
+// Mass drivers move Luna's output to the capital rather than stranding it.
+const lunaColony = empire.colony("luna")!;
+assert(
+  "Luna ships its minerals to Earth",
+  lunaColony.stockpile.Duranium < 500 && lunaColony.massDriverTarget === "earth",
+);
+
+// The opening research projects should complete within a decade and change
+// the empire's working figures.
+runYears(9);
+assert("Construction Rate 12 BP researched", empire.researched.has("construction-12"));
+check("construction rate after research", empire.stats.constructionRate, 12, 0);
+assert("Mining Production 12 Tons researched", empire.researched.has("mining-12"));
+check("mining rate after research", empire.stats.miningRate, 12, 0);
+
+// Build queue: order automated mines on Mars and confirm they get built and
+// that the minerals to build them were actually consumed.
+const mars = empire.colony("mars")!;
+const marsMines = mars.installations["automated-mine"] ?? 0;
+const earthDuranium = empire.colony("earth")!.stockpile.Duranium;
+empire.queueBuild("earth", "automated-mine", 20);
+runYears(2);
+const earthColony = empire.colony("earth")!;
+assert(
+  `Earth built automated mines (${earthColony.installations["automated-mine"] ?? 0} of 20)`,
+  (earthColony.installations["automated-mine"] ?? 0) >= 20,
+);
+assert("construction consumed Duranium", earthColony.stockpile.Duranium !== earthDuranium);
+assert("Mars was untouched by Earth's queue", (mars.installations["automated-mine"] ?? 0) === marsMines);
+
+// Employment: a colony cannot staff more manned installations than its
+// population supports.
+const employment = employmentRatio(earthColony);
+assert(`Earth employment ratio is sane (${employment.toFixed(2)})`, employment > 0 && employment <= 1);
+
+// People: over a long campaign officers join, are promoted, and retire.
+const officersAtStart = empire.officers.officers.size;
+const namesAtStart = new Set(empire.officers.list.map((o) => o.id));
+runYears(25);
+const now = game.clock.seconds;
+const ages = empire.officers.list.map((o) => ageOf(o, now));
+assert(
+  `officer corps turned over (${officersAtStart} -> ${empire.officers.officers.size}, ` +
+    `${empire.officers.list.filter((o) => !namesAtStart.has(o.id)).length} new)`,
+  empire.officers.list.some((o) => !namesAtStart.has(o.id)),
+);
+assert(`no officer is older than 85 (oldest ${Math.max(...ages)})`, Math.max(...ages) <= 85);
+assert("every posting points at something real", empire.officers.list.every((o) => {
+  if (!o.assignment) return true;
+  return o.assignment.kind === "governor"
+    ? empire.colonies.has(o.assignment.targetId)
+    : empire.projects.some((p) => p.id === o.assignment!.targetId);
+}));
+assert("some officer has been promoted", empire.officers.list.some((o) => o.rank > 0));
+
+// Treasury and population over the long run.
+assert(`treasury is a finite number (${Math.round(empire.treasury)})`, Number.isFinite(empire.treasury));
+assert(
+  `Earth population is plausible after 37 years (${empire.colony("earth")!.population.toFixed(0)}m)`,
+  empire.colony("earth")!.population > 8_100 && empire.colony("earth")!.population < 12_000,
+);
+assert(
+  "mineral total never increased",
+  totalMinerals() <= startingMinerals + 1e-6,
+);
+
+// Expansion loop: settle a new world, build its infrastructure at Earth,
+// ship it out, and let civilian shipping carry the colonists.
+empire.foundColony("callisto", game.clock.seconds);
+const callisto = empire.colony("callisto")!;
+const peopleBefore = [...empire.colonies.values()].reduce((s, c) => s + c.population, 0);
+empire.queueBuild("earth", "infrastructure", 4000, "callisto");
+empire.queueBuild("earth", "automated-mine", 15, "callisto");
+runYears(6);
+
+assert(
+  `Callisto received its infrastructure (${callisto.installations["infrastructure"] ?? 0})`,
+  (callisto.installations["infrastructure"] ?? 0) >= 4000,
+);
+assert(
+  `Callisto received automated mines (${callisto.installations["automated-mine"] ?? 0})`,
+  (callisto.installations["automated-mine"] ?? 0) >= 15,
+);
+assert(
+  "Earth did not keep the installations it built for Callisto",
+  (empire.colony("earth")!.installations["infrastructure"] ?? 0) === 0,
+);
+assert(
+  `colonists migrated to Callisto (${callisto.population.toFixed(2)}m)`,
+  callisto.population > 0,
+);
+// Migration must move people, not mint them: over a single cycle the total
+// population may only change by the natural growth of each colony.
+const totalBefore = [...empire.colonies.values()].reduce((s, c) => s + c.population, 0);
+const expectedGrowth = [...empire.colonies.values()].reduce((sum, c) => {
+  const body = bodies.byId.get(c.bodyId)!;
+  return sum + colonyOutput(empire, body, c, empire.stats).populationGrowth;
+}, 0) * (CYCLE_DAYS / DAYS_PER_YEAR);
+game.step(CYCLE_DAYS * SECONDS_PER_DAY);
+const totalAfter = [...empire.colonies.values()].reduce((s, c) => s + c.population, 0);
+check("population conserved across migration (millions)", totalAfter - totalBefore, expectedGrowth, 1e-9);
+assert("the campaign gained people overall", totalAfter > peopleBefore);
+assert(
+  `Callisto is mining into its own stockpile`,
+  MINERALS.some((m) => callisto.stockpile[m] > 0) || callisto.massDriverTarget !== null,
+);
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);
