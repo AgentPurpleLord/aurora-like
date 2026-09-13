@@ -52,6 +52,14 @@ export function emptySnapshot(): EmpireSnapshot {
   };
 }
 
+/** State captured the last time the player reviewed the empire dashboard. */
+export interface ReviewMark {
+  time: number;
+  treasury: number;
+  population: number;
+  techs: number;
+}
+
 export class Empire {
   readonly name = "Terran Federation";
   readonly colonies = new Map<string, Colony>();
@@ -66,6 +74,9 @@ export class Empire {
   capital = "earth";
   /** Set when the treasury is in deficit; halves industrial output. */
   austerity = false;
+  /** Issue id -> simulation time at which the dismissal lapses. */
+  readonly dismissed = new Map<string, number>();
+  reviewMark: ReviewMark = { time: 0, treasury: 0, population: 0, techs: 0 };
 
   private nextProjectId = 1;
   private nextOrderId = 1;
@@ -205,6 +216,21 @@ export class Empire {
   addLog(time: number, category: LogCategory, text: string): void {
     this.log.unshift({ time, category, text });
     if (this.log.length > 400) this.log.length = 400;
+  }
+
+  /** Hide an issue for a while; it returns if the condition persists. */
+  dismissIssue(issueId: string, now: number, years = 2): void {
+    this.dismissed.set(issueId, now + years * 365.25 * 86400);
+  }
+
+  /** Record the empire's state as "seen", for the what-changed summary. */
+  markReviewed(now: number): void {
+    this.reviewMark = {
+      time: now,
+      treasury: this.treasury,
+      population: [...this.colonies.values()].reduce((sum, c) => sum + c.population, 0),
+      techs: this.researched.size,
+    };
   }
 
   techName(techId: string): string {

@@ -8,6 +8,9 @@ import { BodyTreePanel } from "./bodyTree";
 import { DetailPanel } from "./detailPanel";
 import { TimeControls } from "./timeControls";
 import { EconomyView } from "./views/economyView";
+import { EmpireView } from "./views/empireView";
+import { TriageRail } from "./triageRail";
+import type { Issue } from "../sim/issues";
 import { ResearchView } from "./views/researchView";
 import { OfficersView } from "./views/officersView";
 import { distance, el, lightTime, num } from "./format";
@@ -29,14 +32,24 @@ const ZOOM_PRESETS: ZoomPreset[] = [
   { label: "Kuiper", spanAu: 75 },
 ];
 
-export type ViewId = "map" | "economy" | "research" | "officers";
+export type ViewId = "empire" | "map" | "colonies" | "research" | "officers";
 
 const VIEW_TABS: { id: ViewId; label: string; key: string }[] = [
+  { id: "empire", label: "Empire", key: "e" },
   { id: "map", label: "System Map", key: "m" },
-  { id: "economy", label: "Economy", key: "e" },
+  { id: "colonies", label: "Colonies", key: "c" },
   { id: "research", label: "Research", key: "r" },
   { id: "officers", label: "Officers", key: "o" },
 ];
+
+/** The rail costs real estate the map wants, so it starts folded there. */
+const RAIL_COLLAPSED_BY_DEFAULT: Record<ViewId, boolean> = {
+  empire: false,
+  map: true,
+  colonies: false,
+  research: false,
+  officers: false,
+};
 
 export interface AppRoots {
   tree: HTMLElement;
@@ -46,6 +59,7 @@ export interface AppRoots {
   overlay: HTMLElement;
   tabs: HTMLElement;
   empireBar: HTMLElement;
+  rail: HTMLElement;
   views: Record<ViewId, HTMLElement>;
 }
 
@@ -55,11 +69,16 @@ export class App {
   private tree: BodyTreePanel;
   private detail: DetailPanel;
   private time: TimeControls;
+  private empireView: EmpireView;
   private economy: EconomyView;
   private research: ResearchView;
   private officers: OfficersView;
+  private rail: TriageRail;
 
-  private view: ViewId = "map";
+  private view: ViewId = "empire";
+  /** The map camera cannot be framed until its container has a size. */
+  private mapFramed = false;
+  private railCollapsed: Record<ViewId, boolean> = { ...RAIL_COLLAPSED_BY_DEFAULT };
   private hovered: Body | null = null;
   private lastFrame = performance.now();
   private dragging = false;
@@ -78,12 +97,21 @@ export class App {
     this.tree = new BodyTreePanel(roots.tree, this.game, (b) => this.zoomTo(b));
     this.detail = new DetailPanel(roots.detail, this.game, {
       zoomTo: (b) => this.zoomTo(b),
-      openEconomy: () => this.setView("economy"),
+      openEconomy: () => this.setView("colonies"),
     });
     this.time = new TimeControls(roots.time, this.game);
-    this.economy = new EconomyView(roots.views.economy, this.game);
+    this.economy = new EconomyView(roots.views.colonies, this.game);
     this.research = new ResearchView(roots.views.research, this.game);
     this.officers = new OfficersView(roots.views.officers, this.game);
+    this.empireView = new EmpireView(roots.views.empire, this.game, (bodyId) =>
+      this.openColony(bodyId),
+    );
+    this.rail = new TriageRail(
+      roots.rail,
+      this.game,
+      (issue) => this.followIssue(issue),
+      () => this.onRailToggled(),
+    );
 
     this.buildViewTabs();
     this.buildTools(roots.tools);
@@ -92,15 +120,16 @@ export class App {
       this.detail.render();
       this.tree.rebuild();
       this.renderActiveView();
+      this.rail.render();
     });
 
     this.bindCanvas();
     this.bindKeys();
     window.addEventListener("resize", () => this.renderer.resize());
 
-    // Open on the inner system, framed on Sol.
-    this.setSpan(2.6);
+    this.applyRailState();
     this.renderActiveView();
+    this.rail.render();
     this.frame();
   }
 
@@ -118,13 +147,48 @@ export class App {
   }
 
   setView(view: ViewId): void {
+    // Leaving the dashboard marks everything on it as seen.
+    if (this.view === "empire" && view !== "empire") {
+      this.game.empire.markReviewed(this.game.clock.seconds);
+    }
     this.view = view;
+    this.applyRailState();
     for (const [id, node] of Object.entries(this.roots.views)) {
       node.classList.toggle("active", id === view);
     }
     this.syncViewTabs();
     this.renderActiveView();
-    if (view === "map") this.renderer.resize();
+    this.rail.render();
+    if (view === "map") {
+      this.renderer.resize();
+      // First time the map is shown it finally has a size to frame against.
+      if (!this.mapFramed) this.mapFramed = this.setSpan(2.6);
+    }
+  }
+
+  private applyRailState(): void {
+    this.rail.setCollapsed(this.railCollapsed[this.view]);
+  }
+
+  /** The rail steals width from the map, so the canvas has to be re-measured. */
+  private onRailToggled(): void {
+    this.railCollapsed[this.view] = this.rail.isCollapsed;
+    if (this.view === "map") requestAnimationFrame(() => this.renderer.resize());
+  }
+
+  private openColony(bodyId: string): void {
+    const body = this.game.system.byId.get(bodyId);
+    if (body) this.game.select(body);
+    this.setView("colonies");
+  }
+
+  /** Jump to wherever an attention item is resolved. */
+  private followIssue(issue: Issue): void {
+    if (issue.action.bodyId) {
+      const body = this.game.system.byId.get(issue.action.bodyId);
+      if (body) this.game.select(body);
+    }
+    this.setView(issue.action.view as ViewId);
   }
 
   private syncViewTabs(): void {
@@ -135,7 +199,8 @@ export class App {
 
   private renderActiveView(): void {
     switch (this.view) {
-      case "economy": this.economy.render(); break;
+      case "empire": this.empireView.render(); break;
+      case "colonies": this.economy.render(); break;
       case "research": this.research.render(); break;
       case "officers": this.officers.render(); break;
       case "map": break;
@@ -225,10 +290,18 @@ export class App {
     }
   }
 
-  /** Set the zoom so that `spanAu` is half the smaller screen dimension. */
-  private setSpan(spanAu: number): void {
+  /**
+   * Set the zoom so that `spanAu` is half the smaller screen dimension.
+   * Returns false if the canvas has no size yet, in which case nothing is
+   * applied - framing against a zero-sized canvas pins the camera at minimum
+   * zoom.
+   */
+  private setSpan(spanAu: number): boolean {
     const { camera } = this.renderer;
-    camera.setScale(Math.min(camera.width, camera.height) / 2 / spanAu);
+    const smaller = Math.min(camera.width, camera.height);
+    if (smaller <= 0) return false;
+    camera.setScale(smaller / 2 / spanAu);
+    return true;
   }
 
   private zoomTo(body: Body): void {

@@ -15,6 +15,8 @@ import { Game } from "../src/state/game";
 import { CYCLE_DAYS, colonyOutput, employmentRatio } from "../src/sim/economy/production";
 import { MINERALS } from "../src/sim/minerals";
 import { ageOf } from "../src/sim/people/officers";
+import { mineralLedger, previewOrder, queueDemand } from "../src/sim/economy/ledger";
+import { SEVERITY_ORDER, activeIssues, deriveIssues } from "../src/sim/issues";
 
 // Declared locally so the project does not need @types/node.
 declare const process: { exit(code: number): never };
@@ -270,6 +272,108 @@ assert("the campaign gained people overall", totalAfter > peopleBefore);
 assert(
   `Callisto is mining into its own stockpile`,
   MINERALS.some((m) => callisto.stockpile[m] > 0) || callisto.massDriverTarget !== null,
+);
+
+// ==========================================================================
+// Planning layer: the mineral ledger, order previews and triage
+// ==========================================================================
+
+console.log("");
+
+const fresh = new Game("planning");
+const freshEmpire = fresh.empire;
+const freshEarth = freshEmpire.colony("earth")!;
+
+// Ledger totals must agree with the colonies they are summed from.
+const ledger = mineralLedger(freshEmpire, fresh.system);
+const duranium = ledger.find((r) => r.mineral === "Duranium")!;
+check("ledger Duranium stockpile", duranium.stockpile, 50_000, 1e-6);
+assert(`ledger Duranium production is positive (${duranium.production.toFixed(0)} t/yr)`, duranium.production > 0);
+
+// 100 refineries turning 40,000 litres each needs 2,000 tons of Sorium a year.
+const sorium = ledger.find((r) => r.mineral === "Sorium")!;
+check("ledger Sorium demand from refineries (t/yr)", sorium.demand, 2000, 1e-6);
+
+// Nothing is queued, so nothing else is being consumed.
+assert("no build demand with an empty queue", ledger.every((r) => r.mineral === "Sorium" || r.demand === 0));
+
+// An automated mine costs 240 BP, 120 t Duranium and 120 t Uridium: half a
+// ton of each per build point.
+freshEmpire.queueBuild("earth", "automated-mine", 10);
+const output = colonyOutput(freshEmpire, fresh.system.byId.get("earth")!, freshEarth, freshEmpire.stats);
+const demand = queueDemand(freshEarth, output.buildPoints);
+check("queue demand for Duranium (t/yr)", demand.Duranium ?? 0, Math.min(output.buildPoints, 2400) * 0.5, 1e-6);
+
+const preview = previewOrder(freshEmpire, fresh.system, freshEarth, "research-lab", 4)!;
+check("preview build points", preview.buildPoints, 3600, 1e-6);
+check("preview queued ahead (BP)", preview.queuedAhead, 2400, 1e-6);
+check(
+  "preview completion accounts for the queue (years)",
+  preview.years,
+  (2400 + 3600) / output.buildPoints,
+  1e-9,
+);
+assert("preview is affordable from Earth's stockpile", preview.affordable);
+
+const unaffordable = previewOrder(freshEmpire, fresh.system, freshEarth, "research-lab", 400)!;
+assert("preview flags an order the stockpile cannot cover", !unaffordable.affordable);
+assert(
+  "preview names the mineral that is short",
+  unaffordable.minerals.some((m) => m.shortfall > 0),
+);
+
+// Triage: an empty queue on an industrial colony is worth saying out loud,
+// and it stops being said once work is queued.
+const freshLuna = freshEmpire.colony("luna")!;
+freshLuna.installations["construction-factory"] = 500;
+freshLuna.population = 30;
+let issues = deriveIssues(freshEmpire, fresh.system);
+assert(
+  "idle industry is reported",
+  issues.some((i) => i.id === "colony:idle-industry:luna"),
+);
+freshEmpire.queueBuild("luna", "automated-mine", 5);
+issues = deriveIssues(freshEmpire, fresh.system);
+assert(
+  "idle industry stops being reported once work is queued",
+  !issues.some((i) => i.id === "colony:idle-industry:luna"),
+);
+
+// A colony whose industry outruns its minerals reports a stall, at critical.
+// Luna mines a few tons a cycle against 500 factories' appetite.
+freshLuna.stockpile.Duranium = 0;
+freshLuna.stockpile.Uridium = 0;
+fresh.step(CYCLE_DAYS * SECONDS_PER_DAY);
+issues = deriveIssues(freshEmpire, fresh.system);
+const stall = issues.find((i) => i.id === "queue:stalled:luna:automated-mine");
+assert("a stalled build queue is reported", stall !== undefined);
+assert("a stalled build queue is critical", stall?.severity === "critical");
+assert("the stall links to the colony that owns it", stall?.action.bodyId === "luna");
+
+// Dismissal hides an issue without deleting the condition, and lapses.
+const dismissedAt = fresh.clock.seconds;
+freshEmpire.dismissIssue("queue:stalled:luna:automated-mine", dismissedAt, 2);
+assert(
+  "a dismissed issue leaves the active list",
+  !activeIssues(freshEmpire, fresh.system, dismissedAt).some(
+    (i) => i.id === "queue:stalled:luna:automated-mine",
+  ),
+);
+assert(
+  "a dismissed issue returns once the dismissal lapses",
+  activeIssues(freshEmpire, fresh.system, dismissedAt + 3 * DAYS_PER_YEAR * SECONDS_PER_DAY).some(
+    (i) => i.id === "queue:stalled:luna:automated-mine",
+  ),
+);
+assert(
+  "issues are ordered with the most severe first",
+  issues.every((issue, i) => i === 0 || SEVERITY_ORDER[issues[i - 1].severity] <= SEVERITY_ORDER[issue.severity]),
+);
+
+// Every issue must be actionable: a body it names has to exist.
+assert(
+  "every issue points somewhere real",
+  issues.every((i) => !i.action.bodyId || fresh.system.byId.has(i.action.bodyId)),
 );
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);

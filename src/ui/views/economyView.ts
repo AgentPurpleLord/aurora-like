@@ -24,6 +24,7 @@ import {
   populationCapacity,
 } from "../../sim/economy/production";
 import { MINERALS } from "../../sim/minerals";
+import { previewOrder } from "../../sim/economy/ledger";
 import { fullName, type Officer } from "../../sim/people/officers";
 import { compact, el, num, population } from "../format";
 import { button, emptyNote, numberInput, progressBar, section, select, stat } from "../widgets";
@@ -31,23 +32,22 @@ import { button, emptyNote, numberInput, progressBar, section, select, stat } fr
 export class EconomyView {
   private list: HTMLElement;
   private detail: HTMLElement;
-  private side: HTMLElement;
   private orderInstallation = "automated-mine";
   private orderQuantity = 1;
   private orderDestination = "";
+  /** Rebuilt in place as the order is edited, so the preview tracks the form. */
+  private previewHost = el("div", "preview-host");
 
   constructor(private root: HTMLElement, private game: Game) {
-    this.root.classList.add("view-economy");
+    this.root.classList.add("view-colonies");
     this.list = el("aside", "panel panel-left");
     this.detail = el("section", "colony-detail");
-    this.side = el("aside", "panel panel-right");
-    this.root.append(this.list, this.detail, this.side);
+    this.root.append(this.list, this.detail);
   }
 
   render(): void {
     this.renderColonyList();
     this.renderColony();
-    this.renderEmpire();
   }
 
   // ------------------------------------------------------------- colonies
@@ -276,10 +276,15 @@ export class EconomyView {
     add.append(
       select(options, this.orderInstallation, (value) => {
         this.orderInstallation = value;
-        this.render();
+        this.refreshPreview(colony);
       }),
     );
-    add.append(numberInput(this.orderQuantity, (value) => (this.orderQuantity = value)));
+    add.append(
+      numberInput(this.orderQuantity, (value) => {
+        this.orderQuantity = value;
+        this.refreshPreview(colony);
+      }),
+    );
     // Anything built here can be shipped to another colony on completion -
     // the stand-in for freighters.
     const destinations = [
@@ -313,17 +318,84 @@ export class EconomyView {
     );
     queue.append(add);
 
+    queue.append(this.previewHost);
+    this.refreshPreview(colony);
+  }
+
+  /** Redraw just the preview, leaving the form (and its focus) alone. */
+  private refreshPreview(colony: Colony): void {
+    this.previewHost.textContent = "";
     const type = INSTALLATION_BY_ID.get(this.orderInstallation);
-    if (type) {
-      const cost = Object.entries(type.minerals)
-        .map(([mineral, tons]) => `${mineral} ${num(tons * this.orderQuantity)}`)
-        .join(", ");
-      const note = el("p", "muted small", `${type.blurb}`);
-      queue.append(note);
-      queue.append(
-        el("p", "muted small", `Cost: ${num(type.cost * this.orderQuantity)} BP  -  ${cost || "no minerals"}`),
+    if (!type) return;
+    this.previewHost.append(el("p", "muted small", type.blurb));
+    this.previewHost.append(this.orderPreview(colony));
+  }
+
+  /**
+   * What the pending order would cost, when it would land, and what it does
+   * to the empire's mineral cover - shown before the player commits.
+   */
+  private orderPreview(colony: Colony): HTMLElement {
+    const wrap = el("div", "order-preview");
+    const preview = previewOrder(
+      this.game.empire,
+      this.game.system,
+      colony,
+      this.orderInstallation,
+      this.orderQuantity,
+    );
+    if (!preview) return wrap;
+
+    const head = el("div", "preview-head");
+    head.append(el("span", "preview-cost", `${num(preview.buildPoints)} BP`));
+    if (preview.noIndustry) {
+      head.append(el("span", "bad", "no industry here - this would never start"));
+    } else {
+      const when = formatShortDate(this.game.clock.seconds + preview.completionSeconds);
+      head.append(
+        el("span", undefined, `completes ${when}  (${formatYears(preview.years)})`),
+      );
+      if (preview.queuedAhead > 0) {
+        head.append(
+          el("span", "muted", `${num(preview.queuedAhead)} BP queued ahead`),
+        );
+      }
+    }
+    wrap.append(head);
+
+    if (!preview.minerals.length) {
+      wrap.append(el("div", "preview-line muted", "No minerals required."));
+    }
+    for (const mineral of preview.minerals) {
+      const line = el("div", `preview-line${mineral.shortfall > 0 ? " bad" : ""}`);
+      line.append(el("span", "preview-mineral", mineral.mineral));
+      line.append(
+        el("span", "preview-amount",
+          `${num(mineral.required)} t of ${compact(mineral.held)} held`),
+      );
+      if (mineral.shortfall > 0) {
+        line.append(el("span", "preview-note", `short ${num(mineral.shortfall)} t`));
+      } else if (Number.isFinite(mineral.coverAfter)) {
+        line.append(
+          el("span", "preview-note muted",
+            `cover ${formatYears(mineral.coverBefore)} -> ${formatYears(mineral.coverAfter)}`),
+        );
+      } else if (Number.isFinite(mineral.replacementYears)) {
+        line.append(
+          el("span", "preview-note muted",
+            `${formatYears(mineral.replacementYears)} of mining to replace`),
+        );
+      }
+      wrap.append(line);
+    }
+
+    if (!preview.affordable) {
+      wrap.append(
+        el("div", "preview-warning bad",
+          "The colony cannot cover this from its own stockpile; the order will stall until minerals arrive."),
       );
     }
+    return wrap;
   }
 
   private renderMining(
@@ -426,48 +498,6 @@ export class EconomyView {
         row.append(el("span", "install-count", num(count)));
         sec.append(row);
       }
-    }
-  }
-
-  // --------------------------------------------------------------- empire
-
-  private renderEmpire(): void {
-    const { empire } = this.game;
-    this.side.textContent = "";
-    const head = el("div", "panel-head");
-    head.append(el("span", undefined, "Empire"));
-    this.side.append(head);
-
-    const body = el("div", "detail-body");
-    this.side.append(body);
-
-    const snap = empire.snapshot;
-    const finance = section(body, "Treasury");
-    stat(finance, "Balance", num(empire.treasury), empire.treasury < 0 ? "bad" : "good");
-    stat(finance, "Income", `${num(snap.income)} / year`);
-    stat(finance, "Expenditure", `${num(snap.expenses)} / year`);
-    stat(
-      finance,
-      "Net",
-      `${snap.income - snap.expenses >= 0 ? "+" : ""}${num(snap.income - snap.expenses)} / year`,
-      snap.income - snap.expenses >= 0 ? "good" : "bad",
-    );
-
-    const out = section(body, "Output");
-    stat(out, "Population", population(snap.population));
-    stat(out, "Construction Used", `${num(snap.buildPoints)} BP / year`);
-    stat(out, "Research", `${num(snap.researchPoints)} RP / year`);
-    stat(out, "Fuel", `${compact(snap.fuel)} litres / year`);
-    const totalMinerals = Object.values(snap.minerals).reduce((s, v) => s + (v ?? 0), 0);
-    stat(out, "Mining", `${num(totalMinerals)} tons / year`);
-
-    const log = section(body, "Events");
-    if (!empire.log.length) emptyNote(log, "Nothing has happened yet.");
-    for (const entry of empire.log.slice(0, 60)) {
-      const row = el("div", `log-row log-${entry.category}`);
-      row.append(el("span", "log-date", formatShortDate(entry.time)));
-      row.append(el("span", "log-text", entry.text));
-      log.append(row);
     }
   }
 

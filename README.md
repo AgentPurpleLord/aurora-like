@@ -3,11 +3,13 @@
 A prototype 4X strategy game in the spirit of Aurora 4X: the dawn of the
 trans-Newtonian age, starting in Sol and expanding outward.
 
-Two milestones are in: the **system map**, which models Sol to scale from real
-orbital elements, and the **economy, research and officer corps** that turn it
-into a game you can actually play forward.
+Three milestones are in: the **system map**, which models Sol to scale from
+real orbital elements; the **economy, research and officer corps** that turn it
+into a game you can play forward; and the **command interface** built to answer
+Aurora's oldest complaint - that the game shows you every number and tells you
+nothing.
 
-![system map](docs/system-map.png)
+![empire dashboard](docs/dashboard.png)
 
 ## Running it
 
@@ -45,6 +47,45 @@ rather than being a separate screen.
 Time runs at continuous rates from one minute per second up to thirty days per
 second, plus discrete jumps (+5s through +30d) in the style of Aurora's turn
 increments. The campaign opens on 1 January 2025.
+
+## The interface
+
+Aurora's economy UI is criticised for four things, and each has an answer here.
+
+**Navigation tax** - finding the right window, tab and dropdown for every
+action. The **Empire dashboard** is the landing view: one sortable table
+covering every colony's population, staffing, industry, mining, research and
+wealth, so the state of the empire is one screen rather than one screen per
+colony. Clicking a row drills into that colony.
+
+**No synthesis** - the game never tells you what is wrong, so you go looking.
+The **attention rail** is derived from state every time it renders: stalled
+build queues, deposits within five years of exhaustion, idle laboratories,
+projects whose scientist retired, colonies over their supported population,
+treasury deficits. Each item states the problem in a line and carries the
+action that fixes it - clicking takes you to exactly where it is resolved.
+Items can be dismissed for two years; nothing is stored, so a resolved problem
+simply stops being raised. It folds to a 44px counter strip, which is its
+default on the map.
+
+**No consequence preview** - you commit to a queue and find out years later.
+Adding to a build queue now previews it first: total build points, completion
+date, what is already queued ahead, and per mineral what it consumes against
+what you hold - *"Duranium 12,000 t of 47.5k held, cover 24.4 yr -> 18.2 yr"*.
+An order the colony cannot pay for is flagged before it is placed.
+
+![commit-time preview](docs/preview.png)
+
+**No empire-level view of scarcity** - the **mineral ledger** gives, for all
+eleven minerals at once, the stockpile, what is mined, what is committed, the
+net, how many years of cover that leaves, and how much is still in the ground
+at colonies that can reach it. Running out of Duranium is now something you
+see coming rather than discover.
+
+At thirty days a second it is easy to skip five years, so the dashboard also
+carries a **since you last looked** strip - population, treasury, technologies
+and construction since your last visit - and the event log marks where you had
+read up to.
 
 ## The economy
 
@@ -111,7 +152,7 @@ rank nudged by their best skill, and retire from about 58 onward.
 
 | Input | Action |
 | --- | --- |
-| `M` `E` `R` `O` | System Map / Economy / Research / Officers |
+| `E` `M` `C` `R` `O` | Empire / System Map / Colonies / Research / Officers |
 | Drag | Pan the map |
 | Scroll | Zoom at the cursor |
 | Click | Select a body |
@@ -130,11 +171,13 @@ the AU grid.
 ```
 src/
   sim/        orbit.ts        Keplerian mechanics, the frame, and the solver
+              issues.ts       derives the attention list from state
               clock.ts        simulation time, rates and the civil calendar
               system.ts       body tree, per-tick positions, derived figures
               minerals.ts     deposit generation
               rng.ts          seeded randomness
-              economy/        installations and the production cycle
+              economy/        installations, the production cycle, the ledger
+                              and order previews
               research/       the eight fields and the technology tree
               people/         officer generation, promotion, retirement
   data/       bodies.ts       the Sol dataset: elements and physical data
@@ -144,7 +187,8 @@ src/
               empire.ts       colonies, officers, research, treasury, log
               colony.ts       a colony and its build queue
   ui/         app.ts          input, the frame loop, view switching
-              views/          economy, research and officer views
+              triageRail.ts   the persistent attention rail
+              views/          empire, colony, research and officer views
               bodyTree.ts, detailPanel.ts, timeControls.ts, widgets.ts
 tools/        sanity.ts       the checks behind `npm run check`
 ```
@@ -168,8 +212,18 @@ invariants - among them:
 - Installations built for another colony arrive there and do not stay behind.
 - Over a 37-year campaign the officer corps turns over, nobody outlives 85,
   and every posting still points at a colony or project that exists.
+- The ledger's totals agree with the colonies they are summed from, order
+  previews cost and schedule correctly against what is already queued, and
+  every attention item points at something that exists.
+- Attention items appear and disappear with the condition that caused them: a
+  stalled queue is reported at critical severity, idle industry stops being
+  reported once work is queued, and a dismissal lapses on schedule.
 
 ## Not built yet
+
+The rest of the automation ladder: build templates applied to a body in one
+click, bulk and multi-colony operations, standing orders, and governors that
+propose work into the attention rail for approval rather than acting alone.
 
 Ships, fleet movement and ship design; ground forces; sensors, surveying and
 combat; jump points and other star systems; sector administration. Ordnance
