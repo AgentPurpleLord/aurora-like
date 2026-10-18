@@ -11,8 +11,11 @@ import { colonyRows, mineralLedger, type ColonyRow, type LedgerRow } from "../..
 import { TECH_BY_ID } from "../../sim/research/techs";
 import { fullName } from "../../sim/people/officers";
 import { installationCount } from "../../state/colony";
-import { compact, el, num, population } from "../format";
-import { emptyNote, progressBar, section, stat } from "../widgets";
+import { projectRate } from "../../sim/economy/production";
+import { resolveTemplate } from "../../sim/economy/templates";
+import { INSTALLATION_BY_ID } from "../../sim/economy/installations";
+import { compact, el, num, population, populationFixed } from "../format";
+import { button, emptyNote, progressBar, section, select, stat } from "../widgets";
 import { formatShortDate, formatYears } from "./economyView";
 
 type SortKey = keyof Pick<
@@ -35,6 +38,10 @@ const COLUMNS: { key: SortKey; label: string; align?: "right" }[] = [
 export class EmpireView {
   private sortKey: SortKey = "population";
   private sortDescending = true;
+  /** Colonies ticked for a bulk action. */
+  private selected = new Set<string>();
+  private bulkTemplate = "mining-outpost";
+  private bulkSource = "";
 
   constructor(private root: HTMLElement, private game: Game, private onOpenColony: (bodyId: string) => void) {
     this.root.classList.add("view-empire");
@@ -100,13 +107,20 @@ export class EmpireView {
 
   private renderColonies(parent: HTMLElement): void {
     const rows = colonyRows(this.game.empire, this.game.system);
+    // A colony that has gone away should not stay selected.
+    for (const id of [...this.selected]) {
+      if (!rows.some((r) => r.colony.bodyId === id)) this.selected.delete(id);
+    }
+
     const sec = section(parent, `Colonies (${rows.length})`);
     sec.classList.add("wide");
+    this.renderBulkBar(sec, rows);
 
     const table = el("div", "data-table colony-table");
     const header = el("div", "data-row header");
     for (const column of COLUMNS) {
       const cell = el("span", column.align === "right" ? "right sortable" : "sortable", column.label);
+      if (column.key === "name") cell.classList.add("with-tick");
       if (this.sortKey === column.key) {
         cell.classList.add("sorted");
         cell.append(el("span", "sort-arrow", this.sortDescending ? " v" : " ^"));
@@ -126,15 +140,24 @@ export class EmpireView {
     for (const row of this.sorted(rows)) {
       const line = el("div", "data-row");
       line.classList.toggle("attention", row.stalled);
+      line.classList.toggle("picked", this.selected.has(row.colony.bodyId));
 
       const name = el("span", "cell-name");
+      const tick = el("span", "row-tick", this.selected.has(row.colony.bodyId) ? "x" : "");
+      tick.title = "Select for a bulk action";
+      tick.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (this.selected.has(row.colony.bodyId)) this.selected.delete(row.colony.bodyId);
+        else this.selected.add(row.colony.bodyId);
+        this.render();
+      });
       const dot = el("span", "dot");
       dot.style.background = row.body.def.color;
-      name.append(dot, el("span", undefined, row.body.name));
+      name.append(tick, dot, el("span", undefined, row.body.name));
       if (row.stalled) name.append(el("span", "chip bad", "stalled"));
       line.append(name);
 
-      line.append(el("span", "right", population(row.population)));
+      line.append(el("span", "right", populationFixed(row.population)));
       line.append(
         el("span", `right ${row.growth >= 0 ? "good" : "bad"}`,
           `${row.growth >= 0 ? "+" : ""}${population(row.growth)}`),
@@ -156,6 +179,110 @@ export class EmpireView {
       table.append(line);
     }
     sec.append(table);
+  }
+
+  /**
+   * Bulk actions: apply one development template across every ticked colony,
+   * so settling five moons is five ticks and one click.
+   */
+  private renderBulkBar(parent: HTMLElement, rows: ColonyRow[]): void {
+    if (!this.selected.size) return;
+    const { empire } = this.game;
+
+    const targets = rows.filter((r) => this.selected.has(r.colony.bodyId));
+    const templates = empire.templates;
+    if (!templates.some((t) => t.id === this.bulkTemplate)) {
+      this.bulkTemplate = templates[0]?.id ?? "";
+    }
+    const sources = [...empire.colonies.values()].filter(
+      (c) => installationCount(c, "construction-factory") > 0,
+    );
+    if (!sources.some((c) => c.bodyId === this.bulkSource)) {
+      this.bulkSource =
+        sources.find((c) => c.bodyId === empire.capital)?.bodyId ?? sources[0]?.bodyId ?? "";
+    }
+
+    const template = templates.find((t) => t.id === this.bulkTemplate);
+    const bar = el("div", "bulk-bar");
+    bar.append(el("span", "bulk-count", `${this.selected.size} selected`));
+
+    bar.append(
+      select(
+        templates.map((t) => ({ value: t.id, label: t.name })),
+        this.bulkTemplate,
+        (value) => {
+          this.bulkTemplate = value;
+          this.render();
+        },
+      ),
+    );
+    bar.append(
+      select(
+        sources.map((c) => ({
+          value: c.bodyId,
+          label: `built at ${this.game.system.byId.get(c.bodyId)?.name ?? c.bodyId}`,
+        })),
+        this.bulkSource,
+        (value) => {
+          this.bulkSource = value;
+          this.render();
+        },
+      ),
+    );
+
+    // Total cost of applying to everything ticked, before committing.
+    let totalBp = 0;
+    const plans = targets.map((row) => {
+      const items = template
+        ? resolveTemplate(template, row.body, row.colony, empire.stats)
+        : [];
+      for (const item of items) {
+        totalBp += (INSTALLATION_BY_ID.get(item.installationId)?.cost ?? 0) * item.quantity;
+      }
+      return { row, items };
+    });
+    bar.append(el("span", "muted small", `${num(totalBp)} BP in total`));
+
+    bar.append(
+      button(
+        "Apply to selected",
+        () => {
+          const source = empire.colony(this.bulkSource);
+          if (!source || !template) return;
+          let applied = 0;
+          for (const plan of plans) {
+            for (const item of plan.items) {
+              empire.queueBuild(
+                source.bodyId,
+                item.installationId,
+                item.quantity,
+                source.bodyId === plan.row.colony.bodyId ? null : plan.row.colony.bodyId,
+              );
+              applied++;
+            }
+          }
+          if (applied) {
+            empire.addLog(
+              this.game.clock.seconds,
+              "construction",
+              `${template.name} applied to ${plans.length} colonies from ${
+                this.game.system.byId.get(source.bodyId)?.name
+              }.`,
+            );
+          }
+          this.selected.clear();
+          this.game.emit();
+        },
+        "primary-btn",
+      ),
+    );
+    bar.append(
+      button("Clear", () => {
+        this.selected.clear();
+        this.render();
+      }),
+    );
+    parent.append(bar);
   }
 
   private sorted(rows: ColonyRow[]): ColonyRow[] {
@@ -237,14 +364,13 @@ export class EmpireView {
       const tech = TECH_BY_ID.get(project.techId);
       if (!tech) continue;
       const scientist = empire.officers.get(project.scientistId ?? undefined);
+      const rate = projectRate(empire, project);
       const card = el("div", "mini-project");
       const head = el("div", "mini-project-head");
       head.append(el("span", "mini-project-name", tech.name));
       head.append(
         el("span", "muted small",
-          project.lastRate > 0
-            ? formatYears((tech.cost - project.progress) / project.lastRate)
-            : "stalled"),
+          rate > 0 ? formatYears((tech.cost - project.progress) / rate) : "stalled"),
       );
       card.append(head);
       card.append(progressBar(project.progress / tech.cost));

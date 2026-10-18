@@ -35,6 +35,17 @@ export function lightTime(au: number): string {
   return `${(seconds / 3600).toFixed(2)} hr`;
 }
 
+/**
+ * Population for a table column: always the same unit so a list of colonies
+ * can be compared down the page.
+ */
+export function populationFixed(millions: number): string {
+  if (millions <= 0) return "0";
+  if (millions >= 1000) return `${(millions / 1000).toFixed(2)}bn`;
+  if (millions >= 10) return `${millions.toFixed(0)}m`;
+  return `${millions.toFixed(2)}m`;
+}
+
 export function population(millions: number): string {
   if (millions >= 1000) return `${(millions / 1000).toFixed(2)}bn`;
   if (millions >= 1) return `${millions.toFixed(1)}m`;

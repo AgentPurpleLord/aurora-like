@@ -84,6 +84,10 @@ export class App {
   private dragging = false;
   private dragMoved = 0;
   private pointer = { x: 0, y: 0 };
+  /** Active pointers on the canvas, for drag and pinch. */
+  private pointers = new Map<number, { x: number; y: number }>();
+  private pinchDistance: number | null = null;
+  private readonly narrow = window.matchMedia("(max-width: 860px)");
 
   private options: RenderOptions = {
     showOrbits: true,
@@ -127,6 +131,18 @@ export class App {
     this.bindKeys();
     window.addEventListener("resize", () => this.renderer.resize());
 
+    // On a phone the rail is a sheet rather than a column, so it starts
+    // folded everywhere and is summoned when wanted.
+    if (this.narrow.matches) this.foldRailEverywhere();
+    this.placeTabs();
+    this.narrow.addEventListener("change", (event) => {
+      if (event.matches) this.foldRailEverywhere();
+      else this.railCollapsed = { ...RAIL_COLLAPSED_BY_DEFAULT };
+      this.placeTabs();
+      this.applyRailState();
+      requestAnimationFrame(() => this.renderer.resize());
+    });
+
     this.applyRailState();
     this.renderActiveView();
     this.rail.render();
@@ -166,6 +182,30 @@ export class App {
     }
   }
 
+  /**
+   * On a phone the view tabs belong at the bottom of the screen, as their own
+   * grid row. A fixed footer disappears under the browser's own chrome when
+   * the URL bar collapses, so the element is moved rather than positioned.
+   */
+  private placeTabs(): void {
+    const tabs = this.roots.tabs;
+    const app = document.getElementById("app");
+    const header = document.querySelector(".topbar");
+    if (!app || !header) return;
+
+    if (this.narrow.matches) {
+      if (tabs.parentElement !== app) app.append(tabs);
+    } else if (tabs.parentElement !== header) {
+      header.insertBefore(tabs, this.roots.time);
+    }
+  }
+
+  private foldRailEverywhere(): void {
+    for (const key of Object.keys(this.railCollapsed) as ViewId[]) {
+      this.railCollapsed[key] = true;
+    }
+  }
+
   private applyRailState(): void {
     this.rail.setCollapsed(this.railCollapsed[this.view]);
   }
@@ -189,6 +229,11 @@ export class App {
       if (body) this.game.select(body);
     }
     this.setView(issue.action.view as ViewId);
+    // The sheet covers the screen on a phone; get out of the way.
+    if (this.narrow.matches) {
+      this.railCollapsed[this.view] = true;
+      this.applyRailState();
+    }
   }
 
   private syncViewTabs(): void {
@@ -326,38 +371,88 @@ export class App {
   private bindCanvas(): void {
     const canvas = this.canvas;
 
+    const local = (e: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    };
+
+    const capture = (e: PointerEvent) => {
+      // Synthetic or already-released pointers throw here; the gesture still
+      // works without capture, so a failure is not worth propagating.
+      try {
+        canvas.setPointerCapture(e.pointerId);
+      } catch {
+        /* no capture available for this pointer */
+      }
+    };
+
     canvas.addEventListener("pointerdown", (e) => {
-      canvas.setPointerCapture(e.pointerId);
-      this.dragging = true;
-      this.dragMoved = 0;
+      capture(e);
+      this.pointers.set(e.pointerId, local(e));
+      this.pointer = local(e);
+      if (this.pointers.size === 1) {
+        this.dragging = true;
+        this.dragMoved = 0;
+      } else {
+        // A second finger turns the gesture into a pinch, not a drag.
+        this.dragging = false;
+        this.pinchDistance = this.spanBetweenPointers();
+      }
     });
 
     canvas.addEventListener("pointermove", (e) => {
-      const rect = canvas.getBoundingClientRect();
-      this.pointer = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-      if (this.dragging) {
-        this.dragMoved += Math.abs(e.movementX) + Math.abs(e.movementY);
-        this.renderer.camera.panByPixels(e.movementX, e.movementY);
+      const position = local(e);
+      const previous = this.pointers.get(e.pointerId);
+      this.pointers.set(e.pointerId, position);
+      this.pointer = position;
+
+      if (this.pointers.size >= 2) {
+        const distance = this.spanBetweenPointers();
+        if (this.pinchDistance && distance > 0) {
+          const mid = this.midpointOfPointers();
+          this.renderer.camera.zoomAt(mid.x, mid.y, distance / this.pinchDistance);
+          this.game.follow = false;
+          this.syncToggles();
+        }
+        this.pinchDistance = distance;
+        return;
+      }
+
+      if (this.dragging && previous) {
+        const dx = position.x - previous.x;
+        const dy = position.y - previous.y;
+        this.dragMoved += Math.abs(dx) + Math.abs(dy);
+        this.renderer.camera.panByPixels(dx, dy);
         this.game.follow = false;
         this.syncToggles();
-      } else {
-        this.hovered = this.renderer.pick(this.pointer.x, this.pointer.y);
+      } else if (!this.dragging && e.pointerType === "mouse") {
+        this.hovered = this.renderer.pick(position.x, position.y);
         canvas.style.cursor = this.hovered ? "pointer" : "grab";
       }
     });
 
-    const endDrag = (e: PointerEvent) => {
-      if (!this.dragging) return;
+    const endPointer = (e: PointerEvent) => {
+      const wasPinching = this.pointers.size >= 2;
+      this.pointers.delete(e.pointerId);
+      try {
+        if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+      } catch {
+        /* pointer already gone */
+      }
+      if (this.pointers.size < 2) this.pinchDistance = null;
+
+      if (!this.dragging || wasPinching) {
+        this.dragging = false;
+        return;
+      }
       this.dragging = false;
-      canvas.releasePointerCapture(e.pointerId);
-      // A click, not a drag.
-      if (this.dragMoved < 4) {
-        const hit = this.renderer.pick(this.pointer.x, this.pointer.y);
-        this.game.select(hit);
+      // A tap, not a drag.
+      if (this.dragMoved < 6) {
+        this.game.select(this.renderer.pick(this.pointer.x, this.pointer.y));
       }
     };
-    canvas.addEventListener("pointerup", endDrag);
-    canvas.addEventListener("pointercancel", endDrag);
+    canvas.addEventListener("pointerup", endPointer);
+    canvas.addEventListener("pointercancel", endPointer);
 
     canvas.addEventListener("dblclick", () => {
       const hit = this.renderer.pick(this.pointer.x, this.pointer.y);
@@ -375,6 +470,18 @@ export class App {
     );
 
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+
+  private spanBetweenPointers(): number {
+    const [a, b] = [...this.pointers.values()];
+    if (!a || !b) return 0;
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  private midpointOfPointers(): { x: number; y: number } {
+    const [a, b] = [...this.pointers.values()];
+    if (!a || !b) return this.pointer;
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   }
 
   private bindKeys(): void {

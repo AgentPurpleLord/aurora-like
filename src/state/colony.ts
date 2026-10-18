@@ -1,6 +1,7 @@
 /** A populated (or merely occupied) body, and what it is building. */
 
 import { MINERALS, type MineralName } from "../sim/minerals";
+import type { GovernorPolicy } from "../sim/governors";
 
 export interface BuildOrder {
   id: string;
@@ -17,6 +18,8 @@ export interface BuildOrder {
   progress: number;
   /** Set when the last cycle could not draw the minerals it needed. */
   starved: boolean;
+  /** Queued by a standing order rather than by hand. */
+  auto: boolean;
 }
 
 export interface Colony {
@@ -32,6 +35,8 @@ export interface Colony {
   terraformed: number;
   /** Body id this colony's mass drivers throw minerals to. */
   massDriverTarget: string | null;
+  /** What the governor posted here is allowed to propose. */
+  policy: GovernorPolicy;
   founded: number;
 }
 
@@ -51,6 +56,7 @@ export function createColony(bodyId: string, founded: number): Colony {
     buildQueue: [],
     terraformed: 0,
     massDriverTarget: null,
+    policy: "none",
     founded,
   };
 }

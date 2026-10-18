@@ -15,11 +15,21 @@ import { colonyOutput, populationCapacity } from "./economy/production";
 import { mineralLedger, queuedBuildPoints } from "./economy/ledger";
 import { TECH_BY_ID } from "./research/techs";
 import { labCapacity } from "./people/officers";
+import { deriveProposals, proposalLabel } from "./governors";
 
 export type Severity = "critical" | "warning" | "info";
 
 /** Where an issue is resolved. Mirrors the view ids the UI uses. */
 export type IssueView = "empire" | "colonies" | "research" | "officers" | "map";
+
+/** A governor's draft order, ready for the player to accept. */
+export interface IssueProposal {
+  label: string;
+  sourceId: string;
+  installationId: string;
+  quantity: number;
+  destination: string | null;
+}
 
 export interface Issue {
   /**
@@ -31,6 +41,8 @@ export interface Issue {
   title: string;
   detail: string;
   action: { label: string; view: IssueView; bodyId?: string };
+  /** Present on governor proposals: accepting queues exactly this. */
+  proposal?: IssueProposal;
 }
 
 export const SEVERITY_ORDER: Record<Severity, number> = {
@@ -215,6 +227,26 @@ export function deriveIssues(empire: Empire, system: StarSystem): Issue[] {
         ? `${spare} scientist${spare === 1 ? " is" : "s are"} available to lead a new project.`
         : "Every scientist is already leading a project.",
       action: { label: "Start research", view: "research" },
+    });
+  }
+
+  // Governor proposals ride the same channel: a draft order the player
+  // accepts or dismisses, never something that happened behind their back.
+  for (const proposal of deriveProposals(empire, system)) {
+    const sourceName = system.byId.get(proposal.order.sourceId)?.name ?? proposal.order.sourceId;
+    issues.push({
+      id: proposal.id,
+      severity: "info",
+      title: proposal.title,
+      detail: proposal.detail,
+      action: { label: "Open colony", view: "colonies", bodyId: proposal.colonyId },
+      proposal: {
+        label: proposalLabel(proposal, sourceName),
+        sourceId: proposal.order.sourceId,
+        installationId: proposal.order.installationId,
+        quantity: proposal.order.quantity,
+        destination: proposal.order.destination,
+      },
     });
   }
 

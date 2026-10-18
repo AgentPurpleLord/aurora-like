@@ -27,11 +27,20 @@ body {
 
 #app {
   display: grid;
+  /*
+   * minmax(0, 1fr) rather than a bare 1fr: a grid item's automatic minimum
+   * size is its min-content width, which lets a wide row (the time controls)
+   * stretch the whole page instead of scrolling inside itself.
+   */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto 1fr;
 }
 
+.topbar, .shell, .view-tabs { min-width: 0; }
+
 /* Workspace and the persistent attention rail. */
 .shell {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   min-height: 0;
@@ -169,7 +178,16 @@ button.active {
 /* ---------------------------------------------------------------- map pane */
 
 .map-pane { position: relative; min-width: 0; }
-#map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+#map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  /* The map owns every gesture over it, so a drag pans instead of scrolling. */
+  touch-action: none;
+}
 
 .map-tools {
   position: absolute;
@@ -793,3 +811,228 @@ h3.with-action { display: flex; justify-content: space-between; align-items: cen
 }
 .preview-mineral { color: var(--text-dim); }
 .preview-warning { margin-top: 5px; font-size: 11px; }
+
+/* ------------------------------------------- templates and standing orders */
+
+.template-items {
+  margin: 6px 0;
+  max-width: 420px;
+}
+.template-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 70px;
+  font: 11px ui-monospace, monospace;
+  padding: 1px 0;
+  border-bottom: 1px solid #101a26;
+}
+.template-actions { display: flex; gap: 6px; margin-top: 8px; }
+.template-actions .ghost-btn { margin-top: 0; }
+
+.policy-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.policy-row .select { max-width: 260px; margin: 0; }
+
+.rule-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid #101a26;
+  max-width: 720px;
+}
+.rule-name { flex: 1; }
+.rule-state { font: 11px ui-monospace, monospace; }
+
+/* ------------------------------------------------------------ bulk actions */
+
+.bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 6px 0;
+  padding: 6px 10px;
+  background: #15283d;
+  border: 1px solid var(--accent-dim);
+  border-radius: 4px;
+}
+.bulk-bar .select { margin: 0; width: auto; max-width: 220px; }
+.bulk-bar .ghost-btn, .bulk-bar .primary-btn { margin-top: 0; }
+.bulk-count { font-weight: 600; color: var(--accent); }
+
+.row-tick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border: 1px solid #39506a;
+  border-radius: 2px;
+  font: 10px ui-monospace, monospace;
+  color: var(--accent);
+  cursor: pointer;
+}
+.row-tick:hover { border-color: var(--accent); }
+.with-tick { padding-left: 20px; }
+.data-row.picked { background: #16263a; }
+
+.issue-actions .primary-btn { margin-top: 0; font-size: 11px; padding: 3px 8px; }
+
+/* ================================================================== mobile */
+
+@media (max-width: 860px) {
+  /*
+   * Phone layout. The view tabs move to a real bottom row (JS re-parents them
+   * into #app) rather than being position: fixed - a fixed footer ends up
+   * under the browser chrome as soon as the URL bar collapses. The rail
+   * becomes a sheet inside the shell, so it never covers the tabs.
+   */
+  #app { grid-template-rows: auto minmax(0, 1fr) auto; }
+
+  .topbar { gap: 8px 14px; padding: 6px 10px; }
+  .brand-sub, .map-hint { display: none; }
+  .brand-name { font-size: 13px; }
+  /*
+   * flex: none keeps the date from being crushed by the nowrap control row,
+   * and sticky keeps it on screen when that row is scrolled.
+   */
+  .clock {
+    flex: 0 0 auto;
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    min-width: 0;
+    padding-right: 8px;
+    font-size: 12px;
+    white-space: nowrap;
+    background: #0a1119;
+  }
+  /*
+   * One scrollable row for the clock and every speed control, rather than
+   * three stacked rows eating the top of a phone screen. min-width: 0 is what
+   * lets it scroll instead of widening the page.
+   */
+  .time-controls {
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+  .rate-group, .step-group { flex: none; }
+  .rate-btn, .step-group .step-btn { white-space: nowrap; }
+  .empire-bar { gap: 14px; margin-left: 0; width: 100%; min-width: 0; overflow-x: auto; }
+
+  .view-tabs {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0;
+    background: #0b1420;
+    border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .view-tab {
+    border-radius: 0;
+    border: none;
+    border-top: 2px solid transparent;
+    padding: 11px 2px;
+    font-size: 10px;
+  }
+  .view-tab.active { border-top-color: var(--accent); background: #16243a; }
+
+  .shell { grid-template-columns: minmax(0, 1fr); }
+
+  /* One scrolling column per view, clear of the floating attention pill. */
+  .view.active { display: block; overflow-y: auto; padding-bottom: 52px; }
+  .panel, .colony-detail, .tech-tree, .officer-list {
+    border: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .tree, .detail-body, .officer-table, .dashboard, .rail-list { overflow: visible; }
+  .dashboard { padding: 4px 10px 20px; }
+  .detail-body { padding-bottom: 12px; }
+
+  /*
+   * Both lists become a short scrollable strip above the content. The system
+   * list has to stay: tapping a 3px moon on a phone map is not selection.
+   */
+  .panel-left { max-height: 108px; overflow-y: auto; }
+  .view-map .panel-left { max-height: 96px; }
+  .view-map .search { margin: 6px 10px; }
+
+  /* Map: canvas on top, body details below. */
+  .view-map.active .map-pane { height: 52vh; }
+  /* One scrollable line per group rather than three wrapped rows of chips. */
+  .map-tools { flex-direction: column; right: 10px; }
+  .tool-group { flex-wrap: nowrap; overflow-x: auto; }
+  .tool-btn { padding: 5px 8px; }
+
+  /* Tables drop their least important columns rather than wrapping. */
+  .colony-table .data-row {
+    grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(52px, 0.9fr));
+  }
+  .colony-table .data-row > *:nth-child(3),
+  .colony-table .data-row > *:nth-child(4),
+  .colony-table .data-row > *:nth-child(6),
+  .colony-table .data-row > *:nth-child(7),
+  .colony-table .data-row > *:nth-child(8) { display: none; }
+
+  .ledger-table .data-row {
+    grid-template-columns: minmax(0, 1.2fr) repeat(3, minmax(52px, 0.9fr));
+  }
+  .ledger-table .data-row > *:nth-child(3),
+  .ledger-table .data-row > *:nth-child(4),
+  .ledger-table .data-row > *:nth-child(7) { display: none; }
+
+  .dashboard-split { grid-template-columns: minmax(0, 1fr); }
+  .since-strip { flex-wrap: wrap; gap: 12px; }
+  .section.two-col { grid-template-columns: minmax(0, 1fr); }
+  .bulk-bar { position: sticky; top: 0; z-index: 2; }
+
+  .officer-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 2px;
+  }
+  .officer-row > *:nth-child(3) { display: none; }
+  .officer-row .officer-skills, .officer-row .officer-post { grid-column: 1 / -1; }
+  .officer-row.header { display: none; }
+
+  .preview-line { grid-template-columns: 90px minmax(0, 1fr); }
+  .preview-line .preview-note { grid-column: 1 / -1; }
+  .add-order { flex-wrap: wrap; }
+  .add-order .select, .add-order .select:last-of-type { flex: 1 1 160px; }
+  .rule-row { flex-wrap: wrap; }
+  .template-items, .order-preview, .rule-row { max-width: none; }
+
+  /* The rail is a sheet over the workspace, summoned from a floating pill. */
+  .triage-rail {
+    position: absolute;
+    inset: 0;
+    width: auto;
+    z-index: 45;
+    border-left: none;
+  }
+  .triage-rail.collapsed {
+    inset: auto 12px 12px auto;
+    width: auto;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    padding: 7px 12px;
+    border: 1px solid var(--accent-dim);
+    border-radius: 20px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+    background: #16243a;
+  }
+  .triage-rail.collapsed .rail-toggle { color: var(--accent); }
+
+  /* Comfortable touch targets. */
+  button { padding: 7px 11px; }
+  .step-btn { padding: 6px 9px; }
+  .rail-toggle { padding: 6px 10px; font-size: 13px; }
+  .tree-row { padding-top: 7px; padding-bottom: 7px; }
+  .data-row { padding-top: 8px; padding-bottom: 8px; }
+  .tab { padding: 11px 4px; }
+}

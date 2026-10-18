@@ -17,6 +17,10 @@ import { MINERALS } from "../src/sim/minerals";
 import { ageOf } from "../src/sim/people/officers";
 import { mineralLedger, previewOrder, queueDemand } from "../src/sim/economy/ledger";
 import { SEVERITY_ORDER, activeIssues, deriveIssues } from "../src/sim/issues";
+import { BUILT_IN_TEMPLATES, resolveTemplate } from "../src/sim/economy/templates";
+import { supplyToward } from "../src/sim/economy/standingOrders";
+import { deriveProposals } from "../src/sim/governors";
+import { effectiveColonyCost } from "../src/sim/economy/production";
 
 // Declared locally so the project does not need @types/node.
 declare const process: { exit(code: number): never };
@@ -375,6 +379,132 @@ assert(
   "every issue points somewhere real",
   issues.every((i) => !i.action.bodyId || fresh.system.byId.has(i.action.bodyId)),
 );
+
+// ==========================================================================
+// Automation: templates, standing orders and governor proposals
+// ==========================================================================
+
+console.log("");
+
+// Scoped so these fixtures cannot collide with the campaign above.
+{
+  const auto = new Game("automation");
+  const autoEmpire = auto.empire;
+  const callistoBody = auto.system.byId.get("callisto")!;
+  autoEmpire.foundColony("callisto", auto.clock.seconds);
+  const callisto = autoEmpire.colony("callisto")!;
+
+  // Templates size infrastructure against the target world rather than
+  // shipping a fixed number that is wrong everywhere.
+  const outpost = BUILT_IN_TEMPLATES.find((t) => t.id === "mining-outpost")!;
+  const resolved = resolveTemplate(outpost, callistoBody, callisto, autoEmpire.stats);
+  const callistoCost = effectiveColonyCost(callistoBody, callisto, autoEmpire.stats);
+  const infra = resolved.find((i) => i.installationId === "infrastructure")!;
+  check(
+    "template sizes infrastructure to colony cost",
+    infra.quantity,
+    Math.ceil(100 * callistoCost),
+    0,
+  );
+  assert("template includes a researched installation", resolved.some((i) => i.installationId === "mass-driver"));
+
+  // An item the empire has not researched is dropped rather than queued.
+  const forward = BUILT_IN_TEMPLATES.find((t) => t.id === "forward-base")!;
+  assert(
+    "template drops installations that are not researched",
+    !autoEmpire.stats.unlocked.has("dstn") &&
+      !resolveTemplate(forward, callistoBody, callisto, autoEmpire.stats).some(
+        (i) => i.installationId === "dstn",
+      ),
+  );
+
+  // Applying a template on a world that needs no infrastructure asks for none.
+  const earthBody = auto.system.byId.get("earth")!;
+  const earthColony = autoEmpire.colony("earth")!;
+  assert(
+    "a garden world is not sent infrastructure",
+    !resolveTemplate(outpost, earthBody, earthColony, autoEmpire.stats).some(
+      (i) => i.installationId === "infrastructure",
+    ),
+  );
+
+  // --- standing orders top a colony up, then stop.
+  autoEmpire.addStandingOrder({
+    colonyId: "callisto",
+    sourceId: "earth",
+    enabled: true,
+    rule: { kind: "maintain", installationId: "automated-mine", target: 12 },
+  });
+  for (let i = 0; i < 40; i++) auto.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  check(
+    "standing order delivered its target",
+    callisto.installations["automated-mine"] ?? 0,
+    12,
+    0,
+  );
+  const queuedAfter = earthColony.buildQueue.filter((o) => o.installationId === "automated-mine").length;
+  assert("a satisfied standing order queues nothing further", queuedAfter === 0);
+  check(
+    "the rule's deliveries are counted toward the colony",
+    supplyToward(autoEmpire, "callisto", "automated-mine"),
+    12,
+    0,
+  );
+
+  // It counts what is already on its way, so raising the target tops up the
+  // difference rather than re-ordering the lot.
+  autoEmpire.standingOrders[0].rule = { kind: "maintain", installationId: "automated-mine", target: 20 };
+  auto.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  const topUp = earthColony.buildQueue.find((o) => o.installationId === "automated-mine");
+  check("raising a target queues only the difference", topUp?.quantity ?? 0, 8, 0);
+  assert("work queued by a rule is marked as automatic", topUp?.auto === true);
+
+  // --- governor proposals need a governor, and a policy.
+  callisto.policy = "mine";
+  assert(
+    "a policy without a governor proposes nothing",
+    deriveProposals(autoEmpire, auto.system).length === 0,
+  );
+
+  const administrator = autoEmpire.officers.byBranch("civilian")[0];
+  autoEmpire.assignOfficer(administrator.id, {
+    kind: "governor",
+    targetId: "callisto",
+    since: auto.clock.seconds,
+  });
+  const proposals = deriveProposals(autoEmpire, auto.system);
+  assert(
+    `a mining governor proposes mines (${proposals.map((p) => p.order.installationId).join(", ")})`,
+    proposals.some((p) => p.colonyId === "callisto" && p.order.installationId === "automated-mine"),
+  );
+  assert(
+    "a proposal is built somewhere that has industry",
+    proposals.every((p) => (autoEmpire.colony(p.order.sourceId)?.installations["construction-factory"] ?? 0) > 0),
+  );
+
+  // Proposals reach the player through the attention list, carrying the order
+  // they would place.
+  const withProposals = deriveIssues(autoEmpire, auto.system);
+  const proposalIssue = withProposals.find((i) => i.id.startsWith("proposal:callisto"));
+  assert("proposals appear in the attention list", proposalIssue !== undefined);
+  assert("an attention proposal carries a concrete order", (proposalIssue?.proposal?.quantity ?? 0) > 0);
+
+  // Accepting enough of them satisfies the policy and it stops proposing.
+  autoEmpire.queueBuild("earth", "automated-mine", 40, "callisto");
+  assert(
+    "a satisfied policy stops proposing",
+    !deriveProposals(autoEmpire, auto.system).some(
+      (p) => p.colonyId === "callisto" && p.order.installationId === "automated-mine",
+    ),
+  );
+
+  // Policy "none" is silent even with a governor posted.
+  callisto.policy = "none";
+  assert(
+    "a governor with no policy proposes nothing",
+    !deriveProposals(autoEmpire, auto.system).some((p) => p.colonyId === "callisto"),
+  );
+}
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

@@ -3,11 +3,12 @@
 A prototype 4X strategy game in the spirit of Aurora 4X: the dawn of the
 trans-Newtonian age, starting in Sol and expanding outward.
 
-Three milestones are in: the **system map**, which models Sol to scale from
-real orbital elements; the **economy, research and officer corps** that turn it
-into a game you can play forward; and the **command interface** built to answer
-Aurora's oldest complaint - that the game shows you every number and tells you
-nothing.
+Four milestones are in: the **system map**, which models Sol to scale from real
+orbital elements; the **economy, research and officer corps** that turn it into
+a game you can play forward; the **command interface** built to answer Aurora's
+oldest complaint - that the game shows you every number and tells you nothing;
+and the **automation ladder**, which stops the tenth colony being nine times
+the work of the first. It runs on a phone.
 
 ![empire dashboard](docs/dashboard.png)
 
@@ -17,7 +18,17 @@ nothing.
 npm install
 npm run dev       # http://localhost:5173
 npm run build     # typecheck + production build into dist/
-npm run check     # model sanity checks (orbits, economy, people)
+npm run check     # model sanity checks (orbits, economy, people, planning)
+```
+
+`npm run ui` runs the browser checks against a running dev server, on a desktop
+viewport and an emulated phone. Playwright is deliberately not a dependency of
+the project, so install it first:
+
+```sh
+npm install --no-save playwright && npx playwright install chromium
+npm run dev &
+npm run ui
 ```
 
 ## The system map
@@ -86,6 +97,59 @@ At thirty days a second it is easy to skip five years, so the dashboard also
 carries a **since you last looked** strip - population, treasury, technologies
 and construction since your last visit - and the event log marks where you had
 read up to.
+
+## Automation
+
+![templates, rules and proposals](docs/automation.png)
+
+Four rungs, each only as trustworthy as the one below it.
+
+**Bulk actions.** Tick colonies on the dashboard and apply a development
+package to all of them at once, with the total cost shown before you commit.
+
+**Templates.** A named package - *Mining Outpost* is infrastructure, thirty
+automated mines and two mass drivers - applied to any world in one action,
+built at a colony that has industry and shipped to the one that does not.
+Infrastructure is the item that cannot be a fixed number, because how much a
+world needs depends on its colony cost, so a template item can ask for *enough
+infrastructure for one million colonists* and be sized on apply. Items the
+empire has not researched are dropped rather than silently queued. Any build
+queue can be saved as a new template.
+
+**Standing orders.** Rules that top a colony up without being asked: keep 25
+automated mines here, or keep supported population 40% ahead of actual
+population - the chore that otherwise needs doing by hand on every growing
+colony. They are evaluated once per production cycle, count what is already
+built *and* already queued, and only ever top up to the target, so a rule
+cannot run away. Work they queue is badged `auto`.
+
+**Governor proposals.** A governor with a policy does not act - they file a
+proposal into the attention rail, carrying the exact order they would place:
+*"Callisto: work the deposits. 380,146 tons remain in the ground and only 30
+automated mines are working them. [Queue 10 Automated Mine at Earth]"*. One tap
+accepts it, one dismisses it. Automation that queues things behind your back is
+what players distrust; automation that drafts the order and waits is what they
+use. A satisfied policy stops proposing.
+
+![governor proposals in the rail](docs/proposals.png)
+
+## On a phone
+
+![mobile dashboard](docs/mobile-dashboard.png)
+![attention sheet](docs/mobile-rail.png)
+
+The same build, laid out for a 412px screen rather than a second cut-down app.
+
+- View tabs move to a real bottom row - not a fixed footer, which disappears
+  under the browser's own chrome the moment the URL bar collapses.
+- The attention rail becomes a sheet, summoned from a floating counter and
+  folded again as soon as you follow an item to its fix.
+- Tables drop their least important columns instead of wrapping into mush; the
+  colony list keeps name, population, industry and next completion.
+- The clock and speed controls become one sticky, horizontally scrollable row.
+- The map takes touch properly: one finger pans, two fingers pinch to zoom, and
+  the system list stays as a strip because tapping a three-pixel moon is not
+  selection.
 
 ## The economy
 
@@ -176,8 +240,9 @@ src/
               system.ts       body tree, per-tick positions, derived figures
               minerals.ts     deposit generation
               rng.ts          seeded randomness
-              economy/        installations, the production cycle, the ledger
-                              and order previews
+              economy/        installations, the production cycle, the ledger,
+                              order previews, templates, standing orders
+              governors.ts    policies, and the proposals they file
               research/       the eight fields and the technology tree
               people/         officer generation, promotion, retirement
   data/       bodies.ts       the Sol dataset: elements and physical data
@@ -191,6 +256,7 @@ src/
               views/          empire, colony, research and officer views
               bodyTree.ts, detailPanel.ts, timeControls.ts, widgets.ts
 tools/        sanity.ts       the checks behind `npm run check`
+              ui-test.mjs     the browser checks behind `npm run ui`
 ```
 
 The simulation layer knows nothing about the DOM, and the data layer knows
@@ -218,12 +284,12 @@ invariants - among them:
 - Attention items appear and disappear with the condition that caused them: a
   stalled queue is reported at critical severity, idle industry stops being
   reported once work is queued, and a dismissal lapses on schedule.
+- Templates size infrastructure to the target world and drop what is not
+  researched; standing orders deliver their target and then stop, counting what
+  is already on its way; a governor proposes only with a policy and a governor,
+  and stops once the policy is satisfied.
 
 ## Not built yet
-
-The rest of the automation ladder: build templates applied to a body in one
-click, bulk and multi-colony operations, standing orders, and governors that
-propose work into the attention rail for approval rather than acting alone.
 
 Ships, fleet movement and ship design; ground forces; sensors, surveying and
 combat; jump points and other star systems; sector administration. Ordnance

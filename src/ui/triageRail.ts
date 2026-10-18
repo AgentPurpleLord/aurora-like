@@ -102,6 +102,24 @@ export class TriageRail {
       card.append(el("div", "issue-detail", issue.detail));
 
       const actions = el("div", "issue-actions");
+
+      // A proposal leads with the thing it is proposing; everything else
+      // leads with where the problem is fixed.
+      if (issue.proposal) {
+        const accept = el("button", "primary-btn", issue.proposal.label);
+        accept.addEventListener("click", () => {
+          const { sourceId, installationId, quantity, destination } = issue.proposal!;
+          this.game.empire.queueBuild(sourceId, installationId, quantity, destination);
+          this.game.empire.addLog(
+            this.game.clock.seconds,
+            "construction",
+            `Accepted: ${issue.proposal!.label}.`,
+          );
+          this.game.emit();
+        });
+        actions.append(accept);
+      }
+
       const go = el("button", "ghost-btn", issue.action.label);
       go.addEventListener("click", () => this.onAction(issue));
       actions.append(go);

@@ -146,6 +146,8 @@ export interface PreviewMineral {
 
 export interface OrderPreview {
   name: string;
+  /** Units of each installation the preview covers. */
+  items: { installationId: string; quantity: number }[];
   buildPoints: number;
   /** Build points already queued ahead of this order. */
   queuedAhead: number;
@@ -174,35 +176,63 @@ export function previewOrder(
   ledger?: LedgerRow[],
 ): OrderPreview | null {
   const type = INSTALLATION_BY_ID.get(installationId);
+  if (!type) return null;
+  return previewItems(empire, system, colony, [{ installationId, quantity }], type.name, ledger);
+}
+
+/**
+ * The same preview for a set of items at once - what a template would cost
+ * if it were applied here.
+ */
+export function previewItems(
+  empire: Empire,
+  system: StarSystem,
+  colony: Colony,
+  items: { installationId: string; quantity: number }[],
+  name = "Selected items",
+  ledger?: LedgerRow[],
+): OrderPreview | null {
   const body = system.byId.get(colony.bodyId);
-  if (!type || !body || quantity <= 0) return null;
+  if (!body || !items.length) return null;
 
   const rows = ledger ?? mineralLedger(empire, system);
   const annual = colonyOutput(empire, body, colony, empire.stats).buildPoints;
-  const buildPoints = type.cost * quantity;
+
+  let buildPoints = 0;
+  const required: Partial<Record<MineralName, number>> = {};
+  for (const item of items) {
+    const type = INSTALLATION_BY_ID.get(item.installationId);
+    if (!type || item.quantity <= 0) continue;
+    buildPoints += type.cost * item.quantity;
+    for (const [mineral, tons] of Object.entries(type.minerals) as [MineralName, number][]) {
+      required[mineral] = (required[mineral] ?? 0) + tons * item.quantity;
+    }
+  }
+
   const queuedAhead = queuedBuildPoints(colony);
   const years = annual > 0 ? (queuedAhead + buildPoints) / annual : Infinity;
 
   const minerals: PreviewMineral[] = [];
-  for (const [mineral, tons] of Object.entries(type.minerals) as [MineralName, number][]) {
-    const required = tons * quantity;
+  for (const [mineral, tons] of Object.entries(required) as [MineralName, number][]) {
     const held = colony.stockpile[mineral];
     const row = rows.find((r) => r.mineral === mineral);
     const drain = row ? Math.max(0, -row.net) : 0;
     const production = row?.production ?? 0;
     minerals.push({
       mineral,
-      required,
+      required: tons,
       held,
-      shortfall: Math.max(0, required - held),
+      shortfall: Math.max(0, tons - held),
       coverBefore: row?.cover ?? Infinity,
-      coverAfter: drain > 0 ? Math.max(0, (row!.stockpile - required) / drain) : Infinity,
-      replacementYears: production > 0 ? required / production : Infinity,
+      coverAfter: drain > 0 ? Math.max(0, (row!.stockpile - tons) / drain) : Infinity,
+      replacementYears: production > 0 ? tons / production : Infinity,
     });
   }
+  minerals.sort((a, b) => b.required - a.required);
 
   return {
-    name: type.name,
+    name,
+    items: items.filter((i) => i.quantity > 0),
     buildPoints,
     queuedAhead,
     annualBuildPoints: annual,
