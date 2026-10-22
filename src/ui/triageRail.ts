@@ -27,6 +27,11 @@ export class TriageRail {
     private onToggle: () => void,
   ) {}
 
+  /** The attention items as of the last render. */
+  get current(): Issue[] {
+    return this.issues;
+  }
+
   get isCollapsed(): boolean {
     return this.collapsed;
   }

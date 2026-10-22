@@ -13,9 +13,17 @@
           <span class="brand-name">AURORA<span class="brand-dim">-LIKE</span></span>
           <span class="brand-sub">Trans-Newtonian Prototype</span>
         </div>
-        <nav id="view-tabs" class="view-tabs"></nav>
-        <div id="time-controls" class="time-controls"></div>
-        <div id="empire-bar" class="empire-bar"></div>
+        <nav id="view-tabs" class="view-tabs" aria-label="Screens"></nav>
+        <div class="topbar-tools">
+          <button id="palette-button" class="search-btn" aria-label="Search and commands">
+            <span>Search</span><kbd>Ctrl K</kbd>
+          </button>
+          <div id="settings-host" class="settings-host"></div>
+        </div>
+        <div class="statusbar">
+          <div id="time-controls" class="time-controls"></div>
+          <div id="empire-bar" class="empire-bar"></div>
+        </div>
       </header>
       <div class="shell">
         <main class="workspace">

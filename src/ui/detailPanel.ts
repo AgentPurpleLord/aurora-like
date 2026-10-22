@@ -117,6 +117,7 @@ export class DetailPanel {
     const zoom = el("button", "ghost-btn", "Centre on map");
     zoom.addEventListener("click", () => this.actions.zoomTo(body));
     this.header.append(zoom);
+    this.renderContextActions(body);
 
     switch (this.tab) {
       case "overview": this.renderOverview(body); break;
@@ -124,6 +125,58 @@ export class DetailPanel {
       case "minerals": this.renderMinerals(body); break;
       case "colony": this.renderColony(body); break;
     }
+  }
+
+  /**
+   * What can be done to this body right now. The buttons that appear depend on
+   * what is selected: a body, and perhaps a fleet.
+   */
+  private renderContextActions(body: Body): void {
+    const { game } = this;
+    const { empire } = game;
+    const actions = el("div", "context-actions");
+    const colony = empire.colony(body.id);
+    const fleet = empire.fleets.get(game.selectedFleet ?? "");
+
+    if (colony) {
+      actions.append(this.action("Open colony", () => this.actions.openEconomy()));
+    } else if (Number.isFinite(body.colonyCost)) {
+      actions.append(
+        this.action("Settle here", () => {
+          empire.foundColony(body.id, game.clock.seconds);
+          empire.addLog(game.clock.seconds, "colony", `A colony has been established on ${body.name}.`, {
+            view: "colonies",
+            bodyId: body.id,
+          });
+          game.emit();
+        }),
+      );
+    }
+
+    if (fleet && body.cls !== "star") {
+      actions.append(
+        this.action(`Send ${fleet.name} here`, () => {
+          fleet.orders.push({ kind: "move", bodyId: body.id });
+          game.emit();
+        }),
+      );
+      const canSurvey = fleetStats(empire, fleet).canSurvey;
+      if (canSurvey && !empire.surveyed.has(body.id)) {
+        actions.append(
+          this.action(`Survey with ${fleet.name}`, () => {
+            fleet.orders.push({ kind: "move", bodyId: body.id }, { kind: "survey" });
+            game.emit();
+          }),
+        );
+      }
+    }
+    if (actions.childElementCount) this.header.append(actions);
+  }
+
+  private action(label: string, run: () => void): HTMLButtonElement {
+    const btn = el("button", "ghost-btn context-btn", label);
+    btn.addEventListener("click", run);
+    return btn;
   }
 
   /** A compact read-out for the fleet picked on the map. */

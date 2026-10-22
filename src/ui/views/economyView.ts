@@ -29,6 +29,9 @@ import {
 import { MINERALS } from "../../sim/minerals";
 import { GASES, GAS_BY_ID, maxPressureFor, totalPressure } from "../../sim/atmosphere";
 import { previewItems, previewOrder, type OrderPreview } from "../../sim/economy/ledger";
+import { activeIssues, type Issue } from "../../sim/issues";
+import { hintFor } from "../glossary";
+import { saveSettings, settings } from "../settings";
 import {
   resolveTemplate,
   templateFromQueue,
@@ -120,12 +123,15 @@ export class EconomyView {
       return;
     }
 
-    const stats = game.empire.stats;
-    const output = colonyOutput(game.empire, body, colony, stats);
+    const { empire } = game;
+    const stats = empire.stats;
+    const output = colonyOutput(empire, body, colony, stats);
     const cost = effectiveColonyCost(body, stats);
     const capacity = populationCapacity(body, colony, stats);
 
-    const head = el("div", "detail-head");
+    // --- the header: who this is, how it is doing, and the tabs. It sits
+    // outside the scrolling body, so it is always in view.
+    const head = el("div", "detail-head colony-head");
     const title = el("div", "detail-title", body.name);
     const dot = el("span", "dot big");
     dot.style.background = body.def.color;
@@ -134,12 +140,118 @@ export class EconomyView {
     head.append(
       el("div", "detail-sub", `${classLabel(body)} - settled ${formatShortDate(colony.founded)}`),
     );
+
+    const vitals = el("div", "vitals");
+    const vital = (label: string, value: string, tone?: string, note?: string) => {
+      const item = el("div", "vital");
+      item.append(el("span", "vital-label", label));
+      item.append(el("span", `vital-value${tone ? ` ${tone}` : ""}`, value));
+      if (note) item.append(el("span", `vital-note ${tone ?? ""}`.trim(), note));
+      const hint = hintFor(label);
+      if (hint) item.title = hint;
+      vitals.append(item);
+    };
+    vital(
+      "Population",
+      population(colony.population),
+      undefined,
+      `${output.populationGrowth >= 0 ? "+" : ""}${population(output.populationGrowth)}/yr`,
+    );
+    vital("Colony Cost", cost.toFixed(2), cost <= 0 ? "good" : undefined, `${body.tempK.toFixed(0)} K`);
+    vital(
+      "Staffed",
+      `${Math.round(output.employment * 100)}%`,
+      output.employment < 0.95 ? "warn" : undefined,
+    );
+    vital("BP/yr", num(output.buildPoints), empire.austerity ? "bad" : undefined);
+    vital("Mining t/yr", num(Object.values(output.mining).reduce((n, v) => n + (v ?? 0), 0)));
+    vital("Wealth/yr", num(output.wealth));
+    head.append(vitals);
+
+    const alerts = this.alertsFor(colony.bodyId);
+    const terraformAvailable =
+      empire.stats.unlocked.has("terraforming") || installationCount(colony, "terraforming") > 0;
+    const tabs: { id: string; label: string; badge?: string }[] = [
+      { id: "overview", label: "Overview", badge: alerts.length ? String(alerts.length) : undefined },
+      { id: "production", label: "Production", badge: colony.buildQueue.length ? String(colony.buildQueue.length) : undefined },
+      { id: "mining", label: "Mining & stores" },
+      ...(terraformAvailable ? [{ id: "terraform", label: "Terraforming" }] : []),
+      { id: "automation", label: "Automation", badge: colony.policy !== "none" || empire.standingOrdersFor(colony.bodyId).length ? "on" : undefined },
+    ];
+    if (!tabs.some((t) => t.id === settings.colonyTab)) settings.colonyTab = "overview";
+
+    const bar = el("div", "colony-tabs");
+    for (const tab of tabs) {
+      const btn = el("button", "colony-tab");
+      btn.append(el("span", undefined, tab.label));
+      if (tab.badge) btn.append(el("span", "tab-badge", tab.badge));
+      btn.classList.toggle("active", settings.colonyTab === tab.id);
+      btn.addEventListener("click", () => {
+        settings.colonyTab = tab.id;
+        saveSettings();
+        this.render();
+      });
+      bar.append(btn);
+    }
+    head.append(bar);
     this.detail.append(head);
 
     const scroll = el("div", "detail-body");
     this.detail.append(scroll);
 
-    // --- summary
+    switch (settings.colonyTab) {
+      case "production":
+        this.renderIndustry(scroll, colony, output.buildPoints);
+        break;
+      case "mining":
+        this.renderMining(scroll, body, colony, output.mining);
+        this.renderStockpile(scroll, colony);
+        this.renderStored(scroll, colony);
+        break;
+      case "terraform":
+        this.renderTerraforming(scroll, body, colony);
+        break;
+      case "automation":
+        this.renderGovernor(scroll, colony);
+        this.renderTemplates(scroll, body, colony);
+        this.renderStandingOrders(scroll, colony);
+        break;
+      default:
+        this.renderOverview(scroll, body, colony, output, cost, capacity, alerts);
+    }
+  }
+
+  /** Attention items that concern this colony, so problems show where they live. */
+  private alertsFor(bodyId: string): Issue[] {
+    return activeIssues(this.game.empire, this.game.system, this.game.clock.seconds).filter(
+      (issue) => issue.action.bodyId === bodyId,
+    );
+  }
+
+  private renderOverview(
+    scroll: HTMLElement,
+    body: Body,
+    colony: Colony,
+    output: ReturnType<typeof colonyOutput>,
+    cost: number,
+    capacity: number,
+    alerts: Issue[],
+  ): void {
+    const { game } = this;
+
+    const attention = section(scroll, "Needs attention here");
+    if (!alerts.length) {
+      emptyNote(attention, "Nothing wrong at this colony.");
+    }
+    for (const issue of alerts) {
+      const row = el("div", `alert-row ${issue.severity}`);
+      row.append(el("span", `issue-dot ${issue.severity}`));
+      const text = el("div", "alert-text");
+      text.append(el("div", "alert-title", issue.title), el("div", "muted small", issue.detail));
+      row.append(text);
+      attention.append(row);
+    }
+
     const summary = section(scroll, "Colony");
     summary.classList.add("two-col");
     stat(summary, "Population", population(colony.population));
@@ -155,20 +267,14 @@ export class EconomyView {
       output.employment < 0.999 ? "warn" : undefined,
     );
     stat(summary, "Wealth", `${num(output.wealth)} / year`);
+    const governor = game.empire.governorOf(colony.bodyId);
+    stat(summary, "Governor", governor ? fullName(governor) : "vacant", governor ? undefined : "warn");
     const inflow = migrationInflow(game.empire, body, colony);
     if (inflow > 0) {
       const row = stat(summary, "Colonists Arriving", `${population(inflow)} / year`, "good");
       row.title = "Civilian shipping from the capital - a stand-in until colony ships exist.";
     }
 
-    this.renderGovernor(scroll, colony);
-    this.renderIndustry(scroll, colony, output.buildPoints);
-    this.renderTemplates(scroll, body, colony);
-    this.renderTerraforming(scroll, body, colony);
-    this.renderStandingOrders(scroll, colony);
-    this.renderMining(scroll, body, colony, output.mining);
-    this.renderStockpile(scroll, colony);
-    this.renderStored(scroll, colony);
     this.renderInstallations(scroll, colony);
   }
 

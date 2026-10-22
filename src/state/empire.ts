@@ -35,10 +35,35 @@ import { BUILT_IN_TEMPLATES, type BuildTemplate } from "../sim/economy/templates
 
 export type LogCategory = "research" | "construction" | "people" | "colony" | "economy" | "fleet";
 
+/** Where an event can take you, so a notification is a doorway, not a dead end. */
+export interface LogLink {
+  view: "empire" | "map" | "colonies" | "fleets" | "design" | "research" | "officers";
+  bodyId?: string;
+  fleetId?: string;
+  techId?: string;
+}
+
 export interface LogEntry {
+  /** Monotonic, so a reader can ask "what is new since I last looked". */
+  seq: number;
   time: number;
   category: LogCategory;
   text: string;
+  link?: LogLink;
+}
+
+/** Categories worth interrupting the player for. */
+export const IMPORTANT_CATEGORIES: readonly LogCategory[] = [
+  "research", "construction", "fleet", "colony", "economy",
+];
+
+/** One sampled point of the empire's vital signs, for trend lines. */
+export interface HistoryPoint {
+  time: number;
+  treasury: number;
+  population: number;
+  researchPoints: number;
+  buildPoints: number;
 }
 
 export interface ResearchProject {
@@ -88,6 +113,9 @@ export class Empire {
   readonly officers: OfficerPool;
   readonly researched = new Set<string>();
   readonly log: LogEntry[] = [];
+  /** Sequence number of the newest log entry. */
+  logSeq = 0;
+  readonly history: HistoryPoint[] = [];
   projects: ResearchProject[] = [];
   treasury = 0;
   stats: EmpireStats;
@@ -583,9 +611,36 @@ export class Empire {
 
   // ------------------------------------------------------------------- log
 
-  addLog(time: number, category: LogCategory, text: string): void {
-    this.log.unshift({ time, category, text });
+  addLog(time: number, category: LogCategory, text: string, link?: LogLink): void {
+    this.log.unshift({ seq: ++this.logSeq, time, category, text, link });
     if (this.log.length > 400) this.log.length = 400;
+  }
+
+  /** Entries newer than a sequence number, oldest first. */
+  logSince(seq: number): LogEntry[] {
+    const fresh: LogEntry[] = [];
+    for (const entry of this.log) {
+      if (entry.seq <= seq) break;
+      fresh.push(entry);
+    }
+    return fresh.reverse();
+  }
+
+  /**
+   * Sample the vital signs about once a month of game time. Called every
+   * production cycle; the throttle keeps the series short enough to draw.
+   */
+  recordHistory(now: number): void {
+    const last = this.history[this.history.length - 1];
+    if (last && now - last.time < 25 * 86_400) return;
+    this.history.push({
+      time: now,
+      treasury: this.treasury,
+      population: this.snapshot.population,
+      researchPoints: this.snapshot.researchPoints,
+      buildPoints: this.snapshot.buildPoints,
+    });
+    if (this.history.length > 240) this.history.shift();
   }
 
   /** Hide an issue for a while; it returns if the condition persists. */

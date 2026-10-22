@@ -107,6 +107,30 @@ carries a **since you last looked** strip - population, treasury, technologies
 and construction since your last visit - and the event log marks where you had
 read up to.
 
+## UI refresh
+
+A pass across every screen to make the game easier to read and drive without
+hiding any of the detail.
+
+- **Command palette** (`Ctrl/Cmd+K` or `/`): jump to any screen, colony, body,
+  fleet, technology or ship class, or run a command, by typing.
+- **Time and events**: speeds are a compact 1m-30d row, with quick jumps and a
+  **Next event** button (`N`) that runs until something worth stopping for
+  happens. Choose which event categories pause the clock in Settings.
+  Important events appear as toasts that link straight to what they are about.
+- **Tab badges** mark screens with something waiting; the top bar is split into
+  navigation, tools and a status bar for time and treasury.
+- **Colony screen**: a sticky vitals strip and tabs (Overview, Production,
+  Mining & stores, Terraforming, Automation) replace one very long page.
+- **Map lenses**: Natural, Habitability, Territory and Minerals tint the bodies,
+  with a legend and a hover card; the detail panel offers context actions
+  (open colony, settle, send a fleet, survey).
+- **Empire dashboard**: a guided goals list for the Earth-only start and
+  sparkline trends for treasury, population and output.
+- **Foldable sections** (state remembered), **glossary hints** on statistics
+  and a **density** setting (comfortable or compact).
+- **Phone**: a short tab bar with a More sheet for the remaining screens.
+
 ## Terraforming
 
 ![a terraforming programme](docs/terraforming.png)

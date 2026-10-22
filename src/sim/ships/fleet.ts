@@ -229,7 +229,7 @@ export function updateFleets(empire: Empire, system: StarSystem, seconds: number
         fleet.anchorId = target.id;
         fleet.orders.shift();
         fleet.note = null;
-        empire.addLog(empire.lastTick, "fleet", `${fleet.name} has arrived at ${target.name}.`);
+        empire.addLog(empire.lastTick, "fleet", `${fleet.name} has arrived at ${target.name}.`, { view: "fleets", fleetId: fleet.id });
         executeArrivalOrders(empire, system, fleet);
         continue;
       }
@@ -282,6 +282,7 @@ function spendSurveyTime(empire: Empire, system: StarSystem, fleet: Fleet, budge
     `${fleet.name} has surveyed ${body?.name ?? bodyId}: ${
       deposits ? `${deposits} mineral deposits found` : "no deposits found"
     }.`,
+    { view: "map", bodyId },
   );
   executeArrivalOrders(empire, system, fleet);
   return budget - secondsNeeded;
@@ -299,7 +300,7 @@ function burnFuel(empire: Empire, fleet: Fleet, seconds: number): void {
     const before = ship.fuel;
     ship.fuel = Math.max(0, ship.fuel - burn);
     if (before > 0 && ship.fuel <= 0) {
-      empire.addLog(empire.lastTick, "fleet", `${ship.name} has run out of fuel.`);
+      empire.addLog(empire.lastTick, "fleet", `${ship.name} has run out of fuel.`, { view: "fleets", fleetId: fleet.id });
     }
   }
 }
@@ -377,6 +378,7 @@ export function executeArrivalOrders(empire: Empire, system: StarSystem, fleet: 
             `${Math.round(fleet.cargo.colonists).toLocaleString()} colonists have landed on ${
               system.byId.get(colony.bodyId)?.name ?? colony.bodyId
             }.`,
+            { view: "colonies", bodyId: colony.bodyId },
           );
         }
         fleet.cargo.colonists = 0;

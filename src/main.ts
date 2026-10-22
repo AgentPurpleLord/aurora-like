@@ -1,4 +1,7 @@
 import "./style.css";
+import { applyDensity } from "./ui/settings";
+
+applyDensity();
 import { App, type ViewId } from "./ui/app";
 
 function need<T extends HTMLElement>(id: string): T {
@@ -26,5 +29,7 @@ new App(need<HTMLCanvasElement>("map"), {
   tabs: need("view-tabs"),
   empireBar: need("empire-bar"),
   rail: need("triage-rail"),
+  paletteButton: need("palette-button"),
+  settingsHost: need("settings-host"),
   views,
 });

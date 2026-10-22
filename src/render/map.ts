@@ -67,6 +67,8 @@ export class SystemMapRenderer {
   private stars: { x: number; y: number; r: number; a: number }[] = [];
   private screenBodies: ScreenBody[] = [];
   private screenFleets: ScreenFleet[] = [];
+  /** Recolours bodies for the active lens; null leaves them natural. */
+  private lensColor: ((body: Body) => string | null) | null = null;
   private labelBoxes: { x: number; y: number; w: number; h: number }[] = [];
   private dpr = 1;
 
@@ -137,7 +139,9 @@ export class SystemMapRenderer {
     opts: RenderOptions,
     fleets: FleetMarker[] = [],
     selectedFleet: string | null = null,
+    lensColor: ((body: Body) => string | null) | null = null,
   ): void {
+    this.lensColor = lensColor;
     const { ctx, camera } = this;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.fillStyle = "#05070d";
@@ -258,8 +262,21 @@ export class SystemMapRenderer {
 
       this.screenBodies.push({ body, sx, sy, radius });
 
+      const tint = this.lensColor?.(body) ?? null;
       if (body.cls === "star") this.drawStar(sx, sy, radius);
-      else this.drawWorld(body, sx, sy, radius, trueRadius);
+      else this.drawWorld(body, sx, sy, radius, trueRadius, tint);
+
+      // A ring keeps a small tinted body legible against the dark.
+      if (tint && body.cls !== "star") {
+        const { ctx } = this;
+        ctx.strokeStyle = tint;
+        ctx.globalAlpha = 0.55;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(sx, sy, radius + 3.5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
 
       if (body.def.rings) this.drawRings(body, sx, sy);
 
@@ -295,9 +312,10 @@ export class SystemMapRenderer {
     sy: number,
     radius: number,
     trueRadius: number,
+    tint: string | null = null,
   ): void {
     const { ctx } = this;
-    ctx.fillStyle = body.def.color;
+    ctx.fillStyle = tint ?? body.def.color;
     ctx.beginPath();
     ctx.arc(sx, sy, radius, 0, Math.PI * 2);
     ctx.fill();

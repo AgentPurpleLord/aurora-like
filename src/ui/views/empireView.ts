@@ -15,6 +15,10 @@ import { projectRate } from "../../sim/economy/production";
 import { resolveTemplate } from "../../sim/economy/templates";
 import { INSTALLATION_BY_ID } from "../../sim/economy/installations";
 import { compact, el, num, population, populationFixed } from "../format";
+import { hintFor } from "../glossary";
+import { deriveGoals } from "../../sim/goals";
+import { saveSettings, settings } from "../settings";
+import type { HistoryPoint, LogLink } from "../../state/empire";
 import { button, emptyNote, progressBar, section, select, stat } from "../widgets";
 import { formatShortDate, formatYears } from "./economyView";
 
@@ -43,7 +47,12 @@ export class EmpireView {
   private bulkTemplate = "mining-outpost";
   private bulkSource = "";
 
-  constructor(private root: HTMLElement, private game: Game, private onOpenColony: (bodyId: string) => void) {
+  constructor(
+    private root: HTMLElement,
+    private game: Game,
+    private onOpenColony: (bodyId: string) => void,
+    private navigate: (link: LogLink) => void,
+  ) {
     this.root.classList.add("view-empire");
   }
 
@@ -53,13 +62,19 @@ export class EmpireView {
     this.root.append(body);
 
     this.renderSinceStrip(body);
+    this.renderGuide(body);
+    this.renderTrends(body);
     this.renderColonies(body);
 
+    // Two columns: the wide ledger on the left, the smaller panels stacked
+    // beside it. Three equal columns let the ledger spill into its neighbour.
     const split = el("div", "dashboard-split");
     body.append(split);
     this.renderLedger(split);
-    this.renderResearch(split);
-    this.renderLogistics(split);
+    const stack = el("div", "dashboard-stack");
+    split.append(stack);
+    this.renderResearch(stack);
+    this.renderLogistics(stack);
 
     this.renderEvents(body);
   }
@@ -104,6 +119,87 @@ export class EmpireView {
     parent.append(strip);
   }
 
+  // ----------------------------------------------------------------- guide
+
+  /** The next few things worth doing, derived from where the empire stands. */
+  private renderGuide(parent: HTMLElement): void {
+    if (!settings.guide) return;
+    const goals = deriveGoals(this.game.empire, this.game.system);
+    const remaining = goals.filter((g) => !g.done);
+    if (!remaining.length) return;
+
+    const done = goals.length - remaining.length;
+    const card = el("div", "guide-card");
+    const head = el("div", "guide-head");
+    head.append(el("span", "guide-title", "Suggested next steps"));
+    head.append(el("span", "muted small", `${done} of ${goals.length} done`));
+    head.append(progressBar(done / goals.length));
+    const hide = el("button", "ghost-btn guide-hide", "Hide");
+    hide.title = "Hide this list. It can be brought back from Settings.";
+    hide.addEventListener("click", () => {
+      settings.guide = false;
+      saveSettings();
+      this.render();
+    });
+    head.append(hide);
+    card.append(head);
+
+    for (const goal of remaining.slice(0, 3)) {
+      const row = el("div", "guide-row");
+      const text = el("div", "guide-text");
+      text.append(el("div", "guide-goal", goal.title), el("div", "muted small", goal.detail));
+      row.append(text);
+      row.append(button(goal.action.label, () => this.navigate(goal.action.link), "ghost-btn"));
+      card.append(row);
+    }
+    parent.append(card);
+  }
+
+  // ----------------------------------------------------------------- trends
+
+  /** Four vital signs with a line showing where each has been. */
+  private renderTrends(parent: HTMLElement): void {
+    const { empire } = this.game;
+    const history = empire.history.slice(-72);
+    const row = el("div", "trend-row");
+
+    const tiles: {
+      label: string;
+      value: string;
+      pick: (p: HistoryPoint) => number;
+      format: (v: number) => string;
+      current: number;
+    }[] = [
+      { label: "Population", value: population(empire.snapshot.population), pick: (p) => p.population, format: (v) => population(Math.abs(v)), current: empire.snapshot.population },
+      { label: "Treasury", value: num(empire.treasury), pick: (p) => p.treasury, format: (v) => num(Math.abs(v)), current: empire.treasury },
+      { label: "Research", value: `${num(empire.snapshot.researchPoints)} RP/yr`, pick: (p) => p.researchPoints, format: (v) => num(Math.abs(v)), current: empire.snapshot.researchPoints },
+      { label: "Construction", value: `${num(empire.snapshot.buildPoints)} BP/yr`, pick: (p) => p.buildPoints, format: (v) => num(Math.abs(v)), current: empire.snapshot.buildPoints },
+    ];
+
+    for (const tile of tiles) {
+      const card = el("div", "trend-tile");
+      card.append(el("span", "trend-label", tile.label), el("span", "trend-value", tile.value));
+
+      const series = history.map(tile.pick);
+      if (series.length >= 2) {
+        // Compare with roughly a year ago, or the start if the game is younger.
+        const yearAgo = empire.history.find((p) => p.time >= this.game.clock.seconds - 365.25 * 86_400) ?? empire.history[0];
+        const delta = tile.current - tile.pick(yearAgo);
+        const sign = delta > 0 ? "+" : delta < 0 ? "-" : "";
+        const period = this.game.clock.seconds - yearAgo.time >= 330 * 86_400 ? "vs a year ago" : "since the start";
+        card.append(
+          el("span", `trend-delta ${delta > 0 ? "good" : delta < 0 ? "bad" : "muted"}`,
+            `${sign}${tile.format(delta)} ${period}`),
+        );
+        card.append(sparkline(series));
+      } else {
+        card.append(el("span", "trend-delta muted", "gathering data..."));
+      }
+      row.append(card);
+    }
+    parent.append(row);
+  }
+
   // -------------------------------------------------------------- colonies
 
   private renderColonies(parent: HTMLElement): void {
@@ -121,6 +217,7 @@ export class EmpireView {
     const header = el("div", "data-row header");
     for (const column of COLUMNS) {
       const cell = el("span", column.align === "right" ? "right sortable" : "sortable", column.label);
+      cell.title = hintFor(column.label) ?? "";
       if (column.key === "name") cell.classList.add("with-tick");
       if (this.sortKey === column.key) {
         cell.classList.add("sorted");
@@ -304,7 +401,9 @@ export class EmpireView {
     const table = el("div", "data-table ledger-table");
     const header = el("div", "data-row header");
     for (const label of ["Mineral", "Stockpile", "Mined/yr", "Used/yr", "Net", "Cover", "In ground"]) {
-      header.append(el("span", label === "Mineral" ? "" : "right", label));
+      const cell = el("span", label === "Mineral" ? "" : "right", label);
+      cell.title = hintFor(label) ?? "";
+      header.append(cell);
     }
     table.append(header);
 
@@ -454,4 +553,31 @@ function coverTone(row: LedgerRow): "bad" | "warn" | null {
   if (row.net < 0 && row.cover < 8) return "warn";
   if (row.production > 0 && row.reservesYears < 5) return "warn";
   return null;
+}
+
+/** A tiny line chart. Drawn as SVG so it scales and stays crisp. */
+function sparkline(values: number[]): SVGElement {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 100 26");
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("class", "sparkline");
+  svg.setAttribute("aria-hidden", "true");
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const points = values
+    .map((v, i) => `${((i / (values.length - 1)) * 100).toFixed(2)},${(24 - ((v - min) / span) * 22).toFixed(2)}`)
+    .join(" ");
+
+  const area = document.createElementNS(ns, "polygon");
+  area.setAttribute("points", `0,26 ${points} 100,26`);
+  area.setAttribute("class", "spark-area");
+  const line = document.createElementNS(ns, "polyline");
+  line.setAttribute("points", points);
+  line.setAttribute("class", "spark-line");
+  line.setAttribute("vector-effect", "non-scaling-stroke");
+  svg.append(area, line);
+  return svg;
 }

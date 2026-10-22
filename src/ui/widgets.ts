@@ -1,14 +1,47 @@
 /** Small DOM helpers shared by the panels and views. */
 
 import { el } from "./format";
+import { hintFor } from "./glossary";
+import { isCollapsed, toggleCollapsed } from "./settings";
 
+/**
+ * A titled block. Its header folds the contents away, and the choice is
+ * remembered, so a panel can be trimmed to what you use without losing any
+ * detail: it is one click to bring back.
+ */
 export function section(parent: HTMLElement, title: string, action?: HTMLElement): HTMLElement {
   const wrap = el("div", "section");
-  const head = el("h3", undefined, title);
+  const head = el("h3", "section-head", title);
+  // "Colonies (3)" and "Colonies (4)" are the same section.
+  const key = title.replace(/\s*\(\d+\)\s*$/, "");
+  head.setAttribute("role", "button");
+  // Named for what it does, so it is never mistaken for a button of the same
+  // words elsewhere on the screen ("Start research" the heading and the action).
+  head.setAttribute("aria-label", `Fold or unfold the ${key} section`);
+  head.tabIndex = 0;
+  head.setAttribute("aria-expanded", String(!isCollapsed(key)));
+  head.title = "Click to fold or unfold";
+
   if (action) {
     head.classList.add("with-action");
     head.append(action);
   }
+  const toggle = () => {
+    const folded = toggleCollapsed(key);
+    wrap.classList.toggle("collapsed", folded);
+    head.setAttribute("aria-expanded", String(!folded));
+  };
+  head.addEventListener("click", (event) => {
+    if ((event.target as HTMLElement).closest("button, select, input")) return;
+    toggle();
+  });
+  head.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      toggle();
+    }
+  });
+  wrap.classList.toggle("collapsed", isCollapsed(key));
   wrap.append(head);
   parent.append(wrap);
   return wrap;
@@ -21,7 +54,13 @@ export function stat(
   tone?: "good" | "bad" | "warn",
 ): HTMLElement {
   const row = el("div", "stat");
-  row.append(el("span", "stat-label", label));
+  const labelEl = el("span", "stat-label", label);
+  const hint = hintFor(label);
+  if (hint) {
+    labelEl.title = hint;
+    labelEl.classList.add("has-hint");
+  }
+  row.append(labelEl);
   const val = el("span", `stat-value${tone ? ` ${tone}` : ""}`, value);
   row.append(val);
   parent.append(row);

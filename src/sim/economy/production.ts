@@ -228,7 +228,7 @@ export function runCycle(empire: Empire, system: StarSystem, now: number, days: 
       colony.stockpile[deposit.mineral] += tons;
       minerals[deposit.mineral] = (minerals[deposit.mineral] ?? 0) + tons / year;
       if (deposit.amount <= 0) {
-        empire.addLog(now, "colony", `${deposit.mineral} deposit on ${body.name} is exhausted.`);
+        empire.addLog(now, "colony", `${deposit.mineral} deposit on ${body.name} is exhausted.`, { view: "colonies", bodyId: body.id });
       }
     }
 
@@ -276,6 +276,7 @@ export function runCycle(empire: Empire, system: StarSystem, now: number, days: 
       empire.austerity
         ? "The treasury is in deficit. Industrial output halved until it recovers."
         : "The treasury is back in surplus. Industry returns to full output.",
+      { view: "empire" },
     );
   }
 
@@ -288,6 +289,8 @@ export function runCycle(empire: Empire, system: StarSystem, now: number, days: 
     fuel: fuelProduced,
     population,
   };
+
+  empire.recordHistory(now);
 
   for (const event of empire.officers.advance(year, now, academyRate(empire))) {
     empire.addLog(now, "people", event.text);
@@ -463,10 +466,10 @@ function runTerraforming(
   recomputeEnvironment(body);
 
   if (!wasBreathable && isBreathable(body.atmosphere)) {
-    empire.addLog(now, "colony", `The air on ${body.name} is now breathable.`);
+    empire.addLog(now, "colony", `The air on ${body.name} is now breathable.`, { view: "colonies", bodyId: body.id });
   }
   if (before > 0 && body.colonyCost <= 0) {
-    empire.addLog(now, "colony", `${body.name} has been terraformed to colony cost 0.00.`);
+    empire.addLog(now, "colony", `${body.name} has been terraformed to colony cost 0.00.`, { view: "colonies", bodyId: body.id });
   }
 }
 
@@ -564,6 +567,9 @@ function buildFromQueue(
           now,
           buildable.isShip ? "fleet" : "construction",
           `${bodyName}: ${buildable.name} complete.`,
+          buildable.isShip
+            ? { view: "fleets" }
+            : { view: "colonies", bodyId: colony.bodyId },
         );
       }
     }
@@ -717,6 +723,7 @@ function advanceResearch(empire: Empire, system: StarSystem, now: number, year: 
         scientist
           ? `${fullName(scientist)} has completed research into ${tech.name}.`
           : `Research into ${tech.name} is complete.`,
+        { view: "research", techId: tech.id },
       );
     }
   }

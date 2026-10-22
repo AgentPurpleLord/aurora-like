@@ -7,7 +7,7 @@ import { Random } from "../sim/rng";
 import { CYCLE_DAYS, computeSnapshot, runCycle } from "../sim/economy/production";
 import { MINERALS } from "../sim/minerals";
 import { updateFleets } from "../sim/ships/fleet";
-import { Empire } from "./empire";
+import { Empire, type LogEntry } from "./empire";
 import { emptyStockpile } from "./colony";
 import { labCapacity, type Officer } from "../sim/people/officers";
 
@@ -30,6 +30,15 @@ export class Game {
 
   /** Simulation time the last production cycle was run at. */
   private lastCycle: number;
+  /** Newest log entry the pause logic has already looked at. */
+  private pauseSeq = 0;
+  /**
+   * Decides whether an event should stop the clock. Supplied by the interface
+   * so the simulation stays ignorant of the player's preferences.
+   */
+  autoPauseFilter: ((entry: LogEntry) => boolean) | null = null;
+  /** The event that last paused the game, for the interface to explain. */
+  pausedBy: LogEntry | null = null;
   private listeners = new Set<Listener>();
 
   constructor(seed: string = "sol-1") {
@@ -103,6 +112,7 @@ export class Game {
     );
     empire.snapshot = computeSnapshot(empire, this.system);
     empire.markReviewed(now);
+    empire.recordHistory(now);
   }
 
   subscribe(fn: Listener): () => void {
@@ -115,16 +125,65 @@ export class Game {
   }
 
   tick(realSeconds: number): void {
+    // Anything logged before this frame - including the player's own actions -
+    // is not news; only what happens during the advance can pause the game.
+    this.markEventsSeen();
     const before = this.clock.seconds;
     this.clock.advance(realSeconds);
     this.advanceWorld(this.clock.seconds - before);
-    if (this.runCycles()) this.emit();
+    const ran = this.runCycles();
+    // Fleets arrive between production cycles, so events are checked every
+    // frame rather than only when a cycle ran.
+    const paused = this.applyAutoPause();
+    if (ran || paused) this.emit();
+  }
+
+  /** Stop the clock if something happened that the player wants to see. */
+  private applyAutoPause(): boolean {
+    const fresh = this.empire.logSince(this.pauseSeq);
+    if (!fresh.length) return false;
+    this.pauseSeq = this.empire.logSeq;
+    if (this.clock.paused || !this.autoPauseFilter) return false;
+    const trigger = fresh.find((entry) => this.autoPauseFilter!(entry));
+    if (!trigger) return false;
+    this.clock.setRate(0);
+    this.pausedBy = trigger;
+    return true;
+  }
+
+  /** Forget events up to now, so a manual jump does not trip auto-pause later. */
+  private markEventsSeen(): void {
+    this.pauseSeq = this.empire.logSeq;
+  }
+
+  /**
+   * Advance a day at a time until something the player would want to know
+   * about happens, or `maxDays` pass. Returns the event that stopped it.
+   */
+  runUntilEvent(
+    isNotable: (entry: LogEntry) => boolean,
+    maxDays = 365,
+  ): LogEntry | null {
+    const start = this.empire.logSeq;
+    let found: LogEntry | null = null;
+    for (let day = 0; day < maxDays && !found; day++) {
+      this.clock.step(SECONDS_PER_DAY);
+      this.advanceWorld(SECONDS_PER_DAY);
+      this.runCycles();
+      found = this.empire.logSince(start).find(isNotable) ?? null;
+    }
+    this.markEventsSeen();
+    this.pausedBy = found;
+    this.emit();
+    return found;
   }
 
   step(seconds: number): void {
     this.clock.step(seconds);
     this.advanceWorld(seconds);
     this.runCycles();
+    // A deliberate jump is the player's own choice; do not pause for it.
+    this.markEventsSeen();
     this.emit();
   }
 

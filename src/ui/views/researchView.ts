@@ -85,6 +85,17 @@ export class ResearchView {
     });
   }
 
+  /** Open the board at a technology, from a link elsewhere in the interface. */
+  focusTech(techId: string): void {
+    const tech = TECH_BY_ID.get(techId);
+    if (!tech) return;
+    this.tab = tech.field;
+    this.searchInput.value = "";
+    this.query = "";
+    this.selected = techId;
+    this.form.forTech = "";
+  }
+
   private hasFocusedControl(): boolean {
     const active = document.activeElement;
     return (

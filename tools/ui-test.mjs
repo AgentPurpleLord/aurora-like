@@ -50,7 +50,7 @@ async function check(name, fn) {
  * is under way so there are laboratories to spare.
  */
 async function startResearch(page, techName, { freeUp = false } = {}) {
-  await page.getByRole("button", { name: "Research", exact: true }).click();
+  await nav(page, "Research").click();
   if (freeUp) {
     while ((await page.locator(".proj-card").count()) > 0) {
       await page.locator(".proj-card").first().click();
@@ -62,6 +62,31 @@ async function startResearch(page, techName, { freeUp = false } = {}) {
   await page.locator(".tech-node", { hasText: techName }).first().click();
   await page.locator("#view-research").getByRole("button", { name: /^Start research/ }).click();
   await page.waitForTimeout(150);
+}
+
+/** A screen's tab in the navigation bar, wherever else its name appears. */
+const nav = (page, name) =>
+  page
+    .locator("#view-tabs > .view-tab[data-view]:not(.more-tab)")
+    .filter({ hasText: new RegExp(`^${name}`) })
+    .first();
+
+/** Open one of the colony screen's tabs. */
+async function colonyTab(page, name) {
+  await page.locator("#view-colonies .colony-tab", { hasText: name }).first().click();
+  await page.waitForTimeout(120);
+}
+
+/** Go to a screen on a phone, via "More" when it is not on the bar. */
+async function mobileGo(page, name) {
+  const direct = page.locator("#view-tabs > .view-tab:not(.more-tab)").getByText(name, { exact: true });
+  if (await direct.first().isVisible().catch(() => false)) {
+    await direct.first().click();
+  } else {
+    await page.locator("#view-tabs .more-tab").click();
+    await page.locator("#view-tabs .more-entry", { hasText: name }).click();
+  }
+  await page.waitForTimeout(300);
 }
 
 function watchErrors(page) {
@@ -97,7 +122,7 @@ async function desktopSuite(browser) {
   await page.waitForTimeout(300);
   await check("following an item leaves the dashboard", async () =>
     !(await page.locator("#view-empire").isVisible()));
-  await page.getByRole("button", { name: "Empire", exact: true }).click();
+  await nav(page, "Empire").click();
   const issuesBefore = await page.locator(".issue").count();
   await page.locator(".issue").first().locator(".step-btn").click();
   await page.waitForTimeout(200);
@@ -106,7 +131,7 @@ async function desktopSuite(browser) {
 
   // --- settle two moons to develop
   for (const moon of ["Callisto", "Ganymede"]) {
-    await page.getByRole("button", { name: "Map", exact: true }).click();
+    await nav(page, "Map").click();
     await page.locator(".tree-row", { hasText: moon }).first().click();
     await page.getByRole("button", { name: "Colony", exact: true }).click();
     await page.getByRole("button", { name: "Establish Colony" }).click();
@@ -115,8 +140,9 @@ async function desktopSuite(browser) {
     /Scale 0\.\d+ AU/.test(await page.locator("#map-overlay").innerText()));
 
   // --- commit-time preview
-  await page.getByRole("button", { name: "Colonies", exact: true }).click();
+  await nav(page, "Colonies").click();
   await page.locator("#view-colonies .tree-row", { hasText: "Earth" }).click();
+  await colonyTab(page, "Production");
   await page.locator("#view-colonies .add-order").first().locator("select").first()
     .selectOption("research-lab");
   const quantity = page.locator("#view-colonies .add-order").first().locator(".number-input");
@@ -136,17 +162,19 @@ async function desktopSuite(browser) {
 
   // --- templates
   await page.locator("#view-colonies .tree-row", { hasText: "Callisto" }).click();
+  await colonyTab(page, "Automation");
   const templates = page.locator("#view-colonies .section", { hasText: "Development Templates" }).first();
   await check("template lists what it would build", async () =>
     (await templates.locator(".template-item").count()) >= 2);
   await templates.getByRole("button", { name: "Apply" }).click();
   await page.waitForTimeout(200);
   await page.locator("#view-colonies .tree-row", { hasText: "Earth" }).click();
+  await colonyTab(page, "Production");
   await check("applying a template queues work for the target", async () =>
     (await page.locator("#view-colonies .queue-row").allInnerTexts()).some((t) => t.includes("Callisto")));
 
   // --- bulk apply across colonies
-  await page.getByRole("button", { name: "Empire", exact: true }).click();
+  await nav(page, "Empire").click();
   await check("the dashboard lists every colony", async () =>
     (await page.locator(".colony-table .data-row").count()) === 4);
   const firstBefore = await page.locator(".colony-table .data-row").nth(1).innerText();
@@ -164,14 +192,16 @@ async function desktopSuite(browser) {
   await page.locator(".bulk-bar select").first().selectOption("forward-base");
   await page.getByRole("button", { name: "Apply to selected" }).click();
   await page.waitForTimeout(300);
-  await page.getByRole("button", { name: "Colonies", exact: true }).click();
+  await nav(page, "Colonies").click();
   await page.locator("#view-colonies .tree-row", { hasText: "Earth" }).click();
+  await colonyTab(page, "Production");
   const queued = (await page.locator("#view-colonies .queue-row").allInnerTexts()).join(" | ");
   await check("bulk apply queued for every target", () =>
     queued.includes("Ganymede") && queued.includes("Callisto"));
 
   // --- standing orders
   await page.locator("#view-colonies .tree-row", { hasText: "Callisto" }).click();
+  await colonyTab(page, "Automation");
   const rules = () => page.locator("#view-colonies .section", { hasText: "Standing Orders" }).first();
   await rules().locator("select").first().selectOption("maintain");
   await page.waitForTimeout(150);
@@ -186,7 +216,7 @@ async function desktopSuite(browser) {
     /queueing|satisfied/.test(await page.locator("#view-colonies .rule-state").innerText()));
 
   // --- a governor policy proposes, and the player accepts
-  await page.getByRole("button", { name: "Officers", exact: true }).click();
+  await nav(page, "Officers").click();
   await page.getByRole("button", { name: /Administrators/ }).click();
   await page.locator(".officer-row").nth(1).click();
   await page.locator("#view-officers .panel-right select").selectOption("callisto");
@@ -195,8 +225,9 @@ async function desktopSuite(browser) {
 
   // Earth, not one of the new moons: a governor will not propose mining
   // ground the empire has never surveyed.
-  await page.getByRole("button", { name: "Colonies", exact: true }).click();
+  await nav(page, "Colonies").click();
   await page.locator("#view-colonies .tree-row", { hasText: "Earth" }).click();
+  await colonyTab(page, "Automation");
   await page.locator("#view-colonies .policy-row select").selectOption("mine");
   await page.waitForTimeout(300);
   await check("mining is not proposed for an unsurveyed world", async () =>
@@ -204,10 +235,12 @@ async function desktopSuite(browser) {
   const proposal = page.locator(".issue", { hasText: "Earth: work the deposits" }).first();
   await check("a governor policy produces a proposal", async () =>
     (await proposal.count()) > 0 && /Queue \d+/.test(await proposal.innerText()));
+  await colonyTab(page, "Production");
   const before = await page.locator("#view-colonies .queue-row").count();
   await proposal.getByRole("button").first().click();
   await page.waitForTimeout(300);
   await page.locator("#view-colonies .tree-row", { hasText: "Earth" }).click();
+  await colonyTab(page, "Production");
   await check("accepting a proposal queues the work", async () =>
     (await page.locator("#view-colonies .queue-row").count()) >= before);
 
@@ -232,7 +265,7 @@ async function shipSuite(browser) {
   };
 
   // --- the research view explains itself
-  await page.getByRole("button", { name: "Research", exact: true }).click();
+  await nav(page, "Research").click();
   await check("research opens on what is ready to start", async () =>
     (await page.locator(".research-tab.active").innerText()).includes("Ready now"));
   await check("the summary strip shows laboratories and scientists", async () =>
@@ -257,7 +290,7 @@ async function shipSuite(browser) {
     /Finishes in about/.test(await page.locator(".research-side").innerText()));
 
   // --- nothing can fly until an engine exists
-  await page.getByRole("button", { name: "Design", exact: true }).click();
+  await nav(page, "Design").click();
   await page.getByRole("button", { name: "New component", exact: true }).click();
   await check("engines show as locked in the component designer", async () =>
     (await page.locator("#view-design select").first().locator("option", { hasText: "Engine (locked)" }).count()) === 1);
@@ -274,7 +307,7 @@ async function shipSuite(browser) {
   });
 
   // --- the component designer
-  await page.getByRole("button", { name: "Design", exact: true }).click();
+  await nav(page, "Design").click();
   await page.getByRole("button", { name: "Add standard set", exact: true }).click();
   await page.waitForTimeout(200);
   await check("the standard set adds components", async () =>
@@ -333,13 +366,15 @@ async function shipSuite(browser) {
     /superseded rather than rewritten/.test(await page.locator("#view-design .fleet-detail").innerText()));
 
   // --- build it from the Fleets view
-  await page.getByRole("button", { name: "Fleets", exact: true }).click();
+  await nav(page, "Fleets").click();
   const runner = page.locator("#view-fleets .project-card", { hasText: "Test Runner" }).first();
   await check("the class is offered for building", async () => (await runner.count()) === 1);
   await runner.getByRole("button", { name: "Build", exact: true }).click();
   await page.getByRole("button", { name: "30 days/s", exact: true }).click();
   await page.waitForTimeout(4500);
-  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  // The completion itself may already have auto-paused the game.
+  const pauseBtn = page.getByRole("button", { name: "Pause", exact: true });
+  if (await pauseBtn.count()) await pauseBtn.click();
   await page.waitForTimeout(300);
   await check("the hull was commissioned into a fleet", async () =>
     (await page.locator("#view-fleets .panel-left .tree-row").count()) > 0);
@@ -363,7 +398,7 @@ async function shipSuite(browser) {
   await check("the fleet is under way", async () =>
     /Under way to Mars/.test(await page.locator("#view-fleets .fleet-detail").innerText()));
 
-  await page.getByRole("button", { name: "Map", exact: true }).click();
+  await nav(page, "Map").click();
   await page.waitForTimeout(600);
   await page.screenshot({ path: `${SHOTS}/ships-map.png` });
   await check("the map shows the fleet in the detail panel", async () =>
@@ -392,7 +427,7 @@ async function terraformSuite(browser) {
   };
 
   // The atmosphere reads through the gas model before anything is changed.
-  await page.getByRole("button", { name: "Map", exact: true }).click();
+  await nav(page, "Map").click();
   await page.locator(".tree-row", { hasText: "Venus" }).first().click();
   await page.getByRole("button", { name: "Environment", exact: true }).click();
   const venus = await page.locator("#detail-panel").innerText();
@@ -409,15 +444,16 @@ async function terraformSuite(browser) {
 
   await startResearch(page, "Terraforming Technology", { freeUp: true });
   await skip(12);
-  await page.getByRole("button", { name: "Research", exact: true }).click();
+  await nav(page, "Research").click();
   await page.locator(".research-search").fill("Terraforming Technology");
   await check("terraforming technology is researched", async () =>
     (await page.locator(".tech-node", { hasText: "Terraforming Technology" }).first().innerText())
       .includes("Researched"));
 
   // Build the processors on Earth and ship them to Mars.
-  await page.getByRole("button", { name: "Colonies", exact: true }).click();
+  await nav(page, "Colonies").click();
   await page.locator("#view-colonies .tree-row", { hasText: "Earth" }).click();
+  await colonyTab(page, "Production");
   // Processors need people to run them, so the colony needs housing first.
   const add = page.locator("#view-colonies .add-order").first();
   const queueForMars = async (installationId, quantity) => {
@@ -432,6 +468,7 @@ async function terraformSuite(browser) {
   await skip(50);
 
   await page.locator("#view-colonies .tree-row", { hasText: "Mars" }).click();
+  await colonyTab(page, "Terraforming");
   await page.waitForTimeout(300);
   const terraSection = () => page.locator("#view-colonies .terraform-section");
   await check("the processors were shipped to the colony", async () => {
@@ -462,12 +499,57 @@ async function terraformSuite(browser) {
 }
 
 async function readTemperature(page) {
-  const text = await page.locator("#view-colonies .section", { hasText: "Colony" }).first().innerText();
-  const match = text.match(/Temperature\s+(\d+)\s*K/);
+  // The header's vital signs carry the temperature beside the colony cost.
+  const text = await page.locator("#view-colonies .vitals").innerText();
+  const match = text.match(/(\d+)\s*K/);
   return match ? Number(match[1]) : NaN;
 }
 
 // ----------------------------------------------------------------- mobile
+
+async function refreshSuite(browser) {
+  console.log("\nUI refresh");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  await page.goto(URL);
+  await page.waitForSelector("#view-tabs");
+
+  // --- command palette
+  await page.keyboard.press("Control+k");
+  await check("Ctrl+K opens the command palette", async () => (await page.locator(".palette-input").count()) === 1);
+  await page.locator(".palette-input").fill("fleets");
+  await page.waitForTimeout(100);
+  await check("the palette finds screens", async () => (await page.locator(".palette-row").count()) > 0);
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(200);
+  await check("Enter jumps to the chosen screen", async () => await page.locator("#view-fleets").isVisible());
+  await check("the palette closes after choosing", async () => !(await page.locator(".palette-input").isVisible()));
+
+  // --- foldable sections remember their state
+  await nav(page, "Empire").click();
+  const head = page.locator("#view-empire .section > h3[role=button]").first();
+  const before = await head.getAttribute("aria-expanded");
+  await head.click();
+  await page.reload();
+  await page.waitForSelector("#view-tabs");
+  const after = await page.locator("#view-empire .section > h3[role=button]").first().getAttribute("aria-expanded");
+  await check("a folded section stays folded after reload", async () => before !== after);
+
+  // --- density
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem("aurora-like.settings") || "{}");
+    raw.density = "compact";
+    localStorage.setItem("aurora-like.settings", JSON.stringify(raw));
+  });
+  await page.reload();
+  await page.waitForSelector("#view-tabs");
+  await check("density is applied from settings", async () =>
+    (await page.evaluate(() => document.documentElement.dataset.density)) === "compact");
+
+  // --- the settings popover and the guide
+  await check("the status bar offers Next event", async () =>
+    (await page.getByRole("button", { name: "Skip to next event" }).count()) === 1);
+  await page.close();
+}
 
 async function mobileSuite(browser) {
   console.log("\nMobile (Pixel 7)");
@@ -501,7 +583,7 @@ async function mobileSuite(browser) {
     (await page.locator("#triage-rail").getAttribute("class")).includes("collapsed"));
 
   // The map, and a two-finger pinch.
-  await page.locator("#view-tabs").getByRole("button", { name: "Map" }).click();
+  await mobileGo(page, "Map");
   await page.waitForTimeout(500);
   const canvas = await page.locator("#map").boundingBox();
   await check("map canvas has room", () => canvas.width > 300 && canvas.height > 250);
@@ -526,16 +608,17 @@ async function mobileSuite(browser) {
   await check("pinch zooms the map", async () =>
     (await page.locator("#map-overlay").innerText()) !== scaleBefore);
 
-  await page.locator("#view-tabs").getByRole("button", { name: "Colonies" }).click();
+  await mobileGo(page, "Colonies");
   await page.waitForTimeout(400);
   await page.locator("#view-colonies .tree-row", { hasText: "Earth" }).click();
+  await colonyTab(page, "Production");
   await page.waitForTimeout(200);
   await check("colony view does not scroll sideways", async () => (await overflow()) <= 1);
   await check("the order form fits the width", async () =>
     (await page.locator("#view-colonies .add-order").first().boundingBox()).width <= viewport.width + 1);
 
   // The two newest screens, on a phone.
-  await page.locator("#view-tabs").getByRole("button", { name: "Research" }).click();
+  await mobileGo(page, "Research");
   await page.waitForTimeout(400);
   await check("research does not scroll sideways", async () => (await overflow()) <= 1);
   await check("research tiers stack into one column", async () => {
@@ -551,7 +634,7 @@ async function mobileSuite(browser) {
   });
   await page.screenshot({ path: `${SHOTS}/mobile-research.png` });
 
-  await page.locator("#view-tabs").getByRole("button", { name: "Design" }).click();
+  await mobileGo(page, "Design");
   await page.waitForTimeout(400);
   await check("the designer does not scroll sideways", async () => (await overflow()) <= 1);
   await page.screenshot({ path: `${SHOTS}/mobile-design.png` });
@@ -571,6 +654,7 @@ try {
   await desktopSuite(browser);
   await shipSuite(browser);
   await terraformSuite(browser);
+  await refreshSuite(browser);
   await mobileSuite(browser);
 } finally {
   await browser.close();

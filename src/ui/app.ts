@@ -3,7 +3,7 @@
 import { SystemMapRenderer, formatAu, type FleetMarker, type RenderOptions } from "../render/map";
 import { destinationOf } from "../sim/ships/fleet";
 import { Game } from "../state/game";
-import type { Body } from "../sim/system";
+import { classLabel, type Body } from "../sim/system";
 import { AU_KM } from "../sim/orbit";
 import { BodyTreePanel } from "./bodyTree";
 import { DetailPanel } from "./detailPanel";
@@ -17,6 +17,12 @@ import { OfficersView } from "./views/officersView";
 import { FleetsView } from "./views/fleetsView";
 import { DesignView } from "./views/designView";
 import { distance, el, lightTime, num } from "./format";
+import { CommandPalette } from "./palette";
+import { SettingsMenu } from "./settingsMenu";
+import { Toasts } from "./toasts";
+import { applyDensity, saveSettings, settings } from "./settings";
+import { LENSES, LENS_BY_ID, hoverLines, type LensId } from "./lenses";
+import { IMPORTANT_CATEGORIES, type LogEntry, type LogLink } from "../state/empire";
 
 interface ZoomPreset {
   label: string;
@@ -67,8 +73,13 @@ export interface AppRoots {
   tabs: HTMLElement;
   empireBar: HTMLElement;
   rail: HTMLElement;
+  paletteButton: HTMLElement;
+  settingsHost: HTMLElement;
   views: Record<ViewId, HTMLElement>;
 }
+
+/** Screens on a phone's bottom bar; the rest live behind "More". */
+const PRIMARY_VIEWS: ViewId[] = ["empire", "map", "colonies", "fleets"];
 
 export class App {
   private game = new Game();
@@ -83,6 +94,15 @@ export class App {
   private fleetsView: FleetsView;
   private designView: DesignView;
   private rail: TriageRail;
+  private toasts: Toasts;
+  private palette: CommandPalette;
+  private moreSheet = el("div", "more-sheet");
+  private lens: LensId = (LENS_BY_ID.has(settings.lens as LensId) ? settings.lens : "default") as LensId;
+  private legend = el("div", "map-legend");
+  private hoverCard = el("div", "map-hover");
+  /** Newest log entry already turned into a toast. */
+  private toastSeq = 0;
+  private lastToastClock = 0;
 
   private view: ViewId = "empire";
   /** The map camera cannot be framed until its container has a size. */
@@ -114,12 +134,15 @@ export class App {
       openEconomy: () => this.setView("colonies"),
       openFleets: () => this.setView("fleets"),
     });
-    this.time = new TimeControls(roots.time, this.game);
+    this.time = new TimeControls(roots.time, this.game, () => this.nextEvent());
     this.economy = new EconomyView(roots.views.colonies, this.game);
     this.research = new ResearchView(roots.views.research, this.game);
     this.officers = new OfficersView(roots.views.officers, this.game);
-    this.empireView = new EmpireView(roots.views.empire, this.game, (bodyId) =>
-      this.openColony(bodyId),
+    this.empireView = new EmpireView(
+      roots.views.empire,
+      this.game,
+      (bodyId) => this.openColony(bodyId),
+      (link) => this.navigate(link),
     );
     this.fleetsView = new FleetsView(roots.views.fleets, this.game, {
       openDesigner: (classId) => {
@@ -137,6 +160,39 @@ export class App {
       () => this.onRailToggled(),
     );
 
+    this.toasts = new Toasts(document.getElementById("app")!, (link) => this.navigate(link));
+    this.palette = new CommandPalette(document.getElementById("app")!, this.game, {
+      goView: (view) => this.setView(view),
+      openBody: (body) => this.zoomTo(body),
+      openColony: (bodyId) => this.openColony(bodyId),
+      openFleet: (fleetId) => this.navigate({ view: "fleets", fleetId }),
+      openTech: (techId) => this.navigate({ view: "research", techId }),
+      openClass: (designId) => {
+        this.designView.focusClass(designId);
+        this.setView("design");
+      },
+      togglePause: () => {
+        this.game.clock.togglePause();
+        this.time.refresh(true);
+      },
+      nextEvent: () => this.nextEvent(),
+      toggleDensity: () => {
+        settings.density = settings.density === "compact" ? "comfortable" : "compact";
+        applyDensity();
+        saveSettings();
+      },
+      toggleShipping: () => {
+        this.game.empire.civilianShipping = !this.game.empire.civilianShipping;
+        this.game.emit();
+      },
+    });
+    // The menu owns its own button and panel; it only needs to tell us when to redraw.
+    new SettingsMenu(roots.settingsHost, () => this.renderActiveView());
+    roots.paletteButton.addEventListener("click", () => this.palette.open());
+
+    // Events that stop the clock are the player's choice, remembered.
+    this.game.autoPauseFilter = (entry) => settings.autoPause[entry.category];
+
     this.buildViewTabs();
     this.buildTools(roots.tools);
 
@@ -145,6 +201,8 @@ export class App {
       this.tree.rebuild();
       this.renderActiveView();
       this.rail.render();
+      this.updateBadges();
+      this.announceEvents();
     });
 
     this.bindCanvas();
@@ -166,20 +224,143 @@ export class App {
     this.applyRailState();
     this.renderActiveView();
     this.rail.render();
+    this.updateBadges();
+    this.toastSeq = this.game.empire.logSeq;
     this.frame();
   }
 
   // ----------------------------------------------------------------- views
 
   private buildViewTabs(): void {
+    const tabs = this.roots.tabs;
     for (const tab of VIEW_TABS) {
-      const btn = el("button", "view-tab", tab.label);
+      const btn = el("button", "view-tab");
       btn.dataset.view = tab.id;
+      btn.append(el("span", "tab-label", tab.label), el("span", "tab-badge-dot"));
       btn.title = `${tab.label}  (${tab.key.toUpperCase()})`;
+      // The badge is extra information; the name of the screen stays the name.
+      btn.setAttribute("aria-label", tab.label);
+      // Screens past the first four fold behind "More" on a phone.
+      if (!PRIMARY_VIEWS.includes(tab.id)) btn.classList.add("secondary");
       btn.addEventListener("click", () => this.setView(tab.id));
-      this.roots.tabs.append(btn);
+      tabs.append(btn);
     }
+
+    const more = el("button", "view-tab more-tab");
+    more.append(el("span", "tab-label", "More"), el("span", "tab-badge-dot"));
+    more.setAttribute("aria-label", "More screens");
+    more.addEventListener("click", (event) => {
+      event.stopPropagation();
+      this.moreSheet.classList.toggle("open");
+    });
+    for (const tab of VIEW_TABS.filter((t) => !PRIMARY_VIEWS.includes(t.id))) {
+      const entry = el("button", "more-entry");
+      entry.dataset.view = tab.id;
+      entry.setAttribute("aria-label", tab.label);
+      entry.append(el("span", undefined, tab.label), el("span", "tab-badge-dot"));
+      entry.addEventListener("click", () => {
+        this.moreSheet.classList.remove("open");
+        this.setView(tab.id);
+      });
+      this.moreSheet.append(entry);
+    }
+    document.addEventListener("click", () => this.moreSheet.classList.remove("open"));
+    tabs.append(more, this.moreSheet);
     this.syncViewTabs();
+  }
+
+  /** A dot on each screen that has something wrong, coloured by how wrong. */
+  private updateBadges(): void {
+    const worst = new Map<string, { count: number; severity: string }>();
+    for (const issue of this.rail.current) {
+      if (issue.severity === "info") continue;
+      const entry = worst.get(issue.action.view) ?? { count: 0, severity: "warning" };
+      entry.count++;
+      if (issue.severity === "critical") entry.severity = "critical";
+      worst.set(issue.action.view, entry);
+    }
+    const apply = (node: Element, view: string | undefined) => {
+      const dot = node.querySelector(".tab-badge-dot") as HTMLElement | null;
+      const info = view ? worst.get(view) : undefined;
+      if (!dot) return;
+      dot.className = `tab-badge-dot${info ? ` on ${info.severity}` : ""}`;
+      dot.textContent = info ? String(info.count) : "";
+      dot.title = info ? `${info.count} item${info.count === 1 ? "" : "s"} need attention here` : "";
+    };
+    for (const node of Array.from(this.roots.tabs.querySelectorAll(".view-tab[data-view], .more-entry"))) {
+      apply(node, (node as HTMLElement).dataset.view);
+    }
+    // The More button carries the worst of whatever it hides.
+    const hidden = VIEW_TABS.filter((t) => !PRIMARY_VIEWS.includes(t.id)).map((t) => worst.get(t.id));
+    const moreDot = this.roots.tabs.querySelector(".more-tab .tab-badge-dot") as HTMLElement | null;
+    if (moreDot) {
+      const total = hidden.reduce((n, h) => n + (h?.count ?? 0), 0);
+      const critical = hidden.some((h) => h?.severity === "critical");
+      moreDot.className = `tab-badge-dot${total ? ` on ${critical ? "critical" : "warning"}` : ""}`;
+      moreDot.textContent = total ? String(total) : "";
+    }
+  }
+
+  // ------------------------------------------------- events and navigation
+
+  /** Turn fresh events into toasts, and explain a pause. */
+  private announceEvents(): void {
+    const { empire, clock } = this.game;
+    const fresh = empire.logSince(this.toastSeq);
+    this.toastSeq = empire.logSeq;
+
+    // If no time passed this was the player's own action, which they know about.
+    const advanced = clock.seconds !== this.lastToastClock;
+    this.lastToastClock = clock.seconds;
+    const pausedBy = this.game.pausedBy;
+    this.game.pausedBy = null;
+
+    if (pausedBy) {
+      this.toasts.push({
+        title: "Clock paused",
+        text: pausedBy.text,
+        category: pausedBy.category,
+        link: pausedBy.link,
+      });
+    }
+    if (!advanced) return;
+
+    // After a long jump there can be dozens; the most important few are enough.
+    const worth = fresh
+      .filter((e) => IMPORTANT_CATEGORIES.includes(e.category) && e !== pausedBy)
+      .slice(-3);
+    for (const entry of worth) {
+      this.toasts.push({ text: entry.text, category: entry.category, link: entry.link });
+    }
+  }
+
+  /** Run until something worth knowing about happens. */
+  private nextEvent(): void {
+    this.toasts.clear();
+    const found = this.game.runUntilEvent(
+      (entry: LogEntry) => IMPORTANT_CATEGORIES.includes(entry.category),
+      365,
+    );
+    this.game.pausedBy = null;
+    this.toasts.push(
+      found
+        ? { title: "Next event", text: found.text, category: found.category, link: found.link }
+        : { text: "Nothing notable happened in the next year.", category: "info" },
+    );
+    this.time.refresh(true);
+  }
+
+  /** Take the player to wherever an event or notice points. */
+  private navigate(link: LogLink): void {
+    const body = link.bodyId ? this.game.system.byId.get(link.bodyId) : undefined;
+    if (link.view === "map" && body) {
+      this.zoomTo(body);
+      return;
+    }
+    if (body) this.game.select(body);
+    if (link.fleetId) this.game.selectFleet(link.fleetId);
+    if (link.techId) this.research.focusTech(link.techId);
+    this.setView(link.view);
   }
 
   setView(view: ViewId): void {
@@ -216,7 +397,7 @@ export class App {
     if (this.narrow.matches) {
       if (tabs.parentElement !== app) app.append(tabs);
     } else if (tabs.parentElement !== header) {
-      header.insertBefore(tabs, this.roots.time);
+      header.insertBefore(tabs, header.querySelector(".topbar-tools"));
     }
   }
 
@@ -257,9 +438,12 @@ export class App {
   }
 
   private syncViewTabs(): void {
-    for (const btn of Array.from(this.roots.tabs.children) as HTMLElement[]) {
+    for (const btn of Array.from(this.roots.tabs.querySelectorAll<HTMLElement>("[data-view]"))) {
       btn.classList.toggle("active", btn.dataset.view === this.view);
     }
+    // On a phone a screen behind "More" lights the More button instead.
+    const behindMore = !PRIMARY_VIEWS.includes(this.view);
+    this.roots.tabs.querySelector(".more-tab")?.classList.toggle("active", behindMore);
   }
 
   private renderActiveView(): void {
@@ -321,6 +505,26 @@ export class App {
     }
     root.append(zooms);
 
+    // --- lenses: recolour the system by the question being asked
+    const lenses = el("div", "tool-group lens-group");
+    lenses.append(el("span", "tool-label", "Lens"));
+    for (const lens of LENSES) {
+      const btn = el("button", "tool-btn lens-btn", lens.label);
+      btn.dataset.lens = lens.id;
+      btn.title = lens.question;
+      btn.addEventListener("click", () => {
+        this.lens = lens.id;
+        settings.lens = lens.id;
+        saveSettings();
+        this.syncLens();
+      });
+      lenses.append(btn);
+    }
+    root.append(lenses);
+    const pane = this.canvas.parentElement;
+    pane?.append(this.legend, this.hoverCard);
+    this.syncLens();
+
     const toggles = el("div", "tool-group");
     toggles.append(el("span", "tool-label", "Show"));
     const entries: [keyof RenderOptions, string][] = [
@@ -348,6 +552,55 @@ export class App {
     toggles.append(follow);
     root.append(toggles);
     this.syncToggles();
+  }
+
+  private syncLens(): void {
+    for (const btn of Array.from(document.querySelectorAll<HTMLElement>(".lens-btn"))) {
+      btn.classList.toggle("active", btn.dataset.lens === this.lens);
+    }
+    const lens = LENS_BY_ID.get(this.lens)!;
+    this.legend.textContent = "";
+    this.legend.classList.toggle("on", lens.legend.length > 0);
+    if (lens.legend.length) {
+      this.legend.append(el("div", "legend-title", lens.question));
+      for (const entry of lens.legend) {
+        const row = el("div", "legend-row");
+        const swatch = el("span", "legend-swatch");
+        swatch.style.background = entry.color;
+        row.append(swatch, el("span", undefined, entry.label));
+        this.legend.append(row);
+      }
+    }
+  }
+
+  /** The card that follows the pointer, so a body's vitals need no click. */
+  private updateHoverCard(): void {
+    const body = this.hovered;
+    if (!body || this.dragging || this.view !== "map") {
+      this.hoverCard.classList.remove("on");
+      return;
+    }
+    this.hoverCard.textContent = "";
+    this.hoverCard.append(el("div", "hover-name", body.name));
+    this.hoverCard.append(el("div", "hover-class", classLabel(body)));
+    for (const line of hoverLines(body, this.game)) this.hoverCard.append(el("div", "hover-line", line));
+    this.hoverCard.classList.add("on");
+
+    const pane = this.canvas.parentElement;
+    if (!pane) return;
+    const w = this.hoverCard.offsetWidth;
+    const h = this.hoverCard.offsetHeight;
+    let x = this.pointer.x + 16;
+    let y = this.pointer.y + 16;
+    if (x + w > pane.clientWidth - 6) x = this.pointer.x - w - 16;
+    if (y + h > pane.clientHeight - 30) y = this.pointer.y - h - 16;
+    this.hoverCard.style.transform = `translate(${Math.max(6, x)}px, ${Math.max(6, y)}px)`;
+  }
+
+  private lensColorFn(): ((body: Body) => string | null) | null {
+    if (this.lens === "default") return null;
+    const lens = LENS_BY_ID.get(this.lens)!;
+    return (body) => lens.color(body, this.game);
   }
 
   private syncToggles(): void {
@@ -451,6 +704,7 @@ export class App {
       } else if (!this.dragging && e.pointerType === "mouse") {
         this.hovered = this.renderer.pick(position.x, position.y);
         canvas.style.cursor = this.hovered ? "pointer" : "grab";
+        this.updateHoverCard();
       }
     });
 
@@ -476,6 +730,10 @@ export class App {
         else this.game.select(this.renderer.pick(this.pointer.x, this.pointer.y));
       }
     };
+    canvas.addEventListener("pointerleave", () => {
+      this.hovered = null;
+      this.hoverCard.classList.remove("on");
+    });
     canvas.addEventListener("pointerup", endPointer);
     canvas.addEventListener("pointercancel", endPointer);
 
@@ -526,7 +784,23 @@ export class App {
 
   private bindKeys(): void {
     window.addEventListener("keydown", (e) => {
+      // The palette opens from anywhere - including from inside a text field.
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        this.palette.toggle();
+        return;
+      }
+      if (this.palette.isOpen) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+      if (e.key === "/") {
+        e.preventDefault();
+        this.palette.open();
+        return;
+      }
+      if (e.key.toLowerCase() === "n" && !e.ctrlKey && !e.metaKey) {
+        this.nextEvent();
+        return;
+      }
 
       const tab = VIEW_TABS.find((t) => t.key === e.key);
       if (tab) {
@@ -538,6 +812,7 @@ export class App {
         case " ":
           e.preventDefault();
           this.game.clock.togglePause();
+          this.game.pausedBy = null;
           break;
         case "g":
           this.game.follow = !this.game.follow;
@@ -553,8 +828,9 @@ export class App {
           this.renderer.camera.zoomAt(this.pointer.x, this.pointer.y, 1 / 1.3);
           break;
         default:
-          if (e.key >= "1" && e.key <= "7") {
-            this.game.clock.setRate(Number(e.key) - 1);
+          if (e.key >= "1" && e.key <= "6") {
+            this.game.clock.setRate(Number(e.key));
+            this.game.pausedBy = null;
           }
       }
       this.time.refresh();
@@ -581,6 +857,7 @@ export class App {
         this.options,
         this.fleetMarkers(),
         this.game.selectedFleet,
+        this.lensColorFn(),
       );
       this.tree.refresh();
       this.updateOverlay();
