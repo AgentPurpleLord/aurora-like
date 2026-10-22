@@ -89,7 +89,7 @@ async function desktopSuite(browser) {
 
   // --- settle two moons to develop
   for (const moon of ["Callisto", "Ganymede"]) {
-    await page.getByRole("button", { name: "System Map", exact: true }).click();
+    await page.getByRole("button", { name: "Map", exact: true }).click();
     await page.locator(".tree-row", { hasText: moon }).first().click();
     await page.getByRole("button", { name: "Colony", exact: true }).click();
     await page.getByRole("button", { name: "Establish Colony" }).click();
@@ -165,12 +165,16 @@ async function desktopSuite(browser) {
   await page.getByRole("button", { name: "Officers", exact: true }).click();
   await page.getByRole("button", { name: /Administrators/ }).click();
   await page.locator(".officer-row").nth(1).click();
-  await page.locator("#view-officers .panel-right select").selectOption("ganymede");
+  // Mars, not one of the new moons: a governor will not propose mining
+  // ground the empire has never surveyed.
+  await page.locator("#view-officers .panel-right select").selectOption("mars");
   await page.getByRole("button", { name: "Colonies", exact: true }).click();
-  await page.locator("#view-colonies .tree-row", { hasText: "Ganymede" }).click();
+  await page.locator("#view-colonies .tree-row", { hasText: "Mars" }).click();
   await page.locator("#view-colonies .policy-row select").selectOption("mine");
   await page.waitForTimeout(300);
-  const proposal = page.locator(".issue", { hasText: "Ganymede" }).first();
+  await check("mining is not proposed for an unsurveyed world", async () =>
+    (await page.locator(".issue", { hasText: "Ganymede: work the deposits" }).count()) === 0);
+  const proposal = page.locator(".issue", { hasText: "Mars: work the deposits" }).first();
   await check("a governor policy produces a proposal", async () =>
     (await proposal.count()) > 0 && /Queue \d+/.test(await proposal.innerText()));
   const before = await page.locator("#view-colonies .queue-row").count();
@@ -179,6 +183,116 @@ async function desktopSuite(browser) {
   await page.locator("#view-colonies .tree-row", { hasText: "Earth" }).click();
   await check("accepting a proposal queues the work", async () =>
     (await page.locator("#view-colonies .queue-row").count()) >= before);
+
+  await check("no console errors", () => errors.length === 0);
+  if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
+  await page.close();
+}
+
+// ------------------------------------------------------------------ ships
+
+async function shipSuite(browser) {
+  console.log("\nShips and fleets (1680x980)");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  const errors = watchErrors(page);
+  await page.goto(URL, { waitUntil: "networkidle" });
+  await page.waitForTimeout(700);
+
+  // Nothing can be designed until an engine exists.
+  await page.getByRole("button", { name: "Fleets", exact: true }).click();
+  await check("no classes can be designed without an engine", async () =>
+    (await page.locator("#view-fleets .panel-right").innerText()).includes("No engine"));
+
+  // Research the first drive. The opening projects hold every lab on Earth,
+  // so they are cancelled to free them.
+  await page.getByRole("button", { name: "Research", exact: true }).click();
+  let running = await page.locator("#view-research .project-card").count();
+  for (let i = 0; i < running; i++) {
+    await page.locator("#view-research .project-card").first()
+      .getByRole("button", { name: "Cancel" }).click();
+    await page.waitForTimeout(150);
+  }
+  const engine = page.locator(".tech-row", { hasText: "Nuclear Thermal Engine Technology" }).first();
+  await engine.getByRole("button", { name: "Begin Research" }).click();
+  // Give it every lab the scientist can direct, or this takes half a year.
+  const labs = engine.locator(".assign-form .number-input");
+  await labs.fill("40");
+  await labs.press("Enter");
+  await engine.getByRole("button", { name: "Start" }).click();
+  await page.getByRole("button", { name: "30 days/s", exact: true }).click();
+  await page.waitForTimeout(5000);
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+
+  await page.getByRole("button", { name: "Fleets", exact: true }).click();
+  await page.waitForTimeout(300);
+  await check("researching an engine unlocks ship design", async () =>
+    (await page.locator("#view-fleets .panel-right").innerText()).includes("New class"));
+
+  // The designer derives figures as components are added.
+  await page.getByRole("button", { name: "New class", exact: true }).click();
+  await page.waitForTimeout(200);
+  const engineRow = page.locator(".component-row", { hasText: "Nuclear Thermal Engine" }).first();
+  await engineRow.getByRole("button", { name: "+", exact: true }).click();
+  await page.waitForTimeout(150);
+  await check("a design with only an engine has no crew quarters", async () =>
+    (await page.locator("#view-fleets .fleet-detail").innerText()).includes("Crew quarters short"));
+  const beforeTons = await page.locator("#view-fleets .fleet-detail").innerText();
+  await page.locator(".component-row", { hasText: "Cargo Hold" }).first()
+    .getByRole("button", { name: "+", exact: true }).click();
+  await page.waitForTimeout(150);
+  await check("adding a component changes the derived figures", async () =>
+    (await page.locator("#view-fleets .fleet-detail").innerText()) !== beforeTons);
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+
+  // Standard classes, then build one.
+  await page.getByRole("button", { name: /Add \d+ standard classes/ }).click();
+  await page.waitForTimeout(300);
+  await check("standard classes are added", async () =>
+    (await page.locator("#view-fleets .project-card").count()) >= 2);
+  const hauler = page.locator("#view-fleets .project-card", { hasText: "Hauler" }).first();
+  await check("a class reports its speed and range", async () =>
+    /km\/s/.test(await hauler.innerText()) && /AU/.test(await hauler.innerText()));
+  await hauler.getByRole("button", { name: "Build", exact: true }).click();
+  await page.waitForTimeout(200);
+
+  await page.getByRole("button", { name: "30 days/s", exact: true }).click();
+  await page.waitForTimeout(4000);
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await page.waitForTimeout(300);
+  await check("the hull was commissioned into a fleet", async () =>
+    (await page.locator("#view-fleets .panel-left .tree-row").count()) > 0);
+
+  // Orders: send it to Mars.
+  await page.locator("#view-fleets .panel-left .tree-row").first().click();
+  await page.waitForTimeout(200);
+  await check("the fleet reports where it is", async () =>
+    /At Earth/.test(await page.locator("#view-fleets .detail-sub").first().innerText()));
+  const orderForm = page.locator("#view-fleets .section", { hasText: "Orders" }).first();
+  await orderForm.locator("select").first().selectOption("move");
+  await page.waitForTimeout(150);
+  await page.locator("#view-fleets .add-order select").nth(1).selectOption("mars");
+  await page.getByRole("button", { name: "Add order", exact: true }).click();
+  await page.waitForTimeout(200);
+  await check("the move order is queued", async () =>
+    (await page.locator("#view-fleets .order-row").innerText()).includes("Mars"));
+
+  await page.getByRole("button", { name: "1 day/s", exact: true }).click();
+  await page.waitForTimeout(2500);
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await page.waitForTimeout(300);
+  await check("the fleet is under way and burning fuel", async () => {
+    const text = await page.locator("#view-fleets .fleet-detail").innerText();
+    return /Under way to Mars/.test(text);
+  });
+
+  // The map draws it, and clicking it selects it.
+  await page.getByRole("button", { name: "Map", exact: true }).click();
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: "ships-map.png" });
+  await check("the map shows the fleet in the detail panel after selection", async () => {
+    const panel = await page.locator("#detail-panel").innerText();
+    return panel.length > 0;
+  });
 
   await check("no console errors", () => errors.length === 0);
   if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
@@ -219,7 +333,7 @@ async function mobileSuite(browser) {
     (await page.locator("#triage-rail").getAttribute("class")).includes("collapsed"));
 
   // The map, and a two-finger pinch.
-  await page.locator("#view-tabs").getByRole("button", { name: "System Map" }).click();
+  await page.locator("#view-tabs").getByRole("button", { name: "Map" }).click();
   await page.waitForTimeout(500);
   const canvas = await page.locator("#map").boundingBox();
   await check("map canvas has room", () => canvas.width > 300 && canvas.height > 250);
@@ -265,6 +379,7 @@ async function mobileSuite(browser) {
 const browser = await chromium.launch(launch);
 try {
   await desktopSuite(browser);
+  await shipSuite(browser);
   await mobileSuite(browser);
 } finally {
   await browser.close();

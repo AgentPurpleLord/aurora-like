@@ -16,6 +16,18 @@ export interface RenderOptions {
   showLabels: boolean;
   showBelts: boolean;
   showGrid: boolean;
+  showFleets: boolean;
+}
+
+/** A fleet as the map needs to know it: where it is and where it is going. */
+export interface FleetMarker {
+  id: string;
+  name: string;
+  position: Vec3;
+  /** World position of the body it is heading for, if any. */
+  destination: Vec3 | null;
+  ships: number;
+  stranded: boolean;
 }
 
 interface ScreenBody {
@@ -23,6 +35,12 @@ interface ScreenBody {
   sx: number;
   sy: number;
   radius: number;
+}
+
+interface ScreenFleet {
+  id: string;
+  sx: number;
+  sy: number;
 }
 
 const MIN_RADIUS: Record<string, number> = {
@@ -48,6 +66,7 @@ export class SystemMapRenderer {
   private ctx: CanvasRenderingContext2D;
   private stars: { x: number; y: number; r: number; a: number }[] = [];
   private screenBodies: ScreenBody[] = [];
+  private screenFleets: ScreenFleet[] = [];
   private labelBoxes: { x: number; y: number; w: number; h: number }[] = [];
   private dpr = 1;
 
@@ -98,7 +117,27 @@ export class SystemMapRenderer {
     return best;
   }
 
-  draw(selected: Body | null, hovered: Body | null, opts: RenderOptions): void {
+  /** Fleet nearest a screen point, within a grab radius. */
+  pickFleet(sx: number, sy: number): string | null {
+    let best: string | null = null;
+    let bestDist = 14;
+    for (const fleet of this.screenFleets) {
+      const d = Math.hypot(fleet.sx - sx, fleet.sy - sy);
+      if (d < bestDist) {
+        bestDist = d;
+        best = fleet.id;
+      }
+    }
+    return best;
+  }
+
+  draw(
+    selected: Body | null,
+    hovered: Body | null,
+    opts: RenderOptions,
+    fleets: FleetMarker[] = [],
+    selectedFleet: string | null = null,
+  ): void {
     const { ctx, camera } = this;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.fillStyle = "#05070d";
@@ -109,6 +148,8 @@ export class SystemMapRenderer {
     if (opts.showOrbits) this.drawOrbits(selected);
     if (opts.showBelts) this.drawMotes();
     this.drawBodies(selected, hovered, opts.showLabels);
+    if (opts.showFleets) this.drawFleets(fleets, selectedFleet, opts.showLabels);
+    else this.screenFleets = [];
     this.drawScaleBar();
   }
 
@@ -363,6 +404,83 @@ export class SystemMapRenderer {
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.fillText(body.name, x, y);
+  }
+
+  /**
+   * Fleets are drawn as chevrons pointing at where they are going, with a
+   * dashed line to the destination so a glance tells you what is in transit.
+   */
+  private drawFleets(fleets: FleetMarker[], selectedId: string | null, showLabels: boolean): void {
+    const { ctx, camera } = this;
+    this.screenFleets = [];
+
+    for (const fleet of fleets) {
+      const sx = camera.worldToScreenX(fleet.position.x);
+      const sy = camera.worldToScreenY(fleet.position.y);
+      if (sx < -40 || sx > camera.width + 40 || sy < -40 || sy > camera.height + 40) continue;
+      this.screenFleets.push({ id: fleet.id, sx, sy });
+
+      const selected = fleet.id === selectedId;
+      const colour = fleet.stranded ? "#e2725b" : selected ? "#ffd678" : "#7fe0d4";
+
+      if (fleet.destination) {
+        const dx = camera.worldToScreenX(fleet.destination.x);
+        const dy = camera.worldToScreenY(fleet.destination.y);
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = selected ? "rgba(255, 214, 120, 0.75)" : "rgba(127, 224, 212, 0.35)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(dx, dy);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Point the chevron along the course, or north when holding station.
+      let angle = -Math.PI / 2;
+      if (fleet.destination) {
+        angle = Math.atan2(
+          -(fleet.destination.y - fleet.position.y),
+          fleet.destination.x - fleet.position.x,
+        );
+      }
+
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(angle);
+      ctx.fillStyle = colour;
+      ctx.beginPath();
+      ctx.moveTo(7, 0);
+      ctx.lineTo(-5, 4.5);
+      ctx.lineTo(-2.5, 0);
+      ctx.lineTo(-5, -4.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      if (selected) {
+        ctx.strokeStyle = "#ffd678";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 11, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      if (showLabels) {
+        ctx.font = selected
+          ? "600 11px ui-sans-serif, system-ui, sans-serif"
+          : "10px ui-sans-serif, system-ui, sans-serif";
+        ctx.fillStyle = selected ? "#ffd678" : "rgba(127, 224, 212, 0.85)";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillText(
+          fleet.ships > 1 ? `${fleet.name} (${fleet.ships})` : fleet.name,
+          sx + 10,
+          sy + 9,
+        );
+      }
+    }
   }
 
   private drawScaleBar(): void {

@@ -1,6 +1,7 @@
 /** Wires the map, the views, the panels and input into a running application. */
 
-import { SystemMapRenderer, formatAu, type RenderOptions } from "../render/map";
+import { SystemMapRenderer, formatAu, type FleetMarker, type RenderOptions } from "../render/map";
+import { destinationOf } from "../sim/ships/fleet";
 import { Game } from "../state/game";
 import type { Body } from "../sim/system";
 import { AU_KM } from "../sim/orbit";
@@ -13,6 +14,7 @@ import { TriageRail } from "./triageRail";
 import type { Issue } from "../sim/issues";
 import { ResearchView } from "./views/researchView";
 import { OfficersView } from "./views/officersView";
+import { FleetsView } from "./views/fleetsView";
 import { distance, el, lightTime, num } from "./format";
 
 interface ZoomPreset {
@@ -32,12 +34,13 @@ const ZOOM_PRESETS: ZoomPreset[] = [
   { label: "Kuiper", spanAu: 75 },
 ];
 
-export type ViewId = "empire" | "map" | "colonies" | "research" | "officers";
+export type ViewId = "empire" | "map" | "colonies" | "fleets" | "research" | "officers";
 
 const VIEW_TABS: { id: ViewId; label: string; key: string }[] = [
   { id: "empire", label: "Empire", key: "e" },
-  { id: "map", label: "System Map", key: "m" },
+  { id: "map", label: "Map", key: "m" },
   { id: "colonies", label: "Colonies", key: "c" },
+  { id: "fleets", label: "Fleets", key: "f" },
   { id: "research", label: "Research", key: "r" },
   { id: "officers", label: "Officers", key: "o" },
 ];
@@ -47,6 +50,7 @@ const RAIL_COLLAPSED_BY_DEFAULT: Record<ViewId, boolean> = {
   empire: false,
   map: true,
   colonies: false,
+  fleets: false,
   research: false,
   officers: false,
 };
@@ -73,6 +77,7 @@ export class App {
   private economy: EconomyView;
   private research: ResearchView;
   private officers: OfficersView;
+  private fleetsView: FleetsView;
   private rail: TriageRail;
 
   private view: ViewId = "empire";
@@ -94,6 +99,7 @@ export class App {
     showLabels: true,
     showBelts: true,
     showGrid: true,
+    showFleets: true,
   };
 
   constructor(private canvas: HTMLCanvasElement, private roots: AppRoots) {
@@ -102,6 +108,7 @@ export class App {
     this.detail = new DetailPanel(roots.detail, this.game, {
       zoomTo: (b) => this.zoomTo(b),
       openEconomy: () => this.setView("colonies"),
+      openFleets: () => this.setView("fleets"),
     });
     this.time = new TimeControls(roots.time, this.game);
     this.economy = new EconomyView(roots.views.colonies, this.game);
@@ -110,6 +117,7 @@ export class App {
     this.empireView = new EmpireView(roots.views.empire, this.game, (bodyId) =>
       this.openColony(bodyId),
     );
+    this.fleetsView = new FleetsView(roots.views.fleets, this.game);
     this.rail = new TriageRail(
       roots.rail,
       this.game,
@@ -246,6 +254,7 @@ export class App {
     switch (this.view) {
       case "empire": this.empireView.render(); break;
       case "colonies": this.economy.render(); break;
+      case "fleets": this.fleetsView.render(); break;
       case "research": this.research.render(); break;
       case "officers": this.officers.render(); break;
       case "map": break;
@@ -306,6 +315,7 @@ export class App {
       ["showLabels", "Labels"],
       ["showBelts", "Belts"],
       ["showGrid", "Grid"],
+      ["showFleets", "Fleets"],
     ];
     for (const [key, label] of entries) {
       const btn = el("button", "tool-btn toggle", label);
@@ -446,9 +456,11 @@ export class App {
         return;
       }
       this.dragging = false;
-      // A tap, not a drag.
+      // A tap, not a drag. Fleets sit on top of bodies for picking.
       if (this.dragMoved < 6) {
-        this.game.select(this.renderer.pick(this.pointer.x, this.pointer.y));
+        const fleet = this.renderer.pickFleet(this.pointer.x, this.pointer.y);
+        if (fleet) this.game.selectFleet(fleet);
+        else this.game.select(this.renderer.pick(this.pointer.x, this.pointer.y));
       }
     };
     canvas.addEventListener("pointerup", endPointer);
@@ -469,7 +481,22 @@ export class App {
       { passive: false },
     );
 
-    canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+    canvas.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      // Right-click a body to send the selected fleet there.
+      const fleet = this.game.empire.fleets.get(this.game.selectedFleet ?? "");
+      if (!fleet) return;
+      const rect = canvas.getBoundingClientRect();
+      const body = this.renderer.pick(e.clientX - rect.left, e.clientY - rect.top);
+      if (!body) return;
+      fleet.orders.push({ kind: "move", bodyId: body.id });
+      this.game.empire.addLog(
+        this.game.clock.seconds,
+        "fleet",
+        `${fleet.name} ordered to ${body.name}.`,
+      );
+      this.game.emit();
+    });
   }
 
   private spanBetweenPointers(): number {
@@ -499,7 +526,7 @@ export class App {
           e.preventDefault();
           this.game.clock.togglePause();
           break;
-        case "f":
+        case "g":
           this.game.follow = !this.game.follow;
           this.syncToggles();
           break;
@@ -535,7 +562,13 @@ export class App {
         const target = this.game.selected;
         this.renderer.camera.centerOn(target.world.x, target.world.y);
       }
-      this.renderer.draw(this.game.selected, this.hovered, this.options);
+      this.renderer.draw(
+        this.game.selected,
+        this.hovered,
+        this.options,
+        this.fleetMarkers(),
+        this.game.selectedFleet,
+      );
       this.tree.refresh();
       this.updateOverlay();
     }
@@ -543,6 +576,26 @@ export class App {
 
     requestAnimationFrame(this.frame);
   };
+
+  /** The fleets as the renderer wants them: position, course, state. */
+  private fleetMarkers(): FleetMarker[] {
+    const markers: FleetMarker[] = [];
+    for (const fleet of this.game.empire.fleets.values()) {
+      const destinationId = destinationOf(fleet);
+      const destination = destinationId
+        ? this.game.system.byId.get(destinationId)?.world ?? null
+        : null;
+      markers.push({
+        id: fleet.id,
+        name: fleet.name,
+        position: fleet.position,
+        destination,
+        ships: fleet.shipIds.length,
+        stranded: Boolean(fleet.note),
+      });
+    }
+    return markers;
+  }
 
   private updateOverlay(): void {
     const camera = this.renderer.camera;

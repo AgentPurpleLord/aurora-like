@@ -18,6 +18,8 @@ export interface BuildOrder {
   progress: number;
   /** Set when the last cycle could not draw the minerals it needed. */
   starved: boolean;
+  /** Ship class being built, when this is a hull rather than an installation. */
+  designId: string | null;
   /** Queued by a standing order rather than by hand. */
   auto: boolean;
 }
@@ -27,6 +29,8 @@ export interface Colony {
   /** Millions of people. */
   population: number;
   installations: Record<string, number>;
+  /** Built but not yet installed: crated up, waiting for a ship. */
+  stored: Record<string, number>;
   stockpile: Record<MineralName, number>;
   /** Litres. */
   fuel: number;
@@ -51,6 +55,7 @@ export function createColony(bodyId: string, founded: number): Colony {
     bodyId,
     population: 0,
     installations: {},
+    stored: {},
     stockpile: emptyStockpile(),
     fuel: 0,
     buildQueue: [],

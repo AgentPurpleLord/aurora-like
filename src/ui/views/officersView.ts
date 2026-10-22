@@ -113,6 +113,10 @@ export class OfficersView {
     if (assignment.kind === "governor") {
       return `Governor, ${this.game.system.byId.get(assignment.targetId)?.name ?? assignment.targetId}`;
     }
+    if (assignment.kind === "fleet") {
+      const fleet = empire.fleets.get(assignment.targetId);
+      return fleet ? `Commanding ${fleet.name}` : "unassigned";
+    }
     const project = empire.projects.find((p) => p.id === assignment.targetId);
     return project ? `Research: ${TECH_BY_ID.get(project.techId)?.name}` : "unassigned";
   }
@@ -233,12 +237,42 @@ export class OfficersView {
       return;
     }
 
-    emptyNote(
-      sec,
-      officer.branch === "navy"
-        ? "No commands available. Naval postings arrive with ship design and fleets."
-        : "No commands available. Ground postings arrive with ground forces.",
-    );
+    if (officer.branch === "navy") {
+      const fleets = [...empire.fleets.values()];
+      if (!fleets.length) {
+        emptyNote(sec, "No fleets to command yet. Design a class and lay down a hull.");
+        return;
+      }
+      sec.append(
+        select(
+          [
+            { value: "", label: "- unassigned -" },
+            ...fleets.map((f) => ({ value: f.id, label: `Command ${f.name}` })),
+          ],
+          officer.assignment?.kind === "fleet" ? officer.assignment.targetId : "",
+          (value) => {
+            // The fleet record carries its own commander, so keep both in step.
+            const previous = officer.assignment?.kind === "fleet"
+              ? empire.fleets.get(officer.assignment.targetId)
+              : undefined;
+            if (previous) previous.commanderId = null;
+            empire.assignOfficer(
+              officer.id,
+              value ? { kind: "fleet", targetId: value, since: this.game.clock.seconds } : null,
+            );
+            const fleet = value ? empire.fleets.get(value) : undefined;
+            if (fleet) fleet.commanderId = officer.id;
+            this.game.emit();
+          },
+        ),
+      );
+      sec.append(
+        el("p", "muted small", "Engineering reduces the fuel a fleet burns under way."),
+      );
+      return;
+    }
+
+    emptyNote(sec, "No commands available. Ground postings arrive with ground forces.");
   }
 }
 

@@ -370,15 +370,18 @@ button.active {
 .view.active { display: grid; }
 .view-map.active { grid-template-columns: 250px 1fr 350px; }
 .view-colonies.active { grid-template-columns: 230px minmax(0, 1fr); }
+.view-fleets.active { grid-template-columns: 250px minmax(0, 1fr) 340px; }
 .view-empire.active { grid-template-columns: minmax(0, 1fr); }
 .view-research.active { grid-template-columns: 320px minmax(0, 1fr) 300px; }
 .view-officers.active { grid-template-columns: minmax(0, 1fr) 340px; }
 
 /* Wide panes keep their content in a readable column. */
-.colony-detail .detail-body > .section { max-width: 940px; }
 .tech-tree .detail-body > .tech-group { max-width: 1040px; }
 
-.colony-detail, .tech-tree, .officer-list {
+.colony-detail .detail-body > .section { max-width: 940px; }
+.fleet-detail .detail-body > .section { max-width: 820px; }
+
+.colony-detail, .fleet-detail, .tech-tree, .officer-list {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -926,7 +929,7 @@ h3.with-action { display: flex; justify-content: space-between; align-items: cen
 
   .view-tabs {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 0;
     background: #0b1420;
     border-top: 1px solid var(--line);
@@ -936,8 +939,9 @@ h3.with-action { display: flex; justify-content: space-between; align-items: cen
     border-radius: 0;
     border: none;
     border-top: 2px solid transparent;
-    padding: 11px 2px;
-    font-size: 10px;
+    padding: 11px 1px;
+    font-size: 9px;
+    letter-spacing: 0.4px;
   }
   .view-tab.active { border-top-color: var(--accent); background: #16243a; }
 
@@ -945,7 +949,10 @@ h3.with-action { display: flex; justify-content: space-between; align-items: cen
 
   /* One scrolling column per view, clear of the floating attention pill. */
   .view.active { display: block; overflow-y: auto; padding-bottom: 52px; }
-  .panel, .colony-detail, .tech-tree, .officer-list {
+  .panel, .colony-detail .detail-body > .section { max-width: 940px; }
+.fleet-detail .detail-body > .section { max-width: 820px; }
+
+.colony-detail, .fleet-detail, .tech-tree, .officer-list {
     border: none;
     border-bottom: 1px solid var(--line);
   }
@@ -1035,4 +1042,45 @@ h3.with-action { display: flex; justify-content: space-between; align-items: cen
   .tree-row { padding-top: 7px; padding-bottom: 7px; }
   .data-row { padding-top: 8px; padding-bottom: 8px; }
   .tab { padding: 11px 4px; }
+}
+
+/* ------------------------------------------------------------------ ships */
+
+.component-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 130px 40px 28px 28px;
+  gap: 8px;
+  align-items: center;
+  padding: 3px 0;
+  border-bottom: 1px solid #101a26;
+}
+.component-row .muted { text-align: right; }
+.component-row .install-count { text-align: right; }
+
+.order-row { grid-template-columns: minmax(0, 1fr) auto 24px; }
+
+.fleet-card {
+  padding: 8px 10px;
+  margin: -10px -10px 10px;
+  background: #11202f;
+  border-bottom: 1px solid var(--accent-dim);
+}
+.fleet-card .detail-title { font-size: 15px; }
+.fleet-card-stats {
+  display: flex;
+  gap: 14px;
+  margin-top: 4px;
+  font: 11px ui-monospace, monospace;
+  color: var(--text);
+}
+.fleet-card .form-actions { margin-top: 6px; }
+
+.view-fleets .project-controls { flex-wrap: wrap; }
+.view-fleets .project-controls .select { max-width: 130px; margin: 0; }
+
+@media (max-width: 860px) {
+  .view-fleets.active { grid-template-columns: minmax(0, 1fr); }
+  .component-row { grid-template-columns: minmax(0, 1fr) 40px 34px 34px; }
+  .component-row .muted { display: none; }
+  .fleet-card { margin: -10px -10px 8px; }
 }

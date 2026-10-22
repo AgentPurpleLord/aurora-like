@@ -9,6 +9,13 @@ import {
   populationCapacity,
 } from "../sim/economy/production";
 import { fullName } from "../sim/people/officers";
+import {
+  destinationOf,
+  fleetEta,
+  fleetStats,
+  type Fleet,
+} from "../sim/ships/fleet";
+import { formatYears } from "./views/economyView";
 import { AU_KM } from "../sim/orbit";
 import {
   compact,
@@ -41,7 +48,11 @@ export class DetailPanel {
   constructor(
     private root: HTMLElement,
     private game: Game,
-    private actions: { zoomTo: (body: Body) => void; openEconomy: () => void },
+    private actions: {
+      zoomTo: (body: Body) => void;
+      openEconomy: () => void;
+      openFleets: () => void;
+    },
   ) {
     this.header = el("div", "detail-head");
     this.tabBar = el("div", "tabs");
@@ -67,6 +78,12 @@ export class DetailPanel {
     const body = this.game.selected;
     this.header.textContent = "";
     this.body.textContent = "";
+
+    const fleet = this.game.empire.fleets.get(this.game.selectedFleet ?? "");
+    if (fleet) {
+      this.renderFleetCard(fleet);
+      if (!body) return;
+    }
 
     for (const btn of Array.from(this.tabBar.children) as HTMLElement[]) {
       btn.classList.toggle("active", btn.dataset.tab === this.tab);
@@ -99,6 +116,47 @@ export class DetailPanel {
       case "minerals": this.renderMinerals(body); break;
       case "colony": this.renderColony(body); break;
     }
+  }
+
+  /** A compact read-out for the fleet picked on the map. */
+  private renderFleetCard(fleet: Fleet): void {
+    const { game } = this;
+    const stats = fleetStats(game.empire, fleet);
+    const card = el("div", "fleet-card");
+
+    const title = el("div", "detail-title", fleet.name);
+    card.append(title);
+
+    const destination = destinationOf(fleet);
+    const eta = fleetEta(game.empire, game.system, fleet);
+    const where = fleet.anchorId
+      ? `At ${game.system.byId.get(fleet.anchorId)?.name ?? fleet.anchorId}`
+      : destination
+        ? `To ${game.system.byId.get(destination)?.name ?? destination}${
+            eta !== null ? ` - ${formatYears(eta / (365.25 * 86400))}` : ""
+          }`
+        : "In deep space";
+    card.append(el("div", "detail-sub", where));
+
+    const stripe = el("div", "fleet-card-stats");
+    stripe.append(el("span", undefined, `${stats.ships} ship${stats.ships === 1 ? "" : "s"}`));
+    stripe.append(el("span", undefined, `${num(stats.speed)} km/s`));
+    stripe.append(el("span", stats.fuel <= 0 ? "bad" : undefined, `${compact(stats.fuel)} l`));
+    card.append(stripe);
+    if (fleet.note) card.append(el("div", "project-warning", fleet.note));
+    card.append(
+      el("p", "muted small", "Right-click a body on the map to send this fleet there."),
+    );
+
+    const actions = el("div", "form-actions");
+    const open = el("button", "ghost-btn", "Open in Fleets");
+    open.addEventListener("click", () => this.actions.openFleets());
+    const clear = el("button", "ghost-btn", "Deselect");
+    clear.addEventListener("click", () => this.game.selectFleet(null));
+    actions.append(open, clear);
+    card.append(actions);
+
+    this.header.append(card);
   }
 
   private section(title: string): HTMLElement {

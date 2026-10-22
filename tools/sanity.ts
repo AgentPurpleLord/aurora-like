@@ -20,7 +20,11 @@ import { SEVERITY_ORDER, activeIssues, deriveIssues } from "../src/sim/issues";
 import { BUILT_IN_TEMPLATES, resolveTemplate } from "../src/sim/economy/templates";
 import { supplyToward } from "../src/sim/economy/standingOrders";
 import { deriveProposals } from "../src/sim/governors";
-import { effectiveColonyCost } from "../src/sim/economy/production";
+import { effectiveColonyCost, shipyardCapacity } from "../src/sim/economy/production";
+import { designStats } from "../src/sim/ships/design";
+import { cargoTons, distanceToBody, executeArrivalOrders } from "../src/sim/ships/fleet";
+
+const num = (v: number) => Math.round(v).toLocaleString("en-US");
 
 // Declared locally so the project does not need @types/node.
 declare const process: { exit(code: number): never };
@@ -305,7 +309,7 @@ assert("no build demand with an empty queue", ledger.every((r) => r.mineral === 
 // ton of each per build point.
 freshEmpire.queueBuild("earth", "automated-mine", 10);
 const output = colonyOutput(freshEmpire, fresh.system.byId.get("earth")!, freshEarth, freshEmpire.stats);
-const demand = queueDemand(freshEarth, output.buildPoints);
+const demand = queueDemand(freshEmpire, freshEarth, output.buildPoints);
 check("queue demand for Duranium (t/yr)", demand.Duranium ?? 0, Math.min(output.buildPoints, 2400) * 0.5, 1e-6);
 
 const preview = previewOrder(freshEmpire, fresh.system, freshEarth, "research-lab", 4)!;
@@ -472,6 +476,16 @@ console.log("");
     targetId: "callisto",
     since: auto.clock.seconds,
   });
+
+  // A governor will not propose mining ground nobody has surveyed.
+  assert(
+    "mining is not proposed for an unsurveyed world",
+    !deriveProposals(autoEmpire, auto.system).some(
+      (p) => p.colonyId === "callisto" && p.order.installationId === "automated-mine",
+    ),
+  );
+  autoEmpire.surveyed.add("callisto");
+
   const proposals = deriveProposals(autoEmpire, auto.system);
   assert(
     `a mining governor proposes mines (${proposals.map((p) => p.order.installationId).join(", ")})`,
@@ -504,6 +518,186 @@ console.log("");
     "a governor with no policy proposes nothing",
     !deriveProposals(autoEmpire, auto.system).some((p) => p.colonyId === "callisto"),
   );
+}
+
+// ==========================================================================
+// Ships and fleets
+// ==========================================================================
+
+console.log("");
+
+// Scoped so these fixtures cannot collide with the campaign above.
+{
+  const navy = new Game("navy");
+  const empire = navy.empire;
+  const earth = empire.colony("earth")!;
+
+  // --- design arithmetic
+  empire.research("nuclear-thermal");
+  const hauler = empire.addDesign("Hauler", [
+    { componentId: "engine-nuclear-thermal", count: 2 },
+    { componentId: "fuel-tank", count: 4 },
+    { componentId: "cargo-hold", count: 4 },
+    { componentId: "crew-quarters", count: 2 },
+  ], 0);
+  const stats = designStats(hauler, empire.researched, empire.stats);
+  check("design tonnage", stats.tons, 2 * 250 + 4 * 250 + 4 * 1000 + 2 * 100, 0);
+  // Speed is engine power per hull space: 120 power, 5700 t = 114 HS.
+  check("design speed (km/s)", stats.speed, (120 * 1000) / (5700 / 50), 1e-9);
+  check("design fuel capacity (litres)", stats.fuelCapacity, 200_000, 0);
+  check("design cargo capacity (tons)", stats.cargoCapacity, 100_000, 0);
+  check("design crew required", stats.crewRequired, 2 * 3 + 4 * 2, 0);
+  assert("a complete design has no problems", stats.problems.length === 0);
+
+  const unpowered = empire.addDesign("Hulk", [{ componentId: "cargo-hold", count: 1 }], 0);
+  assert(
+    "a design with no engine is rejected",
+    designStats(unpowered, empire.researched, empire.stats).problems.some((p) => p.includes("No engine")),
+  );
+  const unresearched = empire.addDesign("Dreamer", [
+    { componentId: "engine-ion", count: 1 },
+    { componentId: "crew-quarters", count: 1 },
+  ], 0);
+  assert(
+    "a design using unresearched components is rejected",
+    designStats(unresearched, empire.researched, empire.stats).problems.length > 0,
+  );
+
+  // --- a hull larger than the slipways never starts
+  const leviathan = empire.addDesign("Leviathan", [
+    { componentId: "engine-nuclear-thermal", count: 2 },
+    { componentId: "cargo-hold", count: 40 },
+    { componentId: "crew-quarters", count: 5 },
+  ], 0);
+  empire.queueShip("earth", leviathan.id, 1);
+  navy.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  const blocked = earth.buildQueue.find((o) => o.designId === leviathan.id);
+  assert(
+    `a hull beyond shipyard capacity does not start (${num(shipyardCapacity(earth))} t of slipway)`,
+    blocked !== undefined && blocked.progress === 0 && blocked.starved,
+  );
+  empire.cancelOrder("earth", blocked!.id);
+
+  // --- building a ship through the ordinary queue
+  empire.queueShip("earth", hauler.id, 1);
+  for (let i = 0; i < 20 && !empire.ships.size; i++) navy.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  assert(`a hull was commissioned (${empire.ships.size} ships)`, empire.ships.size === 1);
+  const fleet = [...empire.fleets.values()][0];
+  assert("the new ship joined a fleet at its yard", fleet !== undefined && fleet.anchorId === "earth");
+
+  const ship = [...empire.ships.values()][0];
+  ship.fuel = stats.fuelCapacity;
+  check("a new fleet is commissioned at its yard, not at the origin",
+    distanceToBody(fleet, navy.system.byId.get("earth")!.world), 0, 1e-9);
+
+  // --- movement: Earth to Mars, at the speed the design says
+  const mars = navy.system.byId.get("mars")!;
+  const distance = distanceToBody(fleet, mars.world);
+  fleet.orders.push({ kind: "move", bodyId: "mars" });
+  const expectedSeconds = (distance * AU_KM) / stats.speed;
+  const fuelBefore = ship.fuel;
+
+  // Half way there, the fleet should be in flight and burning fuel.
+  navy.step(expectedSeconds / 2);
+  assert("a fleet under way is not anchored", fleet.anchorId === null);
+  assert("a fleet under way is burning fuel", ship.fuel < fuelBefore);
+  check(
+    "fuel burn matches the design's hourly rate",
+    fuelBefore - ship.fuel,
+    (stats.fuelPerHour * (expectedSeconds / 2)) / 3600,
+    1,
+  );
+
+  // Mars has moved on in the meantime, so allow a little slack.
+  for (let i = 0; i < 8 && fleet.anchorId !== "mars"; i++) navy.step(expectedSeconds / 4);
+  assert("the fleet arrived at Mars", fleet.anchorId === "mars");
+  assert("the move order was consumed on arrival", fleet.orders.length === 0);
+
+  // --- cargo: load at Earth, carry to Mars, install on arrival
+  empire.civilianShipping = false;
+  earth.stored["automated-mine"] = 3;
+  const marsColony = empire.colony("mars")!;
+  const marsMinesBefore = marsColony.installations["automated-mine"] ?? 0;
+
+  fleet.orders.push(
+    { kind: "move", bodyId: "earth" },
+    { kind: "load-installation", installationId: "automated-mine", quantity: 3 },
+    { kind: "refuel" },
+    { kind: "move", bodyId: "mars" },
+    { kind: "unload-installations" },
+  );
+  for (let i = 0; i < 40 && fleet.orders.length; i++) navy.step(SECONDS_PER_DAY);
+
+  assert("the freighter worked through its orders", fleet.orders.length === 0);
+  check("cargo was installed at the destination",
+    marsColony.installations["automated-mine"] ?? 0, marsMinesBefore + 3, 0);
+  check("the crates left the origin", earth.stored["automated-mine"] ?? 0, 0, 0);
+  assert("the holds are empty again", cargoTons(fleet.cargo) === 0);
+
+  // --- colonists are moved, not minted. Measured around the order itself,
+  // since population grows while time passes.
+  const pioneer = empire.addDesign("Pioneer", [
+    { componentId: "engine-nuclear-thermal", count: 2 },
+    { componentId: "fuel-tank", count: 4 },
+    { componentId: "cryogenic-berths", count: 2 },
+    { componentId: "crew-quarters", count: 2 },
+  ], 0);
+  const colonyFleet = empire.createFleet("Settlers", { x: 0, y: 0, z: 0 }, "earth");
+  const colonyShip = empire.commissionShip(pioneer.id, colonyFleet, "Pioneer 001", 0);
+  colonyShip.fuel = designStats(pioneer, empire.researched, empire.stats).fuelCapacity;
+  const beforeEmbark = earth.population;
+  colonyFleet.orders.push({ kind: "load-colonists", amount: 40_000 });
+  executeArrivalOrders(empire, navy.system, colonyFleet);
+  check("embarking takes the colonists off the planet (millions)",
+    beforeEmbark - earth.population, 0.04, 1e-9);
+  check("the colonists are aboard", colonyFleet.cargo.colonists, 40_000, 0);
+
+  colonyFleet.orders.push({ kind: "move", bodyId: "mars" });
+  for (let i = 0; i < 40 && colonyFleet.orders.length; i++) navy.step(SECONDS_PER_DAY);
+  assert("the colony ship reached Mars", colonyFleet.anchorId === "mars");
+
+  const beforeLanding = marsColony.population;
+  colonyFleet.orders.push({ kind: "unload-colonists" });
+  executeArrivalOrders(empire, navy.system, colonyFleet);
+  check("landing puts the same colonists down (millions)",
+    marsColony.population - beforeLanding, 0.04, 1e-9);
+  check("the berths are empty again", colonyFleet.cargo.colonists, 0, 0);
+
+  // --- an empty tank strands a fleet
+  ship.fuel = 0;
+  fleet.orders.push({ kind: "move", bodyId: "jupiter" });
+  navy.step(SECONDS_PER_DAY);
+  assert("a fleet with no fuel cannot move", fleet.anchorId === "mars");
+  assert(`a stranded fleet says why ("${fleet.note}")`, fleet.note === "Out of fuel");
+  assert(
+    "a stranded fleet is raised for attention",
+    deriveIssues(empire, navy.system).some((i) => i.id === `fleet:blocked:${fleet.id}`),
+  );
+
+  // --- survey
+  const surveyor = empire.addDesign("Surveyor", [
+    { componentId: "engine-nuclear-thermal", count: 1 },
+    { componentId: "fuel-tank", count: 2 },
+    { componentId: "geo-survey-sensor", count: 1 },
+    { componentId: "crew-quarters", count: 1 },
+  ], 0);
+  assert("survey sensors need their own technology", !empire.researched.has("geo-survey-sensors"));
+  empire.research("geo-survey-sensors");
+  const surveyFleet = empire.createFleet("Survey Group", { x: 0, y: 0, z: 0 }, "earth");
+  const surveyShip = empire.commissionShip(surveyor.id, surveyFleet, "Surveyor 001", 0);
+  surveyShip.fuel = designStats(surveyor, empire.researched, empire.stats).fuelCapacity;
+  assert("Callisto starts unsurveyed", !empire.surveyed.has("callisto"));
+  surveyFleet.orders.push({ kind: "move", bodyId: "callisto" }, { kind: "survey" });
+  for (let i = 0; i < 400 && surveyFleet.orders.length; i++) navy.step(SECONDS_PER_DAY);
+  assert("the survey ship reached Callisto and surveyed it", empire.surveyed.has("callisto"));
+
+  // --- with civilian shipping off, finished work waits for a ship
+  empire.queueBuild("earth", "automated-mine", 1, "mars");
+  for (let i = 0; i < 20 && !(earth.stored["automated-mine"] ?? 0); i++) {
+    navy.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  }
+  check("without civilian shipping, cargo is crated at the builder",
+    earth.stored["automated-mine"] ?? 0, 1, 0);
 }
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);

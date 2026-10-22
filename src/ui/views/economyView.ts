@@ -22,6 +22,7 @@ import {
   effectiveColonyCost,
   migrationInflow,
   populationCapacity,
+  shipyardCapacity,
 } from "../../sim/economy/production";
 import { MINERALS } from "../../sim/minerals";
 import { previewItems, previewOrder, type OrderPreview } from "../../sim/economy/ledger";
@@ -160,6 +161,7 @@ export class EconomyView {
     this.renderStandingOrders(scroll, colony);
     this.renderMining(scroll, body, colony, output.mining);
     this.renderStockpile(scroll, colony);
+    this.renderStored(scroll, colony);
     this.renderInstallations(scroll, colony);
   }
 
@@ -261,6 +263,10 @@ export class EconomyView {
     const sec = section(parent, "Industry");
     stat(sec, "Construction Factories", num(installationCount(colony, "construction-factory")));
     stat(sec, "Output Capacity", `${num(buildPoints)} BP / year`, empire.austerity ? "bad" : undefined);
+    const yards = installationCount(colony, "shipyard");
+    if (yards > 0) {
+      stat(sec, "Shipyards", `${num(yards)} - hulls to ${num(shipyardCapacity(colony))} t`);
+    }
     if (empire.austerity) {
       emptyNote(sec, "Treasury in deficit - industrial output is halved.");
     }
@@ -680,7 +686,9 @@ export class EconomyView {
     stat(sec, "Mines", num(installationCount(colony, "mine")));
     stat(sec, "Automated Mines", num(installationCount(colony, "automated-mine")));
 
-    if (!body.minerals.length) {
+    if (!this.game.empire.surveyed.has(body.id)) {
+      emptyNote(sec, "This body has not been surveyed. Send a ship with geological sensors.");
+    } else if (!body.minerals.length) {
       emptyNote(sec, "No deposits on this body.");
     } else {
       const table = el("div", "mineral-table");
@@ -744,6 +752,25 @@ export class EconomyView {
     }
     sec.append(grid);
     stat(sec, "Fuel", `${compact(colony.fuel)} litres`);
+  }
+
+  /** Finished items crated up at the colony, waiting for a freighter. */
+  private renderStored(parent: HTMLElement, colony: Colony): void {
+    const entries = Object.entries(colony.stored).filter(([, n]) => n > 0);
+    if (!entries.length) return;
+    const sec = section(parent, "Awaiting Transport");
+    for (const [id, count] of entries) {
+      const type = INSTALLATION_BY_ID.get(id);
+      const row = el("div", "install-row");
+      row.append(el("span", "install-name", type?.name ?? id));
+      row.append(
+        el("span", "install-count", `${num(count)}  (${compact((type?.tons ?? 25000) * count)} t)`),
+      );
+      sec.append(row);
+    }
+    sec.append(
+      el("p", "muted small", "Load these onto a freighter from the Fleets view."),
+    );
   }
 
   private renderInstallations(parent: HTMLElement, colony: Colony): void {

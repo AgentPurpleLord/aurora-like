@@ -122,7 +122,7 @@ export function deriveProposals(empire: Empire, system: StarSystem): Proposal[] 
       }
     }
 
-    if (policy === "mine") {
+    if (policy === "mine" && empire.surveyed.has(colony.bodyId)) {
       const reserves = body.minerals.reduce((sum, d) => sum + d.amount, 0);
       const mines = supplyToward(empire, colony.bodyId, "automated-mine");
       if (reserves > 10_000 && mines < 40) {

@@ -13,7 +13,6 @@ import { installationCount } from "../../state/colony";
 import type { Body, StarSystem } from "../system";
 import { MINERALS, type MineralName } from "../minerals";
 import { DAYS_PER_YEAR, SECONDS_PER_DAY } from "../orbit";
-import { INSTALLATION_BY_ID } from "./installations";
 import { colonyOutput } from "./production";
 
 const FUEL_PER_SORIUM = 2000;
@@ -41,6 +40,7 @@ export interface LedgerRow {
  * down the queue, in order, until the budget runs out.
  */
 export function queueDemand(
+  empire: Empire,
   colony: Colony,
   annualBuildPoints: number,
 ): Partial<Record<MineralName, number>> {
@@ -49,13 +49,13 @@ export function queueDemand(
 
   for (const order of colony.buildQueue) {
     if (remaining <= 0) break;
-    const type = INSTALLATION_BY_ID.get(order.installationId);
-    if (!type) continue;
-    const outstanding = order.quantity * type.cost - order.progress;
+    const buildable = empire.buildableOf(order);
+    if (!buildable) continue;
+    const outstanding = order.quantity * buildable.cost - order.progress;
     const applied = Math.min(remaining, Math.max(0, outstanding));
     if (applied <= 0) continue;
-    for (const [mineral, tons] of Object.entries(type.minerals) as [MineralName, number][]) {
-      demand[mineral] = (demand[mineral] ?? 0) + (tons / type.cost) * applied;
+    for (const [mineral, tons] of Object.entries(buildable.minerals) as [MineralName, number][]) {
+      demand[mineral] = (demand[mineral] ?? 0) + (tons / buildable.cost) * applied;
     }
     remaining -= applied;
   }
@@ -63,12 +63,12 @@ export function queueDemand(
 }
 
 /** Build points still outstanding across a colony's whole queue. */
-export function queuedBuildPoints(colony: Colony): number {
+export function queuedBuildPoints(empire: Empire, colony: Colony): number {
   let total = 0;
   for (const order of colony.buildQueue) {
-    const type = INSTALLATION_BY_ID.get(order.installationId);
-    if (!type) continue;
-    total += Math.max(0, order.quantity * type.cost - order.progress);
+    const buildable = empire.buildableOf(order);
+    if (!buildable) continue;
+    total += Math.max(0, order.quantity * buildable.cost - order.progress);
   }
   return total;
 }
@@ -89,7 +89,7 @@ export function mineralLedger(empire: Empire, system: StarSystem): LedgerRow[] {
       production[mineral] = (production[mineral] ?? 0) + (output.mining[mineral] ?? 0);
     }
 
-    for (const [mineral, tons] of Object.entries(queueDemand(colony, output.buildPoints))) {
+    for (const [mineral, tons] of Object.entries(queueDemand(empire, colony, output.buildPoints))) {
       demand[mineral] = (demand[mineral] ?? 0) + (tons ?? 0);
     }
 
@@ -174,10 +174,18 @@ export function previewOrder(
   installationId: string,
   quantity: number,
   ledger?: LedgerRow[],
+  designId: string | null = null,
 ): OrderPreview | null {
-  const type = INSTALLATION_BY_ID.get(installationId);
-  if (!type) return null;
-  return previewItems(empire, system, colony, [{ installationId, quantity }], type.name, ledger);
+  const buildable = empire.buildableOf({ installationId, designId });
+  if (!buildable) return null;
+  return previewItems(
+    empire,
+    system,
+    colony,
+    [{ installationId, quantity, designId }],
+    buildable.name,
+    ledger,
+  );
 }
 
 /**
@@ -188,7 +196,7 @@ export function previewItems(
   empire: Empire,
   system: StarSystem,
   colony: Colony,
-  items: { installationId: string; quantity: number }[],
+  items: { installationId: string; quantity: number; designId?: string | null }[],
   name = "Selected items",
   ledger?: LedgerRow[],
 ): OrderPreview | null {
@@ -201,15 +209,18 @@ export function previewItems(
   let buildPoints = 0;
   const required: Partial<Record<MineralName, number>> = {};
   for (const item of items) {
-    const type = INSTALLATION_BY_ID.get(item.installationId);
-    if (!type || item.quantity <= 0) continue;
-    buildPoints += type.cost * item.quantity;
-    for (const [mineral, tons] of Object.entries(type.minerals) as [MineralName, number][]) {
+    const buildable = empire.buildableOf({
+      installationId: item.installationId,
+      designId: item.designId ?? null,
+    });
+    if (!buildable || item.quantity <= 0) continue;
+    buildPoints += buildable.cost * item.quantity;
+    for (const [mineral, tons] of Object.entries(buildable.minerals) as [MineralName, number][]) {
       required[mineral] = (required[mineral] ?? 0) + tons * item.quantity;
     }
   }
 
-  const queuedAhead = queuedBuildPoints(colony);
+  const queuedAhead = queuedBuildPoints(empire, colony);
   const years = annual > 0 ? (queuedAhead + buildPoints) / annual : Infinity;
 
   const minerals: PreviewMineral[] = [];
@@ -269,9 +280,9 @@ export function colonyRows(empire: Empire, system: StarSystem): ColonyRow[] {
     if (!body) continue;
     const output = colonyOutput(empire, body, colony, empire.stats);
     const head = colony.buildQueue[0];
-    const headType = head ? INSTALLATION_BY_ID.get(head.installationId) : undefined;
-    const headRemaining = head && headType
-      ? head.quantity * headType.cost - head.progress
+    const headBuildable = head ? empire.buildableOf(head) : undefined;
+    const headRemaining = head && headBuildable
+      ? head.quantity * headBuildable.cost - head.progress
       : 0;
 
     rows.push({

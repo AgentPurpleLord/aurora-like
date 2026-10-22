@@ -384,6 +384,7 @@ export function baseStats(): EmpireStats {
       "construction-factory",
       "fuel-refinery",
       "research-lab",
+      "shipyard",
     ]),
   };
 }

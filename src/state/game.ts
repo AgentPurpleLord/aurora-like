@@ -6,6 +6,7 @@ import { StarSystem, type Body } from "../sim/system";
 import { Random } from "../sim/rng";
 import { CYCLE_DAYS, computeSnapshot, runCycle } from "../sim/economy/production";
 import { MINERALS } from "../sim/minerals";
+import { updateFleets } from "../sim/ships/fleet";
 import { Empire } from "./empire";
 import { emptyStockpile } from "./colony";
 import { labCapacity, type Officer } from "../sim/people/officers";
@@ -22,6 +23,8 @@ export class Game {
   readonly empire: Empire;
 
   selected: Body | null = null;
+  /** Fleet selected on the map or in the fleets view. */
+  selectedFleet: string | null = null;
   /** Keep the camera locked to the selected body as it moves. */
   follow = false;
 
@@ -57,6 +60,7 @@ export class Game {
       mine: 400,
       "fuel-refinery": 100,
       spaceport: 1,
+      shipyard: 2,
     };
     earth.stockpile = emptyStockpile();
     for (const mineral of MINERALS) earth.stockpile[mineral] = 50_000;
@@ -69,6 +73,10 @@ export class Game {
     const mars = empire.foundColony("mars", now);
     mars.population = 0.8;
     mars.installations = { infrastructure: 260, "automated-mine": 22, "mass-driver": 1 };
+
+    // Only the worlds already settled have been surveyed from the ground;
+    // everything else needs a survey ship.
+    for (const bodyId of ["earth", "luna", "mars"]) empire.surveyed.add(bodyId);
 
     empire.seedOfficers({ science: 8, civilian: 8, navy: 12, ground: 5 }, now);
 
@@ -111,16 +119,24 @@ export class Game {
   }
 
   tick(realSeconds: number): void {
+    const before = this.clock.seconds;
     this.clock.advance(realSeconds);
-    this.system.update(this.clock.days);
+    this.advanceWorld(this.clock.seconds - before);
     if (this.runCycles()) this.emit();
   }
 
   step(seconds: number): void {
     this.clock.step(seconds);
-    this.system.update(this.clock.days);
+    this.advanceWorld(seconds);
     this.runCycles();
     this.emit();
+  }
+
+  /** Move the bodies, then the fleets that are chasing them. */
+  private advanceWorld(elapsedSeconds: number): void {
+    this.system.update(this.clock.days);
+    this.empire.lastTick = this.clock.seconds;
+    updateFleets(this.empire, this.system, elapsedSeconds);
   }
 
   /**
@@ -144,6 +160,11 @@ export class Game {
 
   select(body: Body | null): void {
     this.selected = body;
+    this.emit();
+  }
+
+  selectFleet(fleetId: string | null): void {
+    this.selectedFleet = fleetId;
     this.emit();
   }
 }
