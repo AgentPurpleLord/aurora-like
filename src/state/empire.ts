@@ -10,6 +10,8 @@ import { Random } from "../sim/rng";
 import { TECH_BY_ID, statsFor, type EmpireStats } from "../sim/research/techs";
 import type { MineralName } from "../sim/minerals";
 import { createColony, type Colony } from "./colony";
+import type { StandingOrder } from "../sim/economy/standingOrders";
+import { BUILT_IN_TEMPLATES, type BuildTemplate } from "../sim/economy/templates";
 
 export type LogCategory = "research" | "construction" | "people" | "colony" | "economy";
 
@@ -52,6 +54,14 @@ export function emptySnapshot(): EmpireSnapshot {
   };
 }
 
+/** State captured the last time the player reviewed the empire dashboard. */
+export interface ReviewMark {
+  time: number;
+  treasury: number;
+  population: number;
+  techs: number;
+}
+
 export class Empire {
   readonly name = "Terran Federation";
   readonly colonies = new Map<string, Colony>();
@@ -66,9 +76,17 @@ export class Empire {
   capital = "earth";
   /** Set when the treasury is in deficit; halves industrial output. */
   austerity = false;
+  /** Issue id -> simulation time at which the dismissal lapses. */
+  readonly dismissed = new Map<string, number>();
+  /** Rules that top colonies up without being asked each time. */
+  standingOrders: StandingOrder[] = [];
+  /** Templates the player has saved, on top of the built-in ones. */
+  customTemplates: BuildTemplate[] = [];
+  reviewMark: ReviewMark = { time: 0, treasury: 0, population: 0, techs: 0 };
 
   private nextProjectId = 1;
   private nextOrderId = 1;
+  private nextRuleId = 1;
 
   constructor(readonly rng: Random = new Random("empire")) {
     this.officers = new OfficerPool(rng);
@@ -136,6 +154,9 @@ export class Empire {
     for (const colony of this.colonies.values()) {
       if (colony.massDriverTarget === bodyId) colony.massDriverTarget = null;
     }
+    this.standingOrders = this.standingOrders.filter(
+      (o) => o.colonyId !== bodyId && o.sourceId !== bodyId,
+    );
   }
 
   // ----------------------------------------------------------- build queue
@@ -145,6 +166,7 @@ export class Empire {
     installationId: string,
     quantity: number,
     destination: string | null = null,
+    auto = false,
   ): void {
     const colony = this.colonies.get(bodyId);
     if (!colony || quantity <= 0) return;
@@ -163,6 +185,7 @@ export class Empire {
       destination: target,
       progress: 0,
       starved: false,
+      auto,
     });
   }
 
@@ -180,6 +203,33 @@ export class Empire {
     if (index < 0 || target < 0 || target >= colony.buildQueue.length) return;
     const [order] = colony.buildQueue.splice(index, 1);
     colony.buildQueue.splice(target, 0, order);
+  }
+
+  addStandingOrder(order: Omit<StandingOrder, "id">): StandingOrder {
+    const stored: StandingOrder = { ...order, id: `rule-${this.nextRuleId++}` };
+    this.standingOrders.push(stored);
+    return stored;
+  }
+
+  removeStandingOrder(id: string): void {
+    this.standingOrders = this.standingOrders.filter((o) => o.id !== id);
+  }
+
+  standingOrdersFor(colonyId: string): StandingOrder[] {
+    return this.standingOrders.filter((o) => o.colonyId === colonyId);
+  }
+
+  get templates(): BuildTemplate[] {
+    return [...BUILT_IN_TEMPLATES, ...this.customTemplates];
+  }
+
+  saveTemplate(template: BuildTemplate): void {
+    this.customTemplates = this.customTemplates.filter((t) => t.id !== template.id);
+    this.customTemplates.push(template);
+  }
+
+  deleteTemplate(id: string): void {
+    this.customTemplates = this.customTemplates.filter((t) => t.id !== id);
   }
 
   // -------------------------------------------------------------- officers
@@ -205,6 +255,21 @@ export class Empire {
   addLog(time: number, category: LogCategory, text: string): void {
     this.log.unshift({ time, category, text });
     if (this.log.length > 400) this.log.length = 400;
+  }
+
+  /** Hide an issue for a while; it returns if the condition persists. */
+  dismissIssue(issueId: string, now: number, years = 2): void {
+    this.dismissed.set(issueId, now + years * 365.25 * 86400);
+  }
+
+  /** Record the empire's state as "seen", for the what-changed summary. */
+  markReviewed(now: number): void {
+    this.reviewMark = {
+      time: now,
+      treasury: this.treasury,
+      population: [...this.colonies.values()].reduce((sum, c) => sum + c.population, 0),
+      techs: this.researched.size,
+    };
   }
 
   techName(techId: string): string {

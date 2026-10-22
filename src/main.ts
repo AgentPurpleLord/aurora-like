@@ -8,8 +8,9 @@ function need<T extends HTMLElement>(id: string): T {
 }
 
 const views: Record<ViewId, HTMLElement> = {
+  empire: need("view-empire"),
   map: need("view-map"),
-  economy: need("view-economy"),
+  colonies: need("view-colonies"),
   research: need("view-research"),
   officers: need("view-officers"),
 };
@@ -22,5 +23,6 @@ new App(need<HTMLCanvasElement>("map"), {
   overlay: need("map-overlay"),
   tabs: need("view-tabs"),
   empireBar: need("empire-bar"),
+  rail: need("triage-rail"),
   views,
 });

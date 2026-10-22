@@ -11,6 +11,7 @@
 import type { Game } from "../../state/game";
 import type { ResearchProject } from "../../state/empire";
 import { installationCount } from "../../state/colony";
+import { projectRate } from "../../sim/economy/production";
 import { FIELD_NAMES, RESEARCH_FIELDS, type ResearchField } from "../../sim/research/fields";
 import { TECHS, TECH_BY_ID, availableTechs, type Tech } from "../../sim/research/techs";
 import { fullName, labCapacity, type Officer } from "../../sim/people/officers";
@@ -77,12 +78,13 @@ export class ResearchView {
 
       card.append(progressBar(project.progress / tech.cost));
       const remaining = tech.cost - project.progress;
+      const rate = projectRate(empire, project);
       card.append(
         el(
           "div",
           "project-meta",
           `${num(project.progress)} / ${num(tech.cost)} RP  -  ${
-            project.lastRate > 0 ? formatYears(remaining / project.lastRate) : "stalled"
+            rate > 0 ? formatYears(remaining / rate) : "stalled"
           }`,
         ),
       );

@@ -11,6 +11,7 @@
 import { emptySnapshot, type Empire, type EmpireSnapshot } from "../../state/empire";
 import type { Colony } from "../../state/colony";
 import { installationCount } from "../../state/colony";
+import type { ResearchProject } from "../../state/empire";
 import type { Body, StarSystem } from "../system";
 import type { EmpireStats } from "../research/techs";
 import { TECH_BY_ID } from "../research/techs";
@@ -18,6 +19,7 @@ import { MINERALS, type MineralName } from "../minerals";
 import { DAYS_PER_YEAR } from "../orbit";
 import { INSTALLATION_BY_ID } from "./installations";
 import { bonus, fullName, labCapacity } from "../people/officers";
+import { evaluateStandingOrders } from "./standingOrders";
 
 /** Length of one production cycle, in days. */
 export const CYCLE_DAYS = 5;
@@ -185,6 +187,10 @@ export function computeSnapshot(empire: Empire, system: StarSystem): EmpireSnaps
 export function runCycle(empire: Empire, system: StarSystem, now: number, days: number): void {
   const year = days / DAYS_PER_YEAR;
   const stats = empire.stats;
+
+  // Rules top colonies up before anything is built, so new work can start
+  // in the same cycle it was triggered.
+  evaluateStandingOrders(empire, system);
 
   let income = 0;
   let expenses = 0;
@@ -427,6 +433,24 @@ function shipMinerals(empire: Empire, colony: Colony, stats: EmpireStats, year: 
   }
 }
 
+/**
+ * Research points a project generates per year as things stand. Computed
+ * rather than remembered, so a project that has not yet been through a
+ * production cycle still reports its rate instead of reading as stalled.
+ */
+export function projectRate(empire: Empire, project: ResearchProject): number {
+  const colony = empire.colonies.get(project.colonyId);
+  if (!colony) return 0;
+  const scientist = empire.officers.get(project.scientistId ?? undefined);
+  const available = installationCount(colony, "research-lab");
+  const capacity = scientist ? labCapacity(scientist) : 0;
+  const labs = Math.min(project.labs, available, capacity);
+  if (labs <= 0) return 0;
+  return (
+    labs * empire.stats.researchRate * employmentRatio(colony) * (1 + bonus(scientist, "research"))
+  );
+}
+
 /** Apply research points to every active project. Returns RP spent. */
 function advanceResearch(empire: Empire, system: StarSystem, now: number, year: number): number {
   let total = 0;
@@ -438,18 +462,10 @@ function advanceResearch(empire: Empire, system: StarSystem, now: number, year: 
 
     const scientist = empire.officers.get(project.scientistId ?? undefined);
     // A project cannot use more labs than exist, nor more than its scientist
-    // can personally direct.
-    const available = installationCount(colony, "research-lab");
-    const cap = scientist ? labCapacity(scientist) : 0;
-    const labs = Math.min(project.labs, available, cap);
-    if (labs <= 0) {
-      project.lastRate = 0;
-      continue;
-    }
-
-    const rate =
-      labs * empire.stats.researchRate * employmentRatio(colony) * (1 + bonus(scientist, "research"));
+    // can personally direct; projectRate applies both limits.
+    const rate = projectRate(empire, project);
     project.lastRate = rate;
+    if (rate <= 0) continue;
     const points = rate * year;
     project.progress += points;
     total += points;

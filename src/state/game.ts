@@ -98,6 +98,7 @@ export class Game {
 
     empire.addLog(now, "economy", "Trans-Newtonian industry comes online across Earth.");
     empire.snapshot = computeSnapshot(empire, this.system);
+    empire.markReviewed(now);
   }
 
   subscribe(fn: Listener): () => void {

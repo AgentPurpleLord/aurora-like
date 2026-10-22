@@ -24,6 +24,17 @@ import {
   populationCapacity,
 } from "../../sim/economy/production";
 import { MINERALS } from "../../sim/minerals";
+import { previewItems, previewOrder, type OrderPreview } from "../../sim/economy/ledger";
+import {
+  resolveTemplate,
+  templateFromQueue,
+  templateIsApplicable,
+} from "../../sim/economy/templates";
+import {
+  describeRule,
+  shortfallFor,
+} from "../../sim/economy/standingOrders";
+import { POLICY_BLURBS, POLICY_NAMES, type GovernorPolicy } from "../../sim/governors";
 import { fullName, type Officer } from "../../sim/people/officers";
 import { compact, el, num, population } from "../format";
 import { button, emptyNote, numberInput, progressBar, section, select, stat } from "../widgets";
@@ -31,23 +42,29 @@ import { button, emptyNote, numberInput, progressBar, section, select, stat } fr
 export class EconomyView {
   private list: HTMLElement;
   private detail: HTMLElement;
-  private side: HTMLElement;
   private orderInstallation = "automated-mine";
   private orderQuantity = 1;
   private orderDestination = "";
+  /** Rebuilt in place as the order is edited, so the preview tracks the form. */
+  private previewHost = el("div", "preview-host");
+  private templateHost = el("div", "preview-host");
+  private templateId = "mining-outpost";
+  private templateSource = "";
+  private ruleKind: "maintain" | "infrastructure" = "infrastructure";
+  private ruleInstallation = "automated-mine";
+  private ruleTarget = 20;
+  private ruleHeadroom = 25;
 
   constructor(private root: HTMLElement, private game: Game) {
-    this.root.classList.add("view-economy");
+    this.root.classList.add("view-colonies");
     this.list = el("aside", "panel panel-left");
     this.detail = el("section", "colony-detail");
-    this.side = el("aside", "panel panel-right");
-    this.root.append(this.list, this.detail, this.side);
+    this.root.append(this.list, this.detail);
   }
 
   render(): void {
     this.renderColonyList();
     this.renderColony();
-    this.renderEmpire();
   }
 
   // ------------------------------------------------------------- colonies
@@ -139,6 +156,8 @@ export class EconomyView {
 
     this.renderGovernor(scroll, colony);
     this.renderIndustry(scroll, colony, output.buildPoints);
+    this.renderTemplates(scroll, body, colony);
+    this.renderStandingOrders(scroll, colony);
     this.renderMining(scroll, body, colony, output.mining);
     this.renderStockpile(scroll, colony);
     this.renderInstallations(scroll, colony);
@@ -203,6 +222,24 @@ export class EconomyView {
     );
 
     if (current) {
+      const policyRow = el("div", "policy-row");
+      policyRow.append(el("span", "muted small", "Policy"));
+      policyRow.append(
+        select(
+          (Object.keys(POLICY_NAMES) as GovernorPolicy[]).map((p) => ({
+            value: p,
+            label: POLICY_NAMES[p],
+          })),
+          colony.policy,
+          (value) => {
+            colony.policy = value as GovernorPolicy;
+            this.game.emit();
+          },
+        ),
+      );
+      sec.append(policyRow);
+      sec.append(el("p", "muted small", POLICY_BLURBS[colony.policy]));
+
       const bonuses = el("div", "bonus-row");
       for (const [skill, label] of [
         ["production", "Production"],
@@ -246,6 +283,11 @@ export class EconomyView {
       );
       name.title = type.blurb;
       row.append(name);
+      if (order.auto) {
+        const badge = el("span", "chip", "auto");
+        badge.title = "Queued by a standing order";
+        name.append(badge);
+      }
 
       const remaining = order.quantity * type.cost - order.progress;
       const years = buildPoints > 0 ? remaining / buildPoints : Infinity;
@@ -276,10 +318,15 @@ export class EconomyView {
     add.append(
       select(options, this.orderInstallation, (value) => {
         this.orderInstallation = value;
-        this.render();
+        this.refreshPreview(colony);
       }),
     );
-    add.append(numberInput(this.orderQuantity, (value) => (this.orderQuantity = value)));
+    add.append(
+      numberInput(this.orderQuantity, (value) => {
+        this.orderQuantity = value;
+        this.refreshPreview(colony);
+      }),
+    );
     // Anything built here can be shipped to another colony on completion -
     // the stand-in for freighters.
     const destinations = [
@@ -313,17 +360,313 @@ export class EconomyView {
     );
     queue.append(add);
 
+    queue.append(this.previewHost);
+    this.refreshPreview(colony);
+  }
+
+  /** Redraw just the preview, leaving the form (and its focus) alone. */
+  private refreshPreview(colony: Colony): void {
+    this.previewHost.textContent = "";
     const type = INSTALLATION_BY_ID.get(this.orderInstallation);
-    if (type) {
-      const cost = Object.entries(type.minerals)
-        .map(([mineral, tons]) => `${mineral} ${num(tons * this.orderQuantity)}`)
-        .join(", ");
-      const note = el("p", "muted small", `${type.blurb}`);
-      queue.append(note);
-      queue.append(
-        el("p", "muted small", `Cost: ${num(type.cost * this.orderQuantity)} BP  -  ${cost || "no minerals"}`),
+    if (!type) return;
+    this.previewHost.append(el("p", "muted small", type.blurb));
+    const preview = previewOrder(
+      this.game.empire,
+      this.game.system,
+      colony,
+      this.orderInstallation,
+      this.orderQuantity,
+    );
+    if (preview) this.previewHost.append(this.previewBlock(preview));
+  }
+
+  /**
+   * What a pending order or template would cost, when it would land, and what
+   * it does to the empire's mineral cover - shown before the player commits.
+   */
+  private previewBlock(preview: OrderPreview): HTMLElement {
+    const wrap = el("div", "order-preview");
+
+    const head = el("div", "preview-head");
+    head.append(el("span", "preview-cost", `${num(preview.buildPoints)} BP`));
+    if (preview.noIndustry) {
+      head.append(el("span", "bad", "no industry here - this would never start"));
+    } else {
+      const when = formatShortDate(this.game.clock.seconds + preview.completionSeconds);
+      head.append(el("span", undefined, `completes ${when}  (${formatYears(preview.years)})`));
+      if (preview.queuedAhead > 0) {
+        head.append(el("span", "muted", `${num(preview.queuedAhead)} BP queued ahead`));
+      }
+    }
+    wrap.append(head);
+
+    if (!preview.minerals.length) {
+      wrap.append(el("div", "preview-line muted", "No minerals required."));
+    }
+    for (const mineral of preview.minerals) {
+      const line = el("div", `preview-line${mineral.shortfall > 0 ? " bad" : ""}`);
+      line.append(el("span", "preview-mineral", mineral.mineral));
+      line.append(
+        el("span", "preview-amount",
+          `${num(mineral.required)} t of ${compact(mineral.held)} held`),
+      );
+      if (mineral.shortfall > 0) {
+        line.append(el("span", "preview-note", `short ${num(mineral.shortfall)} t`));
+      } else if (Number.isFinite(mineral.coverAfter)) {
+        line.append(
+          el("span", "preview-note muted",
+            `cover ${formatYears(mineral.coverBefore)} -> ${formatYears(mineral.coverAfter)}`),
+        );
+      } else if (Number.isFinite(mineral.replacementYears)) {
+        line.append(
+          el("span", "preview-note muted",
+            `${formatYears(mineral.replacementYears)} of mining to replace`),
+        );
+      }
+      wrap.append(line);
+    }
+
+    if (!preview.affordable) {
+      wrap.append(
+        el("div", "preview-warning bad",
+          "The colony cannot cover this from its own stockpile; the order will stall until minerals arrive."),
       );
     }
+    return wrap;
+  }
+
+  private renderTemplates(parent: HTMLElement, body: Body, colony: Colony): void {
+    const { empire } = this.game;
+    const sec = section(parent, "Development Templates");
+
+    const templates = empire.templates.filter((t) =>
+      templateIsApplicable(t, body, colony, empire.stats),
+    );
+    if (!templates.length) {
+      emptyNote(sec, "No template applies to this world.");
+      return;
+    }
+    if (!templates.some((t) => t.id === this.templateId)) {
+      this.templateId = templates[0].id;
+    }
+
+    const sources = [...empire.colonies.values()].filter(
+      (c) => installationCount(c, "construction-factory") > 0,
+    );
+    if (!sources.some((c) => c.bodyId === this.templateSource)) {
+      this.templateSource =
+        sources.find((c) => c.bodyId === colony.bodyId)?.bodyId ??
+        sources.find((c) => c.bodyId === empire.capital)?.bodyId ??
+        sources[0]?.bodyId ?? "";
+    }
+
+    const row = el("div", "add-order");
+    row.append(
+      select(
+        templates.map((t) => ({ value: t.id, label: t.name })),
+        this.templateId,
+        (value) => {
+          this.templateId = value;
+          this.refreshTemplate(body, colony);
+        },
+      ),
+    );
+    row.append(
+      select(
+        sources.map((c) => ({
+          value: c.bodyId,
+          label: `built at ${this.game.system.byId.get(c.bodyId)?.name ?? c.bodyId}`,
+        })),
+        this.templateSource,
+        (value) => {
+          this.templateSource = value;
+          this.refreshTemplate(body, colony);
+        },
+      ),
+    );
+    row.append(
+      button(
+        "Apply",
+        () => {
+          const template = empire.templates.find((t) => t.id === this.templateId);
+          const source = empire.colony(this.templateSource);
+          if (!template || !source) return;
+          for (const item of resolveTemplate(template, body, colony, empire.stats)) {
+            empire.queueBuild(
+              source.bodyId,
+              item.installationId,
+              item.quantity,
+              source.bodyId === colony.bodyId ? null : colony.bodyId,
+            );
+          }
+          empire.addLog(
+            this.game.clock.seconds,
+            "construction",
+            `${template.name} queued at ${this.game.system.byId.get(source.bodyId)?.name} for ${body.name}.`,
+          );
+          this.game.emit();
+        },
+        "primary-btn",
+      ),
+    );
+    sec.append(row);
+    sec.append(this.templateHost);
+    this.refreshTemplate(body, colony);
+
+    const save = el("div", "template-actions");
+    save.append(
+      button("Save this queue as a template", () => {
+        if (!colony.buildQueue.length) return;
+        const name = `${body.name} plan`;
+        empire.saveTemplate(
+          templateFromQueue(name, colony, `custom-${Date.now().toString(36)}`),
+        );
+        empire.addLog(this.game.clock.seconds, "construction", `Saved build template "${name}".`);
+        this.game.emit();
+      }),
+    );
+    const current = empire.templates.find((t) => t.id === this.templateId);
+    if (current && !current.builtIn) {
+      save.append(
+        button("Delete template", () => {
+          empire.deleteTemplate(current.id);
+          this.game.emit();
+        }),
+      );
+    }
+    sec.append(save);
+  }
+
+  /** Redraw the template's contents and cost without rebuilding the form. */
+  private refreshTemplate(body: Body, colony: Colony): void {
+    const { empire } = this.game;
+    this.templateHost.textContent = "";
+    const template = empire.templates.find((t) => t.id === this.templateId);
+    const source = empire.colony(this.templateSource);
+    if (!template || !source) return;
+
+    this.templateHost.append(el("p", "muted small", template.description));
+    const items = resolveTemplate(template, body, colony, empire.stats);
+    const preview = previewItems(empire, this.game.system, source, items, template.name);
+    if (!preview) return;
+
+    const list = el("div", "template-items");
+    for (const item of items) {
+      const line = el("div", "template-item");
+      line.append(
+        el("span", undefined, INSTALLATION_BY_ID.get(item.installationId)?.name ?? item.installationId),
+      );
+      line.append(el("span", "right", `x${num(item.quantity)}`));
+      list.append(line);
+    }
+    this.templateHost.append(list);
+    this.templateHost.append(this.previewBlock(preview));
+  }
+
+  private renderStandingOrders(parent: HTMLElement, colony: Colony): void {
+    const { empire } = this.game;
+    const sec = section(parent, "Standing Orders");
+    const rules = empire.standingOrdersFor(colony.bodyId);
+
+    if (!rules.length) {
+      emptyNote(sec, "No rules. A standing order tops this colony up without being asked.");
+    }
+
+    for (const rule of rules) {
+      const row = el("div", "rule-row");
+      const label = describeRule(rule.rule, (id) => INSTALLATION_BY_ID.get(id)?.name ?? id);
+      row.append(el("span", "rule-name", label));
+      const sourceName = this.game.system.byId.get(rule.sourceId)?.name ?? rule.sourceId;
+      row.append(el("span", "muted small", `built at ${sourceName}`));
+
+      const pending = shortfallFor(empire, this.game.system, rule);
+      row.append(
+        el("span", `rule-state ${pending ? "warn" : "good"}`,
+          pending ? `queueing ${num(pending.quantity)}` : "satisfied"),
+      );
+
+      row.append(
+        button(rule.enabled ? "Pause" : "Resume", () => {
+          rule.enabled = !rule.enabled;
+          this.game.emit();
+        }, "step-btn"),
+      );
+      row.append(
+        button("x", () => {
+          empire.removeStandingOrder(rule.id);
+          this.game.emit();
+        }, "step-btn"),
+      );
+      sec.append(row);
+    }
+
+    const form = el("div", "add-order");
+    form.append(
+      select(
+        [
+          { value: "infrastructure", label: "Keep capacity ahead of population" },
+          { value: "maintain", label: "Maintain a number of installations" },
+        ],
+        this.ruleKind,
+        (value) => {
+          this.ruleKind = value as "maintain" | "infrastructure";
+          this.render();
+        },
+      ),
+    );
+
+    if (this.ruleKind === "maintain") {
+      form.append(
+        select(
+          INSTALLATIONS.filter((i) => empire.stats.unlocked.has(i.id)).map((i) => ({
+            value: i.id,
+            label: i.name,
+          })),
+          this.ruleInstallation,
+          (value) => (this.ruleInstallation = value),
+        ),
+      );
+      form.append(numberInput(this.ruleTarget, (value) => (this.ruleTarget = value), 1, 99999));
+    } else {
+      form.append(numberInput(this.ruleHeadroom, (value) => (this.ruleHeadroom = value), 5, 500));
+      form.append(el("span", "muted small", "% headroom"));
+    }
+
+    const sources = [...empire.colonies.values()].filter(
+      (c) => installationCount(c, "construction-factory") > 0,
+    );
+    if (!sources.some((c) => c.bodyId === this.templateSource)) {
+      this.templateSource = sources[0]?.bodyId ?? colony.bodyId;
+    }
+    form.append(
+      select(
+        sources.map((c) => ({
+          value: c.bodyId,
+          label: `built at ${this.game.system.byId.get(c.bodyId)?.name ?? c.bodyId}`,
+        })),
+        this.templateSource,
+        (value) => (this.templateSource = value),
+      ),
+    );
+    form.append(
+      button(
+        "Add rule",
+        () => {
+          empire.addStandingOrder({
+            colonyId: colony.bodyId,
+            sourceId: this.templateSource || colony.bodyId,
+            enabled: true,
+            rule:
+              this.ruleKind === "maintain"
+                ? { kind: "maintain", installationId: this.ruleInstallation, target: this.ruleTarget }
+                : { kind: "infrastructure", headroomPercent: this.ruleHeadroom },
+          });
+          this.game.emit();
+        },
+        "primary-btn",
+      ),
+    );
+    sec.append(form);
   }
 
   private renderMining(
@@ -426,48 +769,6 @@ export class EconomyView {
         row.append(el("span", "install-count", num(count)));
         sec.append(row);
       }
-    }
-  }
-
-  // --------------------------------------------------------------- empire
-
-  private renderEmpire(): void {
-    const { empire } = this.game;
-    this.side.textContent = "";
-    const head = el("div", "panel-head");
-    head.append(el("span", undefined, "Empire"));
-    this.side.append(head);
-
-    const body = el("div", "detail-body");
-    this.side.append(body);
-
-    const snap = empire.snapshot;
-    const finance = section(body, "Treasury");
-    stat(finance, "Balance", num(empire.treasury), empire.treasury < 0 ? "bad" : "good");
-    stat(finance, "Income", `${num(snap.income)} / year`);
-    stat(finance, "Expenditure", `${num(snap.expenses)} / year`);
-    stat(
-      finance,
-      "Net",
-      `${snap.income - snap.expenses >= 0 ? "+" : ""}${num(snap.income - snap.expenses)} / year`,
-      snap.income - snap.expenses >= 0 ? "good" : "bad",
-    );
-
-    const out = section(body, "Output");
-    stat(out, "Population", population(snap.population));
-    stat(out, "Construction Used", `${num(snap.buildPoints)} BP / year`);
-    stat(out, "Research", `${num(snap.researchPoints)} RP / year`);
-    stat(out, "Fuel", `${compact(snap.fuel)} litres / year`);
-    const totalMinerals = Object.values(snap.minerals).reduce((s, v) => s + (v ?? 0), 0);
-    stat(out, "Mining", `${num(totalMinerals)} tons / year`);
-
-    const log = section(body, "Events");
-    if (!empire.log.length) emptyNote(log, "Nothing has happened yet.");
-    for (const entry of empire.log.slice(0, 60)) {
-      const row = el("div", `log-row log-${entry.category}`);
-      row.append(el("span", "log-date", formatShortDate(entry.time)));
-      row.append(el("span", "log-text", entry.text));
-      log.append(row);
     }
   }
 
