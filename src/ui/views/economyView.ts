@@ -6,6 +6,7 @@
  * event log.
  */
 
+import { formatShortDate } from "../../sim/clock";
 import type { Game } from "../../state/game";
 import type { Body } from "../../sim/system";
 import { classLabel } from "../../sim/system";
@@ -1042,8 +1043,4 @@ export function formatYears(years: number): string {
   return `${Math.max(1, Math.round(days))} d`;
 }
 
-export function formatShortDate(seconds: number): string {
-  const date = new Date(Date.UTC(2000, 0, 1, 12) + seconds * 1000);
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${date.getUTCDate()} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
-}
+export { formatShortDate };

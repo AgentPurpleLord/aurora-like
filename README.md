@@ -131,6 +131,44 @@ hiding any of the detail.
   and a **density** setting (comfortable or compact).
 - **Phone**: a short tab bar with a More sheet for the remaining screens.
 
+## Saving, the digest and fleet automation
+
+**Saving.** The game autosaves every couple of minutes while you play (a ring
+of four slots, so you can rewind) and when the tab is hidden or closed, and
+it resumes from the latest save when you come back. `F5` quicksaves, `F9`
+quickloads, and `Ctrl+S` opens the save dialog: named saves, export to a
+file, import from a file, and **New game**. Everything derived (issues,
+previews, goals, research figures, ship statistics) is rebuilt on load, and a
+loaded game plays on identically to the one that was saved - the model
+checks play both forward and compare them.
+
+**The return digest.** After a long run of time with news in it, a toast
+offers **Review digest** once the clock is stopped; it is also in the command
+palette and on the dashboard. It reports the changes in numbers, what wants a
+decision now, and the events grouped by kind, each one a link to where it
+happened. "Mark as read" starts the next period.
+
+**Repeating orders.** Tick *Repeat these orders* on a fleet and finished orders
+go to the back of the queue, so a circuit runs again and again.
+
+**Fleet programmes** are standing orders for ships: the fleet follows a rule
+whenever it has nothing queued, writing its own orders as it goes.
+
+- *Survey*: the nearest unsurveyed body each time, in the whole system or out
+  to a chosen range. It tops up fuel before leaving a colony, only goes where
+  it can reach and come home from, will not chase a body another fleet is
+  already heading for, and goes home when done. The command palette can start
+  one on any fleet with survey sensors.
+- *Freight line*: shuttle between two colonies. Carry minerals (all or one,
+  leaving a reserve behind), stored installations, or colonists one way, and
+  optionally something back. The fleet waits at the first colony until there
+  is cargo, refuels at either end, and shows a forecast of round-trip time and
+  tonnage a year before you commit.
+
+Routine movements of automated fleets are logged quietly: they never stop
+the clock or raise a toast, and the digest only counts them. Problems - out
+of fuel, a target out of range, no sensors aboard - are still raised.
+
 ## Terraforming
 
 ![a terraforming programme](docs/terraforming.png)
@@ -532,4 +570,4 @@ ship maintenance and crew grade. Terraforming cannot yet be done from orbit by
 a ship, only by installations on the ground. Ordnance
 factories, maintenance facilities, tracking stations and spaceports can be
 built but do nothing yet, and mineral and colonist transport is handled by the
-civilian-shipping stand-in described above rather than by freighters you build.
+civilian-shipping stand-in described above rather than by freighters you build - though freight lines now let freighters do the job by hand, with civilian shipping off.

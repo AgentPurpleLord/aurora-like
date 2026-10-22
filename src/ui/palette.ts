@@ -8,6 +8,7 @@
  */
 
 import type { Game } from "../state/game";
+import { fleetStats } from "../sim/ships/fleet";
 import { TECHS } from "../sim/research/techs";
 import { techState } from "../sim/research/graph";
 import { classLabel } from "../sim/system";
@@ -24,6 +25,11 @@ export interface PaletteActions {
   openClass(designId: string): void;
   togglePause(): void;
   nextEvent(): void;
+  openSaves(): void;
+  quickSave(): void;
+  quickLoad(): void;
+  showDigest(): void;
+  startSurvey(fleetId: string): void;
   toggleDensity(): void;
   toggleShipping(): void;
 }
@@ -116,6 +122,10 @@ export class CommandPalette {
     e.push(
       { label: game.clock.paused ? "Resume the clock" : "Pause the clock", hint: "Space", kind: "Command", run: actions.togglePause },
       { label: "Skip to the next event", hint: "Runs until something happens  (N)", kind: "Command", run: actions.nextEvent },
+      { label: "Save and load...", hint: "Manage saves  (Ctrl S)", kind: "Command", run: actions.openSaves },
+      { label: "Quicksave", hint: "Overwrite the quick slot  (F5)", kind: "Command", run: actions.quickSave },
+      { label: "Quickload", hint: "Return to the quick slot  (F9)", kind: "Command", run: actions.quickLoad },
+      { label: "Show the digest", hint: "What happened since you last looked", kind: "Command", run: actions.showDigest },
       { label: "Toggle compact density", hint: "Fit more on screen", kind: "Command", run: actions.toggleDensity },
       {
         label: `${empire.civilianShipping ? "Turn off" : "Turn on"} civilian shipping`,
@@ -140,6 +150,14 @@ export class CommandPalette {
     }
     for (const fleet of empire.fleets.values()) {
       e.push({ label: `Fleet: ${fleet.name}`, hint: `${fleet.shipIds.length} ships`, kind: "Fleet", run: () => actions.openFleet(fleet.id) });
+      if (!fleet.program && fleetStats(empire, fleet).canSurvey) {
+        e.push({
+          label: `Survey the whole system with ${fleet.name}`,
+          hint: "Standing programme: nearest body first, refuels itself",
+          kind: "Command",
+          run: () => actions.startSurvey(fleet.id),
+        });
+      }
     }
     for (const tech of TECHS) {
       const state = techState(empire, tech);

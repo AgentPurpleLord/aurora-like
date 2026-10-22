@@ -23,6 +23,10 @@ import { deriveProposals } from "../src/sim/governors";
 import { effectiveColonyCost, shipyardCapacity } from "../src/sim/economy/production";
 import { componentStats, normaliseParams, SURVEY_POINTS_NEEDED } from "../src/sim/ships/components";
 import type { Empire } from "../src/state/empire";
+import { surveyScope } from "../src/sim/ships/programs";
+import { fleetStats } from "../src/sim/ships/fleet";
+import { emptyStockpile } from "../src/state/colony";
+import { gameFromSave, makeSave, parseSave } from "../src/state/save";
 
 /** Component designs by role, made the way a player would. */
 function parts(empire: Empire, now = 0) {
@@ -59,6 +63,16 @@ const num = (v: number) => Math.round(v).toLocaleString("en-US");
 declare const process: { exit(code: number): never };
 
 let failures = 0;
+
+/** Structural equality over plain data; key order does not matter. */
+function isDeepStrictEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  if (ka.length !== kb.length) return false;
+  return ka.every((k) => isDeepStrictEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
+}
 
 function check(name: string, actual: number, expected: number, tolerance: number): void {
   const ok = Math.abs(actual - expected) <= tolerance;
@@ -963,6 +977,207 @@ console.log("");
     } atm)`,
     totalPressure(luna.atmosphere) <= cap + 1e-9,
   );
+}
+
+// ==========================================================================
+// Saving and loading
+// ==========================================================================
+
+console.log("");
+
+{
+  const original = new Game("persist");
+  const e = original.empire;
+  e.research("nuclear-thermal");
+  e.research("geo-survey-sensors");
+  const pp = parts(e);
+  const ship = e.addDesign("Scout", [
+    { componentId: pp.engine("nuclear-thermal").id, count: 1 },
+    { componentId: pp.tank().id, count: 2 },
+    { componentId: pp.sensor().id, count: 1 },
+    { componentId: pp.quarters().id, count: 1 },
+  ], 0);
+  const fleet = e.createFleet("Scouts", { x: 0, y: 0, z: 0 }, "earth");
+  e.commissionShip(ship.id, fleet, "Scout 001", 0).fuel = 1e5;
+  fleet.orders.push({ kind: "move", bodyId: "mars" }, { kind: "survey" });
+  e.queueBuild("earth", "mine", 5);
+  const mars = original.system.byId.get("mars")!;
+  mars.atmosphere["nitrogen"] = (mars.atmosphere["nitrogen"] ?? 0) + 0.2;
+  recomputeEnvironment(mars);
+  for (let i = 0; i < 40; i++) original.step(CYCLE_DAYS * SECONDS_PER_DAY);
+
+  // Key order is not state; compare the data itself.
+  const same = (a: unknown, b: unknown) => isDeepStrictEqual(JSON.parse(JSON.stringify(a)), JSON.parse(JSON.stringify(b)));
+  const file = makeSave(original, "test", "Test", "manual");
+  const text = JSON.stringify(file);
+  const loaded = gameFromSave(parseSave(text));
+  assert(
+    "a saved game restores to exactly the state that was saved",
+    same(loaded.exportState(), original.exportState()),
+  );
+  check("the clock comes back", loaded.clock.seconds, original.clock.seconds, 0);
+  check("the changed atmosphere comes back", loaded.system.byId.get("mars")!.atmosphere["nitrogen"] ?? 0,
+    mars.atmosphere["nitrogen"] ?? 0, 1e-12);
+  check("and the colony cost follows from it", loaded.system.byId.get("mars")!.colonyCost, mars.colonyCost, 1e-9);
+  assert("fleets and ships come back", loaded.empire.fleets.size === 1 && loaded.empire.ships.size === 1);
+  assert("derived ship figures work on a loaded game", loaded.empire.statsOf(ship.id)?.speed === e.statsOf(ship.id)?.speed);
+
+  // The strongest test of a save: play on from both and expect no difference.
+  for (let i = 0; i < 120; i++) {
+    original.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    loaded.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  }
+  assert(
+    "a loaded game plays on identically to the original",
+    same(loaded.exportState(), original.exportState()),
+  );
+
+  let rejected = 0;
+  for (const bad of ["not json", "{}", JSON.stringify({ ...file, version: 999 })]) {
+    try { parseSave(bad); } catch { rejected++; }
+  }
+  check("damaged or future saves are refused with an error", rejected, 3, 0);
+}
+
+// ==========================================================================
+// Fleet programmes and repeating orders
+// ==========================================================================
+
+console.log("");
+
+{
+  const game = new Game("programmes");
+  const e = game.empire;
+  e.research("nuclear-thermal");
+  e.research("geo-survey-sensors");
+  const pp = parts(e);
+  const scout = e.addDesign("Scout", [
+    { componentId: pp.engine("nuclear-thermal").id, count: 2 },
+    { componentId: pp.tank().id, count: 6 },
+    { componentId: pp.sensor().id, count: 2 },
+    { componentId: pp.quarters().id, count: 1 },
+  ], 0);
+  const freighter = e.addDesign("Freighter", [
+    { componentId: pp.engine("nuclear-thermal").id, count: 2 },
+    { componentId: pp.tank().id, count: 4 },
+    { componentId: pp.cargo().id, count: 4 },
+    { componentId: pp.quarters().id, count: 2 },
+  ], 0);
+
+  // --- survey everything
+  const survey = e.createFleet("Survey Wing", { x: 0, y: 0, z: 0 }, "earth");
+  e.commissionShip(scout.id, survey, "Scout 001", 0); // arrives with dry tanks
+  survey.program = { kind: "survey", maxAu: 6 };
+  const inScope = surveyScope(game.system, 6);
+  assert(`the survey scope is the bodies within 6 AU (${inScope.length})`, inScope.length > 10);
+  for (let day = 0; day < 4000 && survey.program; day++) game.step(SECONDS_PER_DAY);
+  assert("a survey programme finishes by itself", survey.program === null);
+  assert(
+    "every body in scope was surveyed",
+    inScope.every((b) => e.surveyed.has(b.id)),
+  );
+  assert("the programme reported once, not per body",
+    e.log.filter((l) => l.category === "fleet" && !l.quiet && /survey programme/.test(l.text)).length === 1);
+  assert("routine survey results were logged quietly",
+    e.log.filter((l) => /has surveyed/.test(l.text)).every((l) => l.quiet));
+  for (let day = 0; day < 400 && survey.anchorId !== "earth"; day++) game.step(SECONDS_PER_DAY);
+  assert("and the ship was sent home afterwards", survey.anchorId === "earth" || survey.orders.length > 0);
+
+  // --- two fleets share the work
+  const game2 = new Game("programmes-2");
+  const e2 = game2.empire;
+  e2.research("nuclear-thermal");
+  e2.research("geo-survey-sensors");
+  const pp2 = parts(e2);
+  const scout2 = e2.addDesign("Scout", [
+    { componentId: pp2.engine("nuclear-thermal").id, count: 2 },
+    { componentId: pp2.tank().id, count: 6 },
+    { componentId: pp2.sensor().id, count: 2 },
+    { componentId: pp2.quarters().id, count: 1 },
+  ], 0);
+  const one = e2.createFleet("One", { x: 0, y: 0, z: 0 }, "earth");
+  const two = e2.createFleet("Two", { x: 0, y: 0, z: 0 }, "earth");
+  e2.commissionShip(scout2.id, one, "S1", 0);
+  e2.commissionShip(scout2.id, two, "S2", 0);
+  one.program = { kind: "survey", maxAu: 2.5 };
+  two.program = { kind: "survey", maxAu: 2.5 };
+  game2.step(SECONDS_PER_DAY * 3);
+  const targets = (f: typeof one) => f.orders.filter((o) => o.kind === "move").map((o) => (o as { bodyId: string }).bodyId);
+  assert("two survey fleets are not sent to the same body",
+    targets(one).every((t) => !targets(two).includes(t)));
+
+  // --- a programme without sensors says so
+  const blind = e.createFleet("Blind", { x: 0, y: 0, z: 0 }, "earth");
+  const freightShip = e.commissionShip(freighter.id, blind, "F0", 0);
+  freightShip.fuel = 1;
+  blind.program = { kind: "survey", maxAu: 0 };
+  game.step(SECONDS_PER_DAY * 2);
+  assert("a programme that cannot work explains why", blind.note === "No survey sensors aboard");
+  blind.program = null;
+  blind.note = null;
+
+  // --- a freight line
+  const mars = e.foundColony("mars", game.clock.seconds);
+  mars.population = 1;
+  mars.stockpile = emptyStockpile();
+  const earth = e.colony("earth")!;
+  for (const m of MINERALS) earth.stockpile[m] = 900_000;
+  earth.fuel = 5_000_000;
+  const line = e.createFleet("Mars Run", { x: 0, y: 0, z: 0 }, "earth");
+  e.commissionShip(freighter.id, line, "Hauler 1", 0);
+  line.program = {
+    kind: "freight", fromId: "earth", toId: "mars",
+    there: { kind: "minerals", mineral: "Duranium", keep: 10_000 }, back: null,
+  };
+  const earthBefore = earth.stockpile.Duranium;
+  const capacity = fleetStats(e, line).cargoCapacity;
+  for (let day = 0; day < 1500 && mars.stockpile.Duranium <= 0; day++) game.step(SECONDS_PER_DAY);
+  assert(`the freight line delivered minerals to Mars (${num(mars.stockpile.Duranium)} t)`, mars.stockpile.Duranium > 0);
+  assert("what Mars received left Earth's stockpile",
+    Math.abs((earthBefore - earth.stockpile.Duranium) - mars.stockpile.Duranium) < 1e-6 + capacity);
+  const minHeld = earth.stockpile.Duranium;
+  for (let day = 0; day < 3000; day++) game.step(SECONDS_PER_DAY);
+  assert("the line keeps running trip after trip", mars.stockpile.Duranium > capacity * 1.5);
+  assert("the line leaves the reserve it was told to keep", earth.stockpile.Duranium >= 10_000 - 1 || earth.stockpile.Duranium >= minHeld - capacity * 20);
+  assert("freight arrivals do not stop the clock",
+    e.log.filter((l) => /Mars Run/.test(l.text)).every((l) => l.quiet || /out of fuel/.test(l.text)));
+
+  // --- waiting for cargo is a state, not an error
+  for (const m of MINERALS) earth.stockpile[m] = 0;
+  for (let day = 0; day < 400; day++) game.step(SECONDS_PER_DAY);
+  assert("with nothing to carry, the line waits",
+    /Waiting for duranium/.test(line.programStatus ?? "") && line.note === null);
+  assert("and a waiting line is not raised as an idle fleet",
+    !deriveIssues(e, game.system).some((i) => i.id === `fleet:idle:${line.id}`));
+
+  // --- installations from the store, colonists
+  earth.stored["mine"] = 30;
+  line.program = {
+    kind: "freight", fromId: "earth", toId: "mars",
+    there: { kind: "installations", installationId: "all" }, back: null,
+  };
+  const minesBefore = mars.installations["mine"] ?? 0;
+  for (let day = 0; day < 1500 && (earth.stored["mine"] ?? 0) > 0; day++) game.step(SECONDS_PER_DAY);
+  for (let day = 0; day < 600; day++) game.step(SECONDS_PER_DAY);
+  assert("stored installations were carried and installed",
+    (mars.installations["mine"] ?? 0) > minesBefore && (earth.stored["mine"] ?? 0) < 30);
+
+  // --- repeating orders
+  const loop = e.createFleet("Shuttle", { x: 0, y: 0, z: 0 }, "earth");
+  const loopShip = e.commissionShip(freighter.id, loop, "Shuttle 1", 0);
+  loopShip.fuel = empire_fuel(e, freighter.id);
+  loop.orders.push({ kind: "move", bodyId: "mars" }, { kind: "move", bodyId: "earth" }, { kind: "refuel" });
+  loop.loop = true;
+  for (let day = 0; day < 4000; day++) game.step(SECONDS_PER_DAY / 2);
+  const arrivals = e.log.filter((l) => /Shuttle has arrived/.test(l.text)).length;
+  assert(`a repeating fleet goes round again and again (${arrivals} arrivals)`, arrivals >= 4);
+  assert("its orders are never used up", loop.orders.length === 3);
+  assert("and its arrivals were logged quietly",
+    e.log.filter((l) => /Shuttle has arrived/.test(l.text)).every((l) => l.quiet));
+
+  function empire_fuel(emp: typeof e, designId: string): number {
+    return emp.statsOf(designId)!.fuelCapacity;
+  }
 }
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);

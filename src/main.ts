@@ -3,6 +3,7 @@ import { applyDensity } from "./ui/settings";
 
 applyDensity();
 import { App, type ViewId } from "./ui/app";
+import { startingGame } from "./state/save";
 
 function need<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id) as T | null;
@@ -20,6 +21,13 @@ const views: Record<ViewId, HTMLElement> = {
   officers: need("view-officers"),
 };
 
+const start = startingGame();
+
+// `?debug` exposes the game to the console and to the browser tests.
+if (new URLSearchParams(window.location.search).has("debug")) {
+  (window as unknown as { __game: unknown }).__game = start.game;
+}
+
 new App(need<HTMLCanvasElement>("map"), {
   tree: need("system-panel"),
   detail: need("detail-panel"),
@@ -31,5 +39,6 @@ new App(need<HTMLCanvasElement>("map"), {
   rail: need("triage-rail"),
   paletteButton: need("palette-button"),
   settingsHost: need("settings-host"),
+  saveButton: need("save-button"),
   views,
-});
+}, start.game, start);

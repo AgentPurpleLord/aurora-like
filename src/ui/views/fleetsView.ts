@@ -27,6 +27,8 @@ import { fullName } from "../../sim/people/officers";
 import { compact, el, num } from "../format";
 import { button, emptyNote, numberInput, progressBar, section, select, stat } from "../widgets";
 import { formatYears } from "./economyView";
+import { FleetAutomation } from "./fleetAutomation";
+import { describeProgram } from "../../sim/ships/programs";
 
 type OrderKind = FleetOrder["kind"];
 
@@ -54,6 +56,7 @@ export class FleetsView {
   private orderAmount = 1;
   private buildColony = "";
   private buildQuantity = 1;
+  private automation: FleetAutomation;
 
   constructor(
     private root: HTMLElement,
@@ -61,6 +64,7 @@ export class FleetsView {
     private actions: { openDesigner: (classId: string | null) => void },
   ) {
     this.root.classList.add("view-fleets");
+    this.automation = new FleetAutomation(game, () => this.render());
     this.listPane = el("aside", "panel panel-left");
     this.mainPane = el("section", "fleet-detail");
     this.sidePane = el("aside", "panel panel-right");
@@ -98,6 +102,13 @@ export class FleetsView {
       dot.style.background = stats.speed > 0 ? "#8fd0ff" : "#6a7684";
       row.append(dot, el("span", "tree-name", fleet.name));
       row.append(el("span", "tree-meta", `${stats.ships} ship${stats.ships === 1 ? "" : "s"}`));
+      if (fleet.program) {
+        const tag = el("span", "chip program-chip", fleet.program.kind === "survey" ? "survey" : "freight");
+        tag.title = describeProgram(fleet.program, (id) => game.system.byId.get(id)?.name ?? id);
+        row.append(tag);
+      } else if (fleet.loop) {
+        row.append(el("span", "chip program-chip", "repeat"));
+      }
       if (fleet.note) {
         const flag = el("span", "colony-flag", "!");
         flag.title = fleet.note;
@@ -159,6 +170,7 @@ export class FleetsView {
 
     this.renderCommander(body, fleet);
     this.renderOrders(body, fleet);
+    this.automation.render(body, fleet);
     this.renderCargo(body, fleet, stats.colonistCapacity);
     this.renderShips(body, fleet);
   }
@@ -222,11 +234,14 @@ export class FleetsView {
     const { game } = this;
     const sec = section(parent, "Orders");
 
-    if (!fleet.orders.length) emptyNote(sec, "No orders. The fleet is holding station.");
+    if (!fleet.orders.length) {
+      emptyNote(sec, fleet.program ? "No queued orders: the programme writes its own." : "No orders. The fleet is holding station.");
+    }
     fleet.orders.forEach((order, index) => {
       const row = el("div", "queue-row order-row");
       row.append(el("span", "queue-name", this.describeOrder(order)));
       if (index === 0) row.append(el("span", "chip", "current"));
+      if (fleet.loop && index === fleet.orders.length - 1) row.append(el("span", "chip", "then repeats"));
       row.append(
         button("x", () => {
           fleet.orders.splice(index, 1);
@@ -303,6 +318,7 @@ export class FleetsView {
       ),
     );
     sec.append(form);
+    this.automation.renderRepeat(sec, fleet);
 
     if (fleet.orders.length) {
       sec.append(

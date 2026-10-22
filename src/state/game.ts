@@ -7,11 +7,24 @@ import { Random } from "../sim/rng";
 import { CYCLE_DAYS, computeSnapshot, runCycle } from "../sim/economy/production";
 import { MINERALS } from "../sim/minerals";
 import { updateFleets } from "../sim/ships/fleet";
-import { Empire, type LogEntry } from "./empire";
+import { Empire, type EmpireState, type LogEntry } from "./empire";
+import { recomputeEnvironment } from "../sim/system";
 import { emptyStockpile } from "./colony";
 import { labCapacity, type Officer } from "../sim/people/officers";
 
 export type Listener = () => void;
+
+/** The saved form of a campaign. */
+export interface GameState {
+  seed: string;
+  /** Simulation seconds since J2000. */
+  seconds: number;
+  lastCycle: number;
+  selected: string | null;
+  empire: EmpireState;
+  /** Per-body state that play can change: the air and what is left to mine. */
+  bodies: Record<string, { atmosphere: Record<string, number>; deposits: number[] }>;
+}
 
 const CYCLE_SECONDS = CYCLE_DAYS * SECONDS_PER_DAY;
 /** Cycles processed in a single frame before we let the UI breathe. */
@@ -41,12 +54,58 @@ export class Game {
   pausedBy: LogEntry | null = null;
   private listeners = new Set<Listener>();
 
-  constructor(seed: string = "sol-1") {
+  constructor(
+    readonly seed: string = "sol-1",
+    save?: GameState,
+  ) {
     this.empire = new Empire(new Random(seed));
     this.system.update(this.clock.days);
     this.lastCycle = this.clock.seconds;
-    this.setUpCampaign();
-    this.selected = this.system.byId.get("earth") ?? null;
+    if (save) {
+      this.restore(save);
+    } else {
+      this.setUpCampaign();
+    }
+    this.selected = this.system.byId.get(save?.selected ?? "earth") ?? null;
+  }
+
+  /** Everything needed to carry on from here: plain data, safe for JSON. */
+  exportState(): GameState {
+    const bodies: GameState["bodies"] = {};
+    for (const body of this.system.bodies) {
+      bodies[body.id] = {
+        atmosphere: { ...body.atmosphere },
+        deposits: body.minerals.map((d) => d.amount),
+      };
+    }
+    return {
+      seed: this.seed,
+      seconds: this.clock.seconds,
+      lastCycle: this.lastCycle,
+      selected: this.selected?.id ?? null,
+      empire: this.empire.exportState(),
+      bodies,
+    };
+  }
+
+  /** Load a saved campaign over a freshly built one. */
+  private restore(save: GameState): void {
+    this.clock.seconds = save.seconds;
+    this.lastCycle = save.lastCycle;
+    for (const body of this.system.bodies) {
+      const saved = save.bodies[body.id];
+      if (!saved) continue;
+      body.atmosphere = { ...saved.atmosphere };
+      // Deposits are generated from the body, so they come back in the same order.
+      body.minerals.forEach((deposit, i) => {
+        if (typeof saved.deposits[i] === "number") deposit.amount = saved.deposits[i];
+      });
+      recomputeEnvironment(body);
+    }
+    this.system.update(this.clock.days);
+    this.empire.importState(save.empire);
+    this.pauseSeq = this.empire.logSeq;
+    this.clock.setRate(0);
   }
 
   /**
@@ -144,7 +203,7 @@ export class Game {
     if (!fresh.length) return false;
     this.pauseSeq = this.empire.logSeq;
     if (this.clock.paused || !this.autoPauseFilter) return false;
-    const trigger = fresh.find((entry) => this.autoPauseFilter!(entry));
+    const trigger = fresh.find((entry) => !entry.quiet && this.autoPauseFilter!(entry));
     if (!trigger) return false;
     this.clock.setRate(0);
     this.pausedBy = trigger;

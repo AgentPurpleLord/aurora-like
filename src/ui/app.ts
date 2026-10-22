@@ -2,7 +2,7 @@
 
 import { SystemMapRenderer, formatAu, type FleetMarker, type RenderOptions } from "../render/map";
 import { destinationOf } from "../sim/ships/fleet";
-import { Game } from "../state/game";
+import type { Game } from "../state/game";
 import { classLabel, type Body } from "../sim/system";
 import { AU_KM } from "../sim/orbit";
 import { BodyTreePanel } from "./bodyTree";
@@ -23,6 +23,12 @@ import { Toasts } from "./toasts";
 import { applyDensity, saveSettings, settings } from "./settings";
 import { LENSES, LENS_BY_ID, hoverLines, type LensId } from "./lenses";
 import { IMPORTANT_CATEGORIES, type LogEntry, type LogLink } from "../state/empire";
+import { QUICKSAVE_ID, listSaves, requestLoad, saveAuto, saveQuick, type SaveMeta } from "../state/save";
+import { buildDigest, worthShowing } from "../sim/digest";
+import { formatShortDate } from "../sim/clock";
+import { openSaveDialog } from "./saveDialog";
+import { openDigestDialog } from "./digestDialog";
+import { dialogOpen } from "./dialog";
 
 interface ZoomPreset {
   label: string;
@@ -75,6 +81,7 @@ export interface AppRoots {
   rail: HTMLElement;
   paletteButton: HTMLElement;
   settingsHost: HTMLElement;
+  saveButton: HTMLElement;
   views: Record<ViewId, HTMLElement>;
 }
 
@@ -82,7 +89,6 @@ export interface AppRoots {
 const PRIMARY_VIEWS: ViewId[] = ["empire", "map", "colonies", "fleets"];
 
 export class App {
-  private game = new Game();
   private renderer: SystemMapRenderer;
   private tree: BodyTreePanel;
   private detail: DetailPanel;
@@ -100,6 +106,11 @@ export class App {
   private lens: LensId = (LENS_BY_ID.has(settings.lens as LensId) ? settings.lens : "default") as LensId;
   private legend = el("div", "map-legend");
   private hoverCard = el("div", "map-hover");
+  /** Real time of the last autosave, and whether anything changed since. */
+  private lastAutosave = Date.now();
+  private dirty = false;
+  /** The review mark a digest was last offered for, so it is offered once. */
+  private digestOfferedFor = -1;
   /** Newest log entry already turned into a toast. */
   private toastSeq = 0;
   private lastToastClock = 0;
@@ -126,7 +137,12 @@ export class App {
     showFleets: true,
   };
 
-  constructor(private canvas: HTMLCanvasElement, private roots: AppRoots) {
+  constructor(
+    private canvas: HTMLCanvasElement,
+    private roots: AppRoots,
+    private game: Game,
+    startup: { resumed: SaveMeta | null; error?: string } = { resumed: null },
+  ) {
     this.renderer = new SystemMapRenderer(canvas, this.game.system);
     this.tree = new BodyTreePanel(roots.tree, this.game, (b) => this.zoomTo(b));
     this.detail = new DetailPanel(roots.detail, this.game, {
@@ -143,6 +159,7 @@ export class App {
       this.game,
       (bodyId) => this.openColony(bodyId),
       (link) => this.navigate(link),
+      () => this.openDigest(),
     );
     this.fleetsView = new FleetsView(roots.views.fleets, this.game, {
       openDesigner: (classId) => {
@@ -176,6 +193,19 @@ export class App {
         this.time.refresh(true);
       },
       nextEvent: () => this.nextEvent(),
+      openSaves: () => this.openSaves(),
+      quickSave: () => this.quickSave(),
+      quickLoad: () => this.quickLoad(),
+      showDigest: () => this.openDigest(),
+      startSurvey: (fleetId) => {
+        const fleet = this.game.empire.fleets.get(fleetId);
+        if (fleet) {
+          fleet.program = { kind: "survey", maxAu: 0 };
+          fleet.waitUntil = 0;
+        }
+        this.navigate({ view: "fleets", fleetId });
+        this.game.emit();
+      },
       toggleDensity: () => {
         settings.density = settings.density === "compact" ? "comfortable" : "compact";
         applyDensity();
@@ -189,6 +219,7 @@ export class App {
     // The menu owns its own button and panel; it only needs to tell us when to redraw.
     new SettingsMenu(roots.settingsHost, () => this.renderActiveView());
     roots.paletteButton.addEventListener("click", () => this.palette.open());
+    roots.saveButton.addEventListener("click", () => this.openSaves());
 
     // Events that stop the clock are the player's choice, remembered.
     this.game.autoPauseFilter = (entry) => settings.autoPause[entry.category];
@@ -203,6 +234,8 @@ export class App {
       this.rail.render();
       this.updateBadges();
       this.announceEvents();
+      this.dirty = true;
+      this.offerDigest();
     });
 
     this.bindCanvas();
@@ -226,7 +259,103 @@ export class App {
     this.rail.render();
     this.updateBadges();
     this.toastSeq = this.game.empire.logSeq;
+    this.startAutosave();
+    this.announceStartup(startup);
     this.frame();
+  }
+
+  // ------------------------------------------------------- saving, digest
+
+  /** Autosave while the tab is open, and when it is hidden or closed. */
+  private startAutosave(): void {
+    const AUTOSAVE_MS = 120_000;
+    window.setInterval(() => {
+      if (this.dirty && Date.now() - this.lastAutosave >= AUTOSAVE_MS) this.autosave();
+    }, 15_000);
+    const flush = () => {
+      if (this.dirty && Date.now() - this.lastAutosave > 3_000) this.autosave();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") flush();
+    });
+  }
+
+  private autosave(): void {
+    const result = saveAuto(this.game);
+    this.lastAutosave = Date.now();
+    if (result.ok) {
+      this.dirty = false;
+    } else {
+      this.toasts.push({ title: "Autosave failed", text: result.error ?? "Could not save.", category: "info" });
+    }
+  }
+
+  private openSaves(): void {
+    openSaveDialog(this.game, {
+      saved: () => {
+        this.lastAutosave = Date.now();
+      },
+      toast: (text) => this.toasts.push({ text, category: "info" }),
+    });
+  }
+
+  private quickSave(): void {
+    const result = saveQuick(this.game);
+    this.toasts.push({
+      text: result.ok ? `Quicksaved ${formatShortDate(this.game.clock.seconds)}.` : (result.error ?? "Could not save."),
+      category: "info",
+    });
+  }
+
+  private quickLoad(): void {
+    if (!listSaves().some((m) => m.id === QUICKSAVE_ID)) {
+      this.toasts.push({ text: "There is no quicksave yet. Press F5 to make one.", category: "info" });
+      return;
+    }
+    requestLoad(QUICKSAVE_ID);
+  }
+
+  private openDigest(): void {
+    openDigestDialog(this.game, (link) => this.navigate(link), () => this.game.emit());
+  }
+
+  /**
+   * After a long run of time with news in it, offer the digest once the clock
+   * is stopped - never mid-run, when the player is watching.
+   */
+  private offerDigest(): void {
+    const { game } = this;
+    const mark = game.empire.reviewMark;
+    if (!game.clock.paused || dialogOpen() || this.digestOfferedFor === mark.seq) return;
+    // Cheap test first: this runs on every change.
+    if (game.clock.seconds - mark.time < 30 * 86_400 || game.empire.logSeq - mark.seq < 3) return;
+    const digest = buildDigest(game.empire, game.system, game.clock.seconds);
+    if (!worthShowing(digest)) return;
+    this.digestOfferedFor = mark.seq;
+    const events = digest.groups.reduce((sum, g) => sum + g.entries.length, 0);
+    this.toasts.push({
+      title: "While you were away",
+      text: `${events} events over ${Math.round(digest.days)} days.`,
+      category: "info",
+      action: { label: "Review digest", run: () => this.openDigest() },
+      lifetime: 20_000,
+    });
+  }
+
+  private announceStartup(startup: { resumed: SaveMeta | null; error?: string }): void {
+    if (startup.error) {
+      this.toasts.push({ title: "Could not load save", text: startup.error, category: "info", lifetime: 15_000 });
+    }
+    if (startup.resumed) {
+      this.toasts.push({
+        title: "Game loaded",
+        text: `${startup.resumed.name} - ${formatShortDate(startup.resumed.gameTime)}. The clock is paused.`,
+        category: "info",
+      });
+      this.dirty = false;
+      this.offerDigest();
+    }
   }
 
   // ----------------------------------------------------------------- views
@@ -327,7 +456,7 @@ export class App {
 
     // After a long jump there can be dozens; the most important few are enough.
     const worth = fresh
-      .filter((e) => IMPORTANT_CATEGORIES.includes(e.category) && e !== pausedBy)
+      .filter((e) => !e.quiet && IMPORTANT_CATEGORIES.includes(e.category) && e !== pausedBy)
       .slice(-3);
     for (const entry of worth) {
       this.toasts.push({ text: entry.text, category: entry.category, link: entry.link });
@@ -338,7 +467,7 @@ export class App {
   private nextEvent(): void {
     this.toasts.clear();
     const found = this.game.runUntilEvent(
-      (entry: LogEntry) => IMPORTANT_CATEGORIES.includes(entry.category),
+      (entry: LogEntry) => !entry.quiet && IMPORTANT_CATEGORIES.includes(entry.category),
       365,
     );
     this.game.pausedBy = null;
@@ -790,8 +919,23 @@ export class App {
         this.palette.toggle();
         return;
       }
-      if (this.palette.isOpen) return;
+      if (this.palette.isOpen || dialogOpen()) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+      if (e.key === "F5") {
+        e.preventDefault();
+        this.quickSave();
+        return;
+      }
+      if (e.key === "F9") {
+        e.preventDefault();
+        this.quickLoad();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        this.openSaves();
+        return;
+      }
       if (e.key === "/") {
         e.preventDefault();
         this.palette.open();

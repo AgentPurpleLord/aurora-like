@@ -38,6 +38,13 @@ export const TIME_INCREMENTS: { label: string; seconds: number }[] = [
   { label: "+30d", seconds: 30 * SECONDS_PER_DAY },
 ];
 
+/** "18 Mar 2025" for any simulation time. */
+export function formatShortDate(seconds: number): string {
+  const date = new Date(J2000_UNIX_MS + seconds * 1000);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${date.getUTCDate()} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+}
+
 export class GameClock {
   /** Simulated seconds since J2000.0. */
   seconds = CAMPAIGN_START_SECONDS;

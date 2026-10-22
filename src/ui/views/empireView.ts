@@ -52,6 +52,7 @@ export class EmpireView {
     private game: Game,
     private onOpenColony: (bodyId: string) => void,
     private navigate: (link: LogLink) => void,
+    private openDigest: () => void = () => {},
   ) {
     this.root.classList.add("view-empire");
   }
@@ -110,6 +111,7 @@ export class EmpireView {
       strip.append(item);
     }
 
+    strip.append(button("Open digest", () => this.openDigest()));
     const mark_ = el("button", "ghost-btn", "Mark reviewed");
     mark_.addEventListener("click", () => {
       empire.markReviewed(this.game.clock.seconds);

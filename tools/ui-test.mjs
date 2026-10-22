@@ -551,6 +551,127 @@ async function refreshSuite(browser) {
   await page.close();
 }
 
+async function programSuite(browser) {
+  console.log("\nSaves, digest and fleet programmes");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.goto(`${URL}?debug&new`);
+  await page.waitForSelector("#view-tabs");
+
+  // A survey ship and a hauler, and a second colony to run between.
+  await page.evaluate(() => {
+    const g = window.__game;
+    const e = g.empire;
+    e.research("nuclear-thermal");
+    e.research("geo-survey-sensors");
+    const part = (kind, params) => e.addComponentDesign(kind, params, 0);
+    const engine = part("engine", { type: "nuclear-thermal", size: 5, modifier: 1 });
+    const tank = part("fuel-tank", { size: 5 });
+    const quarters = part("crew-quarters", { size: 2 });
+    const cargo = part("cargo-hold", { size: 20 });
+    const sensor = part("survey-sensor", { type: "geological", size: 4 });
+    const scout = e.addDesign("Scout", [
+      { componentId: engine.id, count: 2 }, { componentId: tank.id, count: 6 },
+      { componentId: sensor.id, count: 2 }, { componentId: quarters.id, count: 1 },
+    ], 0);
+    const hauler = e.addDesign("Freighter", [
+      { componentId: engine.id, count: 2 }, { componentId: tank.id, count: 4 },
+      { componentId: cargo.id, count: 4 }, { componentId: quarters.id, count: 2 },
+    ], 0);
+    const a = e.createFleet("Scout Wing", { x: 0, y: 0, z: 0 }, "earth");
+    e.commissionShip(scout.id, a, "Scout 001", 0);
+    const b = e.createFleet("Mars Line", { x: 0, y: 0, z: 0 }, "earth");
+    e.commissionShip(hauler.id, b, "Hauler 001", 0);
+    e.foundColony("mars", g.clock.seconds).population = 1;
+    g.emit();
+  });
+
+  // --- survey programme from the fleet screen
+  await nav(page, "Fleets").click();
+  await page.locator("#view-fleets .panel-left .tree-row", { hasText: "Scout Wing" }).click();
+  await check("a fleet shows its standing programme section", async () =>
+    (await page.locator("#view-fleets .section", { hasText: "Standing programme" }).count()) > 0);
+  await page.locator("#view-fleets .program-form", { hasText: "Survey" }).getByRole("button", { name: /^Survey \d+ bodies/ }).click();
+  await check("starting a survey programme shows what it is doing", async () =>
+    /Survey every body in the system/.test(await page.locator("#view-fleets .program-card").innerText()));
+  await check("the fleet list tags it", async () =>
+    (await page.locator("#view-fleets .panel-left .program-chip", { hasText: "survey" }).count()) === 1);
+  await page.evaluate(() => { for (let i = 0; i < 8; i++) window.__game.step(86400); window.__game.emit(); });
+  await check("it sets about its work on its own", async () =>
+    (await page.evaluate(() => window.__game.empire.fleets.get("fleet-1").orders.length)) > 0);
+  await page.getByRole("button", { name: "Stop programme" }).click();
+  await check("it can be stopped", async () =>
+    (await page.locator("#view-fleets .program-card").count()) === 0);
+
+  // --- freight line
+  await page.locator("#view-fleets .panel-left .tree-row", { hasText: "Mars Line" }).click();
+  const freight = page.locator("#view-fleets .program-form", { hasText: "Freight line" });
+  await check("the freight form offers the colonies", async () => (await freight.locator("select").count()) >= 4);
+  await freight.getByRole("button", { name: "Start freight line" }).click();
+  await check("a freight line starts and is described", async () =>
+    /Freight Earth - Mars/.test(await page.locator("#view-fleets .program-card").innerText()));
+  await page.evaluate(() => { for (let i = 0; i < 6; i++) window.__game.step(86400); window.__game.emit(); });
+  await check("the line reports its status", async () =>
+    (await page.locator("#view-fleets .program-card .muted").first().innerText()).length > 0);
+  await page.getByRole("button", { name: "Stop programme" }).click();
+
+  // --- repeat orders
+  await page.locator("#view-fleets .repeat-row input").check();
+  await check("repeat is remembered on the fleet", async () =>
+    await page.evaluate(() => window.__game.empire.fleets.get("fleet-2").loop));
+  await page.locator("#view-fleets .repeat-row input").uncheck();
+
+  // --- the digest is offered after a long stretch with news in it
+  await page.evaluate(() => {
+    const g = window.__game;
+    for (const text of ["Alpha complete.", "Beta complete.", "Gamma complete."]) {
+      g.empire.addLog(g.clock.seconds + 40 * 86400, "construction", text);
+    }
+    g.step(60 * 86400);
+  });
+  await check("the digest is offered when time has passed", async () =>
+    (await page.getByRole("button", { name: "Review digest" }).count()) === 1);
+  await page.getByRole("button", { name: "Review digest" }).click();
+  await check("the digest lists what happened", async () => {
+    const text = await page.locator(".dialog").innerText();
+    return /While you were away/.test(text) && /Alpha complete/.test(text);
+  });
+  await page.getByRole("button", { name: "Mark as read" }).click();
+  await check("marking it read closes it", async () => (await page.locator(".dialog").count()) === 0);
+
+  // --- saving and loading
+  await page.keyboard.press("Control+s");
+  await check("Ctrl+S opens the save dialog", async () => (await page.locator(".dialog").count()) === 1);
+  await page.locator(".save-name").fill("Test save");
+  await page.locator(".dialog").getByRole("button", { name: "Save", exact: true }).click();
+  await check("a named save is listed", async () =>
+    (await page.locator(".save-row", { hasText: "Test save" }).count()) === 1);
+  await page.keyboard.press("Escape");
+  await check("Escape closes the dialog", async () => (await page.locator(".dialog").count()) === 0);
+
+  await page.keyboard.press("F5");
+  const treasury = await page.evaluate(() => window.__game.empire.treasury);
+  const clock = await page.evaluate(() => window.__game.clock.seconds);
+  await page.evaluate(() => { window.__game.empire.treasury += 12345; window.__game.step(30 * 86400); });
+  await page.keyboard.press("F9");
+  await page.waitForLoadState("load");
+  await page.waitForSelector("#view-tabs");
+  await check("quickload brings back the saved treasury and date", async () =>
+    (await page.evaluate(() => window.__game.empire.treasury)) === treasury &&
+    (await page.evaluate(() => window.__game.clock.seconds)) === clock);
+  await check("the loaded game kept its fleets", async () =>
+    (await page.evaluate(() => window.__game.empire.fleets.size)) === 2);
+  await check("loading says so, and the clock is paused", async () =>
+    (await page.locator(".toast", { hasText: "Game loaded" }).count()) === 1 &&
+    (await page.evaluate(() => window.__game.clock.paused)));
+
+  await check("no console errors", () => errors.length === 0);
+  if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
+  await page.close();
+}
+
 async function mobileSuite(browser) {
   console.log("\nMobile (Pixel 7)");
   const context = await browser.newContext({ ...devices["Pixel 7"], hasTouch: true, isMobile: true });
@@ -655,6 +776,7 @@ try {
   await shipSuite(browser);
   await terraformSuite(browser);
   await refreshSuite(browser);
+  await programSuite(browser);
   await mobileSuite(browser);
 } finally {
   await browser.close();

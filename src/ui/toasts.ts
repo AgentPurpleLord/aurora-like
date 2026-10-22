@@ -14,6 +14,10 @@ export interface ToastSpec {
   link?: LogLink;
   /** Heading shown above the text, e.g. why the clock stopped. */
   title?: string;
+  /** A button on the toast, for notices that offer something to do. */
+  action?: { label: string; run: () => void };
+  /** Milliseconds before it goes away; longer for notices worth reading. */
+  lifetime?: number;
 }
 
 const MAX_VISIBLE = 4;
@@ -51,6 +55,16 @@ export class Toasts {
       });
     }
 
+    if (spec.action) {
+      const act = el("button", "toast-action", spec.action.label);
+      act.addEventListener("click", (event) => {
+        event.stopPropagation();
+        toast.remove();
+        spec.action!.run();
+      });
+      toast.append(act);
+    }
+
     const close = el("button", "toast-close", "x");
     close.setAttribute("aria-label", "Dismiss");
     close.addEventListener("click", (event) => {
@@ -61,7 +75,7 @@ export class Toasts {
 
     this.host.append(toast);
     while (this.host.children.length > MAX_VISIBLE) this.host.firstElementChild?.remove();
-    window.setTimeout(() => toast.remove(), LIFETIME_MS);
+    window.setTimeout(() => toast.remove(), spec.lifetime ?? LIFETIME_MS);
   }
 
   clear(): void {

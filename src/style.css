@@ -1839,3 +1839,126 @@ kbd {
 @media (max-width: 860px) {
   .speed-btn { min-height: 30px; min-width: 34px; }
 }
+
+/* ------------------------------------------------------- dialogs, saves, digest */
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  background: rgba(2, 6, 12, 0.66);
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 8vh;
+}
+.dialog-overlay.open { display: flex; }
+.dialog {
+  width: min(560px, calc(100vw - 24px));
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  background: #0d1623;
+  border: 1px solid #2a4560;
+  border-radius: 6px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+.dialog.wide { width: min(760px, calc(100vw - 24px)); }
+.dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #1c2e42;
+}
+.dialog-title { margin: 0; font-size: 16px; font-weight: 600; color: #e7f0fa; }
+.dialog-body { padding: 14px 16px 16px; overflow-y: auto; }
+.dialog-body h3 { margin: 16px 0 6px; font-size: 13px; color: #9fc2e6; }
+.dialog-body h4 { margin: 10px 0 4px; font-size: 12px; color: #8fb0d0; text-transform: uppercase; letter-spacing: 0.04em; }
+.dialog-foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+.save-now { display: flex; gap: 8px; flex-wrap: wrap; }
+.save-name {
+  flex: 1 1 200px;
+  min-width: 0;
+  padding: 7px 10px;
+  color: #e7f0fa;
+  background: #09111b;
+  border: 1px solid #2a4560;
+  border-radius: 4px;
+  font: 13px ui-sans-serif, system-ui, sans-serif;
+}
+.save-message { margin: 10px 0 0; padding: 7px 10px; border-radius: 4px; background: #12263a; color: #bcd6ee; font-size: 12px; }
+.save-list { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.save-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: #0a1420;
+  border: 1px solid #1c2e42;
+  border-radius: 4px;
+}
+.save-title { display: flex; gap: 8px; align-items: center; color: #e7f0fa; font-weight: 600; font-size: 13px; }
+.save-kind { font-size: 10px; }
+.save-actions { display: flex; gap: 6px; flex: none; }
+.save-foot { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+.danger-btn {
+  padding: 5px 12px;
+  color: #f0b4b4;
+  background: transparent;
+  border: 1px solid #6a3030;
+  border-radius: 3px;
+  font: inherit;
+  cursor: pointer;
+}
+.danger-btn:hover { background: #2a1414; }
+
+.digest-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; }
+.digest-tile { padding: 8px 10px; background: #0a1420; border: 1px solid #1c2e42; border-radius: 4px; display: flex; flex-direction: column; gap: 2px; }
+.digest-tile-label { font-size: 11px; color: #7f9bb7; }
+.digest-tile-value { font-size: 17px; font-weight: 600; color: #e7f0fa; font-variant-numeric: tabular-nums; }
+.digest-tile-value.good { color: #7fd69a; }
+.digest-tile-value.bad { color: #f08a8a; }
+.digest-issue { display: flex; align-items: center; gap: 10px; justify-content: space-between; padding: 7px 10px; margin-bottom: 4px; background: #0a1420; border-left: 3px solid #4d6b88; border-radius: 3px; }
+.digest-issue.sev-critical { border-left-color: #e05a5a; }
+.digest-issue.sev-warning { border-left-color: #e0b862; }
+.digest-issue-title { font-weight: 600; color: #e7f0fa; font-size: 13px; }
+.digest-group { margin-bottom: 8px; }
+.digest-line { display: flex; gap: 10px; padding: 3px 6px; font-size: 12.5px; color: #c8d9ea; border-radius: 3px; }
+.digest-line.clickable { cursor: pointer; }
+.digest-line.clickable:hover { background: #12263a; }
+.digest-date { flex: none; width: 84px; color: #6f8aa6; font-variant-numeric: tabular-nums; }
+
+.toast-action {
+  margin-top: 6px;
+  padding: 3px 10px;
+  color: #d8ebff;
+  background: #1d3b5a;
+  border: 1px solid #3a6a96;
+  border-radius: 3px;
+  font: 12px ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+}
+.toast-action:hover { background: #26507a; }
+@media (max-width: 860px) {
+  .dialog-overlay { padding-top: 3vh; }
+  .save-row { flex-direction: column; align-items: stretch; }
+  .save-actions { justify-content: flex-end; }
+}
+
+/* ------------------------------------------------------ fleet programmes */
+
+.program-form { margin: 10px 0 14px; padding-top: 8px; border-top: 1px solid #1c2e42; }
+.program-form h4 { margin: 0 0 6px; font-size: 12px; color: #8fb0d0; text-transform: uppercase; letter-spacing: 0.04em; }
+.program-card { padding: 10px 12px; background: #0a1420; border: 1px solid #25405c; border-left: 3px solid #5fa8e8; border-radius: 4px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.program-title { font-weight: 600; color: #e7f0fa; }
+.program-card .danger-btn { margin-top: 6px; }
+.cargo-draft { align-items: center; }
+.cargo-draft-label { flex: 1 0 100%; font-size: 12px; color: #9fc2e6; }
+.repeat-row { margin-top: 8px; }
+.program-chip { margin-left: auto; background: #12324f; color: #9fd0ff; }
+.program-form .add-order { flex-wrap: wrap; }
+.program-form .add-order .select, .program-form .add-order .select:last-of-type { flex: 1 1 130px; min-width: 0; }
+.program-form .number-input { width: 90px; }

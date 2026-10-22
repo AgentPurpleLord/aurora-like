@@ -50,6 +50,11 @@ export interface LogEntry {
   category: LogCategory;
   text: string;
   link?: LogLink;
+  /**
+   * Routine business of an automated fleet: kept in the log, but it neither
+   * stops the clock nor raises a toast, or a freight line would never let go.
+   */
+  quiet?: boolean;
 }
 
 /** Categories worth interrupting the player for. */
@@ -102,9 +107,41 @@ export function emptySnapshot(): EmpireSnapshot {
 /** State captured the last time the player reviewed the empire dashboard. */
 export interface ReviewMark {
   time: number;
+  /** Newest log entry that had been seen. */
+  seq: number;
   treasury: number;
   population: number;
   techs: number;
+  colonies: number;
+  ships: number;
+}
+
+/** The saved form of an empire: plain data, safe to pass through JSON. */
+export interface EmpireState {
+  researched: string[];
+  log: LogEntry[];
+  logSeq: number;
+  history: HistoryPoint[];
+  projects: ResearchProject[];
+  treasury: number;
+  snapshot: EmpireSnapshot;
+  capital: string;
+  austerity: boolean;
+  dismissed: [string, number][];
+  standingOrders: StandingOrder[];
+  componentDesigns: ComponentDesign[];
+  designs: ShipDesign[];
+  ships: Ship[];
+  fleets: Fleet[];
+  surveyed: string[];
+  civilianShipping: boolean;
+  lastTick: number;
+  customTemplates: BuildTemplate[];
+  reviewMark: ReviewMark;
+  colonies: Colony[];
+  officers: { officers: Officer[]; nextId: number };
+  rng: number;
+  counters: Record<"project" | "order" | "rule" | "design" | "ship" | "fleet" | "component", number>;
 }
 
 export class Empire {
@@ -146,7 +183,7 @@ export class Empire {
   lastTick = 0;
   /** Templates the player has saved, on top of the built-in ones. */
   customTemplates: BuildTemplate[] = [];
-  reviewMark: ReviewMark = { time: 0, treasury: 0, population: 0, techs: 0 };
+  reviewMark: ReviewMark = { time: 0, seq: 0, treasury: 0, population: 0, techs: 0, colonies: 0, ships: 0 };
 
   private nextProjectId = 1;
   private nextOrderId = 1;
@@ -530,6 +567,10 @@ export class Empire {
       cargo: emptyCargo(),
       commanderId: null,
       note: null,
+      loop: false,
+      program: null,
+      waitUntil: 0,
+      programStatus: null,
     };
     this.fleets.set(fleet.id, fleet);
     return fleet;
@@ -611,8 +652,8 @@ export class Empire {
 
   // ------------------------------------------------------------------- log
 
-  addLog(time: number, category: LogCategory, text: string, link?: LogLink): void {
-    this.log.unshift({ seq: ++this.logSeq, time, category, text, link });
+  addLog(time: number, category: LogCategory, text: string, link?: LogLink, quiet = false): void {
+    this.log.unshift({ seq: ++this.logSeq, time, category, text, link, ...(quiet ? { quiet } : {}) });
     if (this.log.length > 400) this.log.length = 400;
   }
 
@@ -652,10 +693,114 @@ export class Empire {
   markReviewed(now: number): void {
     this.reviewMark = {
       time: now,
+      seq: this.logSeq,
       treasury: this.treasury,
       population: [...this.colonies.values()].reduce((sum, c) => sum + c.population, 0),
       techs: this.researched.size,
+      colonies: this.colonies.size,
+      ships: this.ships.size,
     };
+  }
+
+  // ------------------------------------------------------------ persistence
+
+  /**
+   * Everything that is not derived. Caches, indexes and the cached research
+   * statistics are rebuilt on import rather than stored.
+   */
+  exportState(): EmpireState {
+    return {
+      researched: [...this.researched],
+      log: this.log,
+      logSeq: this.logSeq,
+      history: this.history,
+      projects: this.projects,
+      treasury: this.treasury,
+      snapshot: this.snapshot,
+      capital: this.capital,
+      austerity: this.austerity,
+      dismissed: [...this.dismissed],
+      standingOrders: this.standingOrders,
+      componentDesigns: this.componentDesigns,
+      designs: this.designs,
+      ships: [...this.ships.values()],
+      fleets: [...this.fleets.values()],
+      surveyed: [...this.surveyed],
+      civilianShipping: this.civilianShipping,
+      lastTick: this.lastTick,
+      customTemplates: this.customTemplates,
+      reviewMark: this.reviewMark,
+      colonies: [...this.colonies.values()],
+      officers: this.officers.exportState(),
+      rng: this.rng.state,
+      counters: {
+        project: this.nextProjectId,
+        order: this.nextOrderId,
+        rule: this.nextRuleId,
+        design: this.nextDesignId,
+        ship: this.nextShipId,
+        fleet: this.nextFleetId,
+        component: this.nextComponentId,
+      },
+    };
+  }
+
+  /** Replace this empire's contents with a saved one. */
+  importState(data: EmpireState): void {
+    this.researched.clear();
+    for (const id of data.researched) this.researched.add(id);
+    this.stats = statsFor(this.researched);
+
+    this.log.length = 0;
+    this.log.push(...data.log);
+    this.logSeq = data.logSeq;
+    this.history.length = 0;
+    this.history.push(...data.history);
+    this.projects = data.projects;
+    this.treasury = data.treasury;
+    this.snapshot = { ...emptySnapshot(), ...data.snapshot };
+    this.capital = data.capital;
+    this.austerity = data.austerity;
+    this.dismissed.clear();
+    for (const [id, until] of data.dismissed) this.dismissed.set(id, until);
+    this.standingOrders = data.standingOrders;
+    this.componentDesigns = data.componentDesigns;
+    this.designs = data.designs;
+    this.civilianShipping = data.civilianShipping;
+    this.lastTick = data.lastTick;
+    this.customTemplates = data.customTemplates;
+    this.reviewMark = Object.assign({ time: 0, seq: 0, treasury: 0, population: 0, techs: 0, colonies: 0, ships: 0 }, data.reviewMark);
+
+    this.colonies.clear();
+    for (const colony of data.colonies) this.colonies.set(colony.bodyId, colony);
+    this.ships.clear();
+    for (const ship of data.ships) this.ships.set(ship.id, ship);
+    this.fleets.clear();
+    for (const fleet of data.fleets) {
+      // Fields added after the first release default sensibly for old saves.
+      this.fleets.set(fleet.id, Object.assign({ loop: false, program: null, waitUntil: 0, programStatus: null }, fleet));
+    }
+    this.surveyed.clear();
+    for (const id of data.surveyed) this.surveyed.add(id);
+
+    this.officers.importState(data.officers);
+    this.rng.state = data.rng;
+
+    this.nextProjectId = data.counters.project;
+    this.nextOrderId = data.counters.order;
+    this.nextRuleId = data.counters.rule;
+    this.nextDesignId = data.counters.design;
+    this.nextShipId = data.counters.ship;
+    this.nextFleetId = data.counters.fleet;
+    this.nextComponentId = data.counters.component;
+
+    this.designIndex.clear();
+    for (const design of this.designs) this.designIndex.set(design.id, design);
+    this.componentIndex.clear();
+    for (const component of this.componentDesigns) this.componentIndex.set(component.id, component);
+    this.designStatsCache.clear();
+    this.componentCache.clear();
+    this.revision++;
   }
 
   techName(techId: string): string {

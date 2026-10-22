@@ -212,7 +212,7 @@ export function deriveIssues(empire: Empire, system: StarSystem): Issue[] {
             : "The fleet cannot carry out the order at the head of its queue.",
         action: { label: "Open fleet", view: "fleets" },
       });
-    } else if (fleet.shipIds.length && !fleet.orders.length && fleet.anchorId) {
+    } else if (fleet.shipIds.length && !fleet.orders.length && fleet.anchorId && !fleet.program) {
       idle.push({
         id: `fleet:idle:${fleet.id}`,
         severity: "info",

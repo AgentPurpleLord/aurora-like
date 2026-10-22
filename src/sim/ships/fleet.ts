@@ -16,6 +16,7 @@ import { AU_KM, vecLength, vecSub, type Vec3 } from "../orbit";
 import { INSTALLATION_BY_ID } from "../economy/installations";
 import { bonus } from "../people/officers";
 import { SURVEY_POINTS_NEEDED } from "./components";
+import { planProgram } from "./programs";
 
 export interface Ship {
   id: string;
@@ -60,6 +61,44 @@ export interface Fleet {
   commanderId: string | null;
   /** Set when the fleet cannot execute its orders. */
   note: string | null;
+  /** Finished orders go to the back of the queue instead of away. */
+  loop: boolean;
+  /** A standing programme the fleet follows whenever it has nothing else to do. */
+  program: FleetProgram | null;
+  /** Simulation time before which an idle programme is not re-planned. */
+  waitUntil: number;
+  /** What the programme is doing or waiting for, in words. */
+  programStatus: string | null;
+}
+
+/** What a freight leg carries. */
+export type CargoSpec =
+  | { kind: "minerals"; mineral: MineralName | "all"; keep: number }
+  | { kind: "installations"; installationId: string | "all" }
+  | { kind: "colonists"; amount: number };
+
+export type FleetProgram =
+  /** Survey every unsurveyed body, nearest first, refuelling as needed. */
+  | { kind: "survey"; maxAu: number }
+  /**
+   * Shuttle between two colonies. `there` is carried from `fromId` to `toId`
+   * (the fleet waits at the source until there is something to take);
+   * `back` is carried the other way if there is anything to bring.
+   */
+  | { kind: "freight"; fromId: string; toId: string; there: CargoSpec | null; back: CargoSpec | null };
+
+/**
+ * Finish the order at the head of the queue. A fleet set to repeat sends it
+ * to the back instead, so the same circuit runs again.
+ */
+function retire(fleet: Fleet): void {
+  const done = fleet.orders.shift();
+  if (done && fleet.loop) fleet.orders.push(done);
+}
+
+/** Routine work of an automated fleet is logged but does not interrupt. */
+function routine(fleet: Fleet): boolean {
+  return fleet.loop || fleet.program !== null;
 }
 
 export function emptyCargo(): FleetCargo {
@@ -197,7 +236,13 @@ export function updateFleets(empire: Empire, system: StarSystem, seconds: number
     let budget = seconds;
     let guard = 0;
     while (budget > 0 && guard++ < 16) {
-      const order = fleet.orders[0];
+      let order = fleet.orders[0];
+      // Out of orders: a fleet with a standing programme works out its next move.
+      if (!order && fleet.program && empire.lastTick >= fleet.waitUntil) {
+        planProgram(empire, system, fleet);
+        executeArrivalOrders(empire, system, fleet);
+        order = fleet.orders[0];
+      }
       if (order?.kind === "survey" && fleet.anchorId) {
         budget = spendSurveyTime(empire, system, fleet, budget);
         continue;
@@ -227,9 +272,12 @@ export function updateFleets(empire: Empire, system: StarSystem, seconds: number
 
         fleet.position = { ...target.world };
         fleet.anchorId = target.id;
-        fleet.orders.shift();
+        retire(fleet);
         fleet.note = null;
-        empire.addLog(empire.lastTick, "fleet", `${fleet.name} has arrived at ${target.name}.`, { view: "fleets", fleetId: fleet.id });
+        empire.addLog(
+          empire.lastTick, "fleet", `${fleet.name} has arrived at ${target.name}.`,
+          { view: "fleets", fleetId: fleet.id }, routine(fleet),
+        );
         executeArrivalOrders(empire, system, fleet);
         continue;
       }
@@ -272,7 +320,7 @@ function spendSurveyTime(empire: Empire, system: StarSystem, fleet: Fleet, budge
   }
 
   fleet.surveyProgress = 0;
-  fleet.orders.shift();
+  retire(fleet);
   empire.surveyed.add(bodyId);
   const body = system.byId.get(bodyId);
   const deposits = body?.minerals.length ?? 0;
@@ -283,6 +331,8 @@ function spendSurveyTime(empire: Empire, system: StarSystem, fleet: Fleet, budge
       deposits ? `${deposits} mineral deposits found` : "no deposits found"
     }.`,
     { view: "map", bodyId },
+    // A survey programme reports once, when it is done, not for every body.
+    fleet.program?.kind === "survey",
   );
   executeArrivalOrders(empire, system, fleet);
   return budget - secondsNeeded;
@@ -322,7 +372,7 @@ export function executeArrivalOrders(empire: Empire, system: StarSystem, fleet: 
       // Already known: nothing to do. Otherwise surveying takes time, which
       // updateFleets spends; here the order simply waits its turn.
       if (empire.surveyed.has(fleet.anchorId)) {
-        fleet.orders.shift();
+        retire(fleet);
         fleet.surveyProgress = 0;
         continue;
       }
@@ -357,6 +407,7 @@ export function executeArrivalOrders(empire: Empire, system: StarSystem, fleet: 
           if (count <= 0) continue;
           colony.installations[id] = (colony.installations[id] ?? 0) + count;
         }
+        if (routine(fleet)) logDelivery(empire, system, fleet, colony.bodyId, "installations");
         fleet.cargo.installations = {};
         break;
       }
@@ -379,6 +430,7 @@ export function executeArrivalOrders(empire: Empire, system: StarSystem, fleet: 
               system.byId.get(colony.bodyId)?.name ?? colony.bodyId
             }.`,
             { view: "colonies", bodyId: colony.bodyId },
+            routine(fleet),
           );
         }
         fleet.cargo.colonists = 0;
@@ -399,6 +451,7 @@ export function executeArrivalOrders(empire: Empire, system: StarSystem, fleet: 
           const amount = fleet.cargo.minerals[mineral] ?? 0;
           if (amount > 0) colony.stockpile[mineral] += amount;
         }
+        if (routine(fleet)) logDelivery(empire, system, fleet, colony.bodyId, "minerals");
         fleet.cargo.minerals = {};
         break;
       }
@@ -416,6 +469,29 @@ export function executeArrivalOrders(empire: Empire, system: StarSystem, fleet: 
       }
     }
 
-    fleet.orders.shift();
+    retire(fleet);
   }
+}
+
+/** A quiet line in the log for goods an automated fleet has just set down. */
+function logDelivery(
+  empire: Empire,
+  system: StarSystem,
+  fleet: Fleet,
+  bodyId: string,
+  kind: "minerals" | "installations",
+): void {
+  const total = kind === "minerals"
+    ? Object.values(fleet.cargo.minerals).reduce<number>((sum, n) => sum + (n ?? 0), 0)
+    : Object.values(fleet.cargo.installations).reduce((sum, n) => sum + n, 0);
+  if (total <= 0) return;
+  empire.addLog(
+    empire.lastTick,
+    "fleet",
+    `${fleet.name} delivered ${Math.round(total).toLocaleString()}${kind === "minerals" ? " t of minerals" : " installations"} to ${
+      system.byId.get(bodyId)?.name ?? bodyId
+    }.`,
+    { view: "fleets", fleetId: fleet.id },
+    true,
+  );
 }
