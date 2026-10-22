@@ -130,7 +130,7 @@ export function infrastructureFor(
   colony: Colony | undefined,
   stats: EmpireStats,
 ): number {
-  const cost = effectiveColonyCost(body, colony, stats);
+  const cost = effectiveColonyCost(body, stats);
   if (!Number.isFinite(cost) || cost <= 0) return 0;
   const already = colony?.installations["infrastructure"] ?? 0;
   const needed = Math.ceil((millions * 100 * cost) / stats.infrastructureEfficiency);

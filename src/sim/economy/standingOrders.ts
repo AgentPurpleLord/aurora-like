@@ -72,7 +72,7 @@ export function shortfallFor(
     return wanted > 0 ? { installationId: order.rule.installationId, quantity: wanted } : null;
   }
 
-  const cost = effectiveColonyCost(body, colony, empire.stats);
+  const cost = effectiveColonyCost(body, empire.stats);
   // A world with no colony cost needs no infrastructure at all.
   if (!Number.isFinite(cost) || cost <= 0) return null;
 

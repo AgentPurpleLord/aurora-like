@@ -11,6 +11,7 @@ const views: Record<ViewId, HTMLElement> = {
   empire: need("view-empire"),
   map: need("view-map"),
   colonies: need("view-colonies"),
+  fleets: need("view-fleets"),
   research: need("view-research"),
   officers: need("view-officers"),
 };

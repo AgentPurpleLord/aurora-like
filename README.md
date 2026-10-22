@@ -3,12 +3,21 @@
 A prototype 4X strategy game in the spirit of Aurora 4X: the dawn of the
 trans-Newtonian age, starting in Sol and expanding outward.
 
-Four milestones are in: the **system map**, which models Sol to scale from real
+Six milestones are in: the **system map**, which models Sol to scale from real
 orbital elements; the **economy, research and officer corps** that turn it into
 a game you can play forward; the **command interface** built to answer Aurora's
 oldest complaint - that the game shows you every number and tells you nothing;
-and the **automation ladder**, which stops the tenth colony being nine times
-the work of the first. It runs on a phone.
+the **automation ladder**, which stops the tenth colony being nine times the
+work of the first; **ships**, which turn the research tree's engine branch into
+something that flies; and **terraforming**, which turns a world's atmosphere
+into something you can argue with. It runs on a phone.
+
+A campaign opens on **Earth alone**. One colony, one surveyed world,
+trans-Newtonian theory and nothing else: no Lunar base, no Martian outpost, no
+engine, no ship. Everything beyond Earth has to be surveyed, settled and
+supplied.
+
+![the opening position](docs/start.png)
 
 ![empire dashboard](docs/dashboard.png)
 
@@ -97,6 +106,90 @@ At thirty days a second it is easy to skip five years, so the dashboard also
 carries a **since you last looked** strip - population, treasury, technologies
 and construction since your last visit - and the event log marks where you had
 read up to.
+
+## Terraforming
+
+![a terraforming programme](docs/terraforming.png)
+
+A body's atmosphere is a set of partial pressures, and **everything about the
+environment is derived from it**: total pressure, what the air is made of,
+whether it can be breathed, how warm the surface is, and what a colony there
+costs. That is what makes terraforming a mechanic rather than a number ticking
+down - you change the gases, and the consequences follow.
+
+- **Temperature** comes from greenhouse warming, which saturates: the hundredth
+  atmosphere of a gas does far less than the first. Observed temperatures are
+  the anchor, so an untouched world reads exactly as it does in the almanac and
+  only changes to its air move it.
+- **Breathable** means oxygen between 0.1 and 0.3 atmospheres, total pressure
+  under four, and nothing toxic above its safe level. Carbon dioxide, methane,
+  ammonia and sulphur dioxide are poisons; nitrous oxide is the greenhouse gas
+  you can actually live with, which is what makes it the terraformer's tool.
+- **Gravity sets a ceiling.** A world only holds the air its gravity allows -
+  four atmospheres per gravity - so the Moon cannot be given an Earth-like sky,
+  though it can be given a breathable one.
+
+A programme is a gas and a direction. The colony's processors add or remove it,
+and the panel forecasts the consequence using the same arithmetic the
+production cycle runs: *"Surface temperature reaches 253 K in 17.8 years"*.
+The forecast and the simulation agree to within a degree.
+
+Processors need people to run them, so the first thing a hostile world needs is
+somewhere for them to live. Warming Mars with nitrous oxide and then raising
+its oxygen to a breathable level is a project of decades, and it ends with a
+colony cost of zero.
+
+![a hostile atmosphere](docs/atmosphere.png)
+
+Venus shows the other end of it: 92 atmospheres of carbon dioxide, poisonous
+and 737 K. Stripping it is the work of millennia, and the interface says so
+rather than pretending otherwise.
+
+## Ships
+
+![the class designer](docs/designer.png)
+
+**Classes are designed, not chosen.** A hull is a bag of components - engines,
+fuel tanks, crew quarters, cargo holds, cryogenic berths, survey sensors - and
+every figure about the ship is derived from them: tonnage, speed, endurance,
+range, crew, build cost and minerals. Nothing is stored twice, so researching a
+better fuel efficiency improves every ship already flying.
+
+Each component is gated on a technology, which is what finally gives the
+engine and sensor branches of the tree something to do. At the start of a
+campaign no engine has been researched, so nothing can be built; Nuclear
+Thermal Engine Technology is the first thing that puts a hull in space.
+
+Speed is engine power per hull space, as in Aurora: a 5,700-ton freighter on
+two nuclear thermal engines makes 1,053 km/s and carries 100,000 tons.
+Shipyards decide how large a hull a colony can lay down - 5,000 tons each -
+and hulls are built through the same queue, preview and mineral accounting as
+everything else.
+
+![fleets and orders](docs/fleets.png)
+
+**Fleets carry out orders.** Move, load and unload installations, minerals or
+colonists, refuel, survey. Movement is integrated against simulated time every
+frame rather than on the production cycle, so a fleet crosses the map smoothly,
+burns fuel by the hour, and arrives when it actually arrives - chasing a body
+that is itself in orbit. A fleet with dry tanks stops where it is and says so.
+
+![a fleet under way](docs/fleet-map.png)
+
+On the map a fleet is a chevron pointing along its course, with a dashed line
+to its destination. Click to select it, right-click a body to send it there.
+
+**Survey means something.** Only the worlds already settled start surveyed;
+everywhere else, deposits are unknown until a ship with geological sensors has
+been there. A governor will not propose mining ground nobody has looked at.
+
+**Naval officers finally have commands.** A fleet commander's engineering
+rating stretches its fuel.
+
+**Civilian shipping can be switched off.** The stand-in that moves
+installations and colonists without ships is now optional: turn it off from the
+Empire view and finished installations are crated up where they were built,
+waiting for a freighter you designed to come and collect them.
 
 ## Automation
 
@@ -216,14 +309,15 @@ rank nudged by their best skill, and retire from about 58 onward.
 
 | Input | Action |
 | --- | --- |
-| `E` `M` `C` `R` `O` | Empire / System Map / Colonies / Research / Officers |
+| `E` `M` `C` `F` `R` `O` | Empire / Map / Colonies / Fleets / Research / Officers |
 | Drag | Pan the map |
 | Scroll | Zoom at the cursor |
 | Click | Select a body |
 | Double-click | Zoom to a body, framing its satellite system |
 | `Space` | Pause / resume |
 | `1`-`7` | Time rate |
-| `F` | Follow the selected body |
+| `G` | Follow the selected body |
+| Right-click | Send the selected fleet to that body |
 | `Esc` | Clear the selection |
 
 The **View** buttons jump to preset framings (Earth, Inner, Belt, Jovian,
@@ -243,6 +337,7 @@ src/
               economy/        installations, the production cycle, the ledger,
                               order previews, templates, standing orders
               governors.ts    policies, and the proposals they file
+              ships/          components, class design, fleets and movement
               research/       the eight fields and the technology tree
               people/         officer generation, promotion, retirement
   data/       bodies.ts       the Sol dataset: elements and physical data
@@ -257,6 +352,7 @@ src/
               bodyTree.ts, detailPanel.ts, timeControls.ts, widgets.ts
 tools/        sanity.ts       the checks behind `npm run check`
               ui-test.mjs     the browser checks behind `npm run ui`
+              bench.ts        the scale benchmark behind `npm run bench`
 ```
 
 The simulation layer knows nothing about the DOM, and the data layer knows
@@ -288,11 +384,65 @@ invariants - among them:
   researched; standing orders deliver their target and then stop, counting what
   is already on its way; a governor proposes only with a policy and a governor,
   and stops once the policy is satisfied.
+- A class's tonnage, speed, capacity and crew match the components it is made
+  of; a hull larger than the slipways never starts; fuel burn matches the
+  design's hourly rate; cargo and colonists are carried, not created; a dry
+  tank strands a fleet where it stands.
+- The campaign starts with one colony, one surveyed world and one technology.
+- Atmospheres read correctly through the gas model: Earth is one bar and
+  breathable, Mars is not, Venus is poisonous as well as hot. A gas with no
+  greenhouse effect does not warm a world and warming saturates rather than
+  running away. Ten years of terraforming adds exactly ten years of gas,
+  removal stops at nothing, a world stops filling at the ceiling its gravity
+  allows - and a world reaches the temperature the forecast predicted, on the
+  year it predicted it.
+
+## Performance
+
+4X games die at scale, so there is a benchmark rather than an opinion:
+
+```sh
+npm run bench            # default: 1,000 fleets / 5,000 ships
+node node_modules/.cache/bench.mjs 10000   # 10,000 fleets / 50,000 ships
+```
+
+With 48 colonies, 5,000 ships and 1,555 belt objects, on one core:
+
+| Measurement | Cost |
+| --- | --- |
+| Bodies and belt objects, per frame | 0.84 ms |
+| All fleets, per frame | 0.38 ms |
+| One five-day production cycle | 0.68 ms |
+| Empire mineral ledger | 0.35 ms |
+| Attention list | 0.91 ms |
+| Kepler solves | ~4.2 million/second |
+
+That is **1.2 ms of a 16.7 ms frame** - 7% of the budget at sixty frames a
+second. At ten times the navy (50,000 ships) it is 6.2 ms, still inside budget.
+A whole year of game time at the fastest speed costs about 50 ms of production
+cycles.
+
+The one real bottleneck found so far was not the language: derived ship
+figures were being recomputed for every ship on every frame. Caching them
+against a revision counter took fleet movement from 4.27 ms to 0.38 ms - 11x -
+without touching an algorithm. The lesson generalises: at this scale the cost
+is recomputation and allocation, not arithmetic speed.
+
+So the recommendation is **not** to rewrite in C++ or Rust yet. What keeps that
+option open is that the simulation layer is pure and knows nothing about the
+DOM, so a hot kernel can be moved to WebAssembly later without touching the
+interface. The things that would change the answer are per-entity combat
+resolution at sub-second increments across tens of thousands of entities,
+real N-body physics instead of Keplerian elements, or simulating many empires
+server-side. Even then the answer is to extract that kernel, not to rewrite the
+game.
 
 ## Not built yet
 
-Ships, fleet movement and ship design; ground forces; sensors, surveying and
-combat; jump points and other star systems; sector administration. Ordnance
+Ground forces; sensors, surveying and
+combat and armour; jump points and other star systems; sector administration;
+ship maintenance and crew grade. Terraforming cannot yet be done from orbit by
+a ship, only by installations on the ground. Ordnance
 factories, maintenance facilities, tracking stations and spaceports can be
 built but do nothing yet, and mineral and colonist transport is handled by the
 civilian-shipping stand-in described above rather than by freighters you build.

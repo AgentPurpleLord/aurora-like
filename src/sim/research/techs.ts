@@ -25,7 +25,7 @@ export interface EmpireStats {
   ordnanceRate: number;
   /** Tons per mass driver per year. */
   massDriverThroughput: number;
-  /** Colony cost removed per terraforming installation per year. */
+  /** Atmospheres of gas moved per terraforming installation per year. */
   terraformRate: number;
   /** Added to the base population growth rate as a multiplier. */
   popGrowthBonus: number;
@@ -172,13 +172,13 @@ export const TECHS: Tech[] = [
   {
     id: "terraforming", name: "Terraforming Technology", field: "construction",
     cost: 5000, prereqs: ["trans-newtonian"],
-    effects: [unlock("terraforming"), set("terraformRate", 0.02)],
-    description: "Atmospheric processors that reduce a world's colony cost by 0.02 per installation per year.",
+    effects: [unlock("terraforming"), set("terraformRate", 0.0001)],
+    description: "Atmospheric processors that add or remove 0.0001 atmospheres of a chosen gas per installation per year.",
   },
   {
     id: "terraforming-2", name: "Improved Terraforming", field: "construction",
-    cost: 11000, prereqs: ["terraforming"], effects: [set("terraformRate", 0.04)],
-    description: "Higher-throughput processors: 0.04 colony cost per installation per year.",
+    cost: 11000, prereqs: ["terraforming"], effects: [set("terraformRate", 0.00025)],
+    description: "Higher-throughput processors: 0.00025 atmospheres per installation per year.",
   },
   {
     id: "financial-management", name: "Financial Management", field: "construction",
@@ -384,6 +384,7 @@ export function baseStats(): EmpireStats {
       "construction-factory",
       "fuel-refinery",
       "research-lab",
+      "shipyard",
     ]),
   };
 }

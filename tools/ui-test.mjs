@@ -19,6 +19,8 @@
 import { chromium, devices } from "playwright";
 
 const URL = process.env.UI_TEST_URL ?? "http://localhost:5173/";
+/** Screenshots land here rather than in the working tree. */
+const SHOTS = ".screenshots";
 const launch = process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {};
 
 let passed = 0;
@@ -70,11 +72,6 @@ async function desktopSuite(browser) {
     !(await page.locator("#triage-rail").getAttribute("class")).includes("collapsed") &&
     (await page.locator(".issue").count()) > 0);
 
-  const firstBefore = await page.locator(".colony-table .data-row").nth(1).innerText();
-  await page.locator(".colony-table .data-row.header .sortable").nth(1).click();
-  await check("colony table sorts", async () =>
-    (await page.locator(".colony-table .data-row").nth(1).innerText()) !== firstBefore);
-
   // --- an attention item leads to where it is fixed, and can be dismissed
   await page.locator(".issue").first().locator(".ghost-btn").click();
   await page.waitForTimeout(300);
@@ -89,7 +86,7 @@ async function desktopSuite(browser) {
 
   // --- settle two moons to develop
   for (const moon of ["Callisto", "Ganymede"]) {
-    await page.getByRole("button", { name: "System Map", exact: true }).click();
+    await page.getByRole("button", { name: "Map", exact: true }).click();
     await page.locator(".tree-row", { hasText: moon }).first().click();
     await page.getByRole("button", { name: "Colony", exact: true }).click();
     await page.getByRole("button", { name: "Establish Colony" }).click();
@@ -130,7 +127,14 @@ async function desktopSuite(browser) {
 
   // --- bulk apply across colonies
   await page.getByRole("button", { name: "Empire", exact: true }).click();
-  for (const name of ["Ganymede", "Mars"]) {
+  await check("the dashboard lists every colony", async () =>
+    (await page.locator(".colony-table .data-row").count()) === 4);
+  const firstBefore = await page.locator(".colony-table .data-row").nth(1).innerText();
+  await page.locator(".colony-table .data-row.header .sortable").nth(1).click();
+  await check("colony table sorts", async () =>
+    (await page.locator(".colony-table .data-row").nth(1).innerText()) !== firstBefore);
+
+  for (const name of ["Callisto", "Ganymede"]) {
     await page.locator(".colony-table .data-row", { hasText: name }).locator(".row-tick").click();
   }
   await check("bulk bar counts the selection", async () =>
@@ -144,7 +148,7 @@ async function desktopSuite(browser) {
   await page.locator("#view-colonies .tree-row", { hasText: "Earth" }).click();
   const queued = (await page.locator("#view-colonies .queue-row").allInnerTexts()).join(" | ");
   await check("bulk apply queued for every target", () =>
-    queued.includes("Ganymede") && queued.includes("Mars"));
+    queued.includes("Ganymede") && queued.includes("Callisto"));
 
   // --- standing orders
   await page.locator("#view-colonies .tree-row", { hasText: "Callisto" }).click();
@@ -165,12 +169,19 @@ async function desktopSuite(browser) {
   await page.getByRole("button", { name: "Officers", exact: true }).click();
   await page.getByRole("button", { name: /Administrators/ }).click();
   await page.locator(".officer-row").nth(1).click();
-  await page.locator("#view-officers .panel-right select").selectOption("ganymede");
+  await page.locator("#view-officers .panel-right select").selectOption("callisto");
+  await check("an administrator can be posted to a new colony", async () =>
+    (await page.locator("#view-officers .panel-right").innerText()).includes("Governor, Callisto"));
+
+  // Earth, not one of the new moons: a governor will not propose mining
+  // ground the empire has never surveyed.
   await page.getByRole("button", { name: "Colonies", exact: true }).click();
-  await page.locator("#view-colonies .tree-row", { hasText: "Ganymede" }).click();
+  await page.locator("#view-colonies .tree-row", { hasText: "Earth" }).click();
   await page.locator("#view-colonies .policy-row select").selectOption("mine");
   await page.waitForTimeout(300);
-  const proposal = page.locator(".issue", { hasText: "Ganymede" }).first();
+  await check("mining is not proposed for an unsurveyed world", async () =>
+    (await page.locator(".issue", { hasText: "Callisto: work the deposits" }).count()) === 0);
+  const proposal = page.locator(".issue", { hasText: "Earth: work the deposits" }).first();
   await check("a governor policy produces a proposal", async () =>
     (await proposal.count()) > 0 && /Queue \d+/.test(await proposal.innerText()));
   const before = await page.locator("#view-colonies .queue-row").count();
@@ -183,6 +194,219 @@ async function desktopSuite(browser) {
   await check("no console errors", () => errors.length === 0);
   if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
   await page.close();
+}
+
+// ------------------------------------------------------------------ ships
+
+async function shipSuite(browser) {
+  console.log("\nShips and fleets (1680x980)");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  const errors = watchErrors(page);
+  await page.goto(URL, { waitUntil: "networkidle" });
+  await page.waitForTimeout(700);
+
+  // Nothing can be designed until an engine exists.
+  await page.getByRole("button", { name: "Fleets", exact: true }).click();
+  await check("no classes can be designed without an engine", async () =>
+    (await page.locator("#view-fleets .panel-right").innerText()).includes("No engine"));
+
+  // Research the first drive. The opening projects hold every lab on Earth,
+  // so they are cancelled to free them.
+  await page.getByRole("button", { name: "Research", exact: true }).click();
+  let running = await page.locator("#view-research .project-card").count();
+  for (let i = 0; i < running; i++) {
+    await page.locator("#view-research .project-card").first()
+      .getByRole("button", { name: "Cancel" }).click();
+    await page.waitForTimeout(150);
+  }
+  const engine = page.locator(".tech-row", { hasText: "Nuclear Thermal Engine Technology" }).first();
+  await engine.getByRole("button", { name: "Begin Research" }).click();
+  // Give it every lab the scientist can direct, or this takes half a year.
+  const labs = engine.locator(".assign-form .number-input");
+  await labs.fill("40");
+  await labs.press("Enter");
+  await engine.getByRole("button", { name: "Start" }).click();
+  await page.getByRole("button", { name: "30 days/s", exact: true }).click();
+  await page.waitForTimeout(5000);
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+
+  await page.getByRole("button", { name: "Fleets", exact: true }).click();
+  await page.waitForTimeout(300);
+  await check("researching an engine unlocks ship design", async () =>
+    (await page.locator("#view-fleets .panel-right").innerText()).includes("New class"));
+
+  // The designer derives figures as components are added.
+  await page.getByRole("button", { name: "New class", exact: true }).click();
+  await page.waitForTimeout(200);
+  const engineRow = page.locator(".component-row", { hasText: "Nuclear Thermal Engine" }).first();
+  await engineRow.getByRole("button", { name: "+", exact: true }).click();
+  await page.waitForTimeout(150);
+  await check("a design with only an engine has no crew quarters", async () =>
+    (await page.locator("#view-fleets .fleet-detail").innerText()).includes("Crew quarters short"));
+  const beforeTons = await page.locator("#view-fleets .fleet-detail").innerText();
+  await page.locator(".component-row", { hasText: "Cargo Hold" }).first()
+    .getByRole("button", { name: "+", exact: true }).click();
+  await page.waitForTimeout(150);
+  await check("adding a component changes the derived figures", async () =>
+    (await page.locator("#view-fleets .fleet-detail").innerText()) !== beforeTons);
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+
+  // Standard classes, then build one.
+  await page.getByRole("button", { name: /Add \d+ standard classes/ }).click();
+  await page.waitForTimeout(300);
+  await check("standard classes are added", async () =>
+    (await page.locator("#view-fleets .project-card").count()) >= 2);
+  const hauler = page.locator("#view-fleets .project-card", { hasText: "Hauler" }).first();
+  await check("a class reports its speed and range", async () =>
+    /km\/s/.test(await hauler.innerText()) && /AU/.test(await hauler.innerText()));
+  await hauler.getByRole("button", { name: "Build", exact: true }).click();
+  await page.waitForTimeout(200);
+
+  await page.getByRole("button", { name: "30 days/s", exact: true }).click();
+  await page.waitForTimeout(4000);
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await page.waitForTimeout(300);
+  await check("the hull was commissioned into a fleet", async () =>
+    (await page.locator("#view-fleets .panel-left .tree-row").count()) > 0);
+
+  // Orders: send it to Mars.
+  await page.locator("#view-fleets .panel-left .tree-row").first().click();
+  await page.waitForTimeout(200);
+  await check("the fleet reports where it is", async () =>
+    /At Earth/.test(await page.locator("#view-fleets .detail-sub").first().innerText()));
+  const orderForm = page.locator("#view-fleets .section", { hasText: "Orders" }).first();
+  await orderForm.locator("select").first().selectOption("move");
+  await page.waitForTimeout(150);
+  await page.locator("#view-fleets .add-order select").nth(1).selectOption("mars");
+  await page.getByRole("button", { name: "Add order", exact: true }).click();
+  await page.waitForTimeout(200);
+  await check("the move order is queued", async () =>
+    (await page.locator("#view-fleets .order-row").innerText()).includes("Mars"));
+
+  await page.getByRole("button", { name: "1 day/s", exact: true }).click();
+  await page.waitForTimeout(2500);
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await page.waitForTimeout(300);
+  await check("the fleet is under way and burning fuel", async () => {
+    const text = await page.locator("#view-fleets .fleet-detail").innerText();
+    return /Under way to Mars/.test(text);
+  });
+
+  // The map draws it, and clicking it selects it.
+  await page.getByRole("button", { name: "Map", exact: true }).click();
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: `${SHOTS}/ships-map.png` });
+  await check("the map shows the fleet in the detail panel after selection", async () => {
+    const panel = await page.locator("#detail-panel").innerText();
+    return panel.length > 0;
+  });
+
+  await check("no console errors", () => errors.length === 0);
+  if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
+  await page.close();
+}
+
+// ----------------------------------------------------------- terraforming
+
+async function terraformSuite(browser) {
+  console.log("\nTerraforming (1680x980)");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  const errors = watchErrors(page);
+  await page.goto(URL, { waitUntil: "networkidle" });
+  await page.waitForTimeout(700);
+
+  // Jumping the clock in thirty-day steps is far quicker than waiting.
+  const skip = async (times) => {
+    for (let i = 0; i < times; i++) {
+      await page.getByRole("button", { name: "+30d", exact: true }).click();
+    }
+    await page.waitForTimeout(250);
+  };
+
+  // The atmosphere reads through the gas model before anything is changed.
+  await page.getByRole("button", { name: "Map", exact: true }).click();
+  await page.locator(".tree-row", { hasText: "Venus" }).first().click();
+  await page.getByRole("button", { name: "Environment", exact: true }).click();
+  const venus = await page.locator("#detail-panel").innerText();
+  await check("a world lists its gases", () => /Carbon Dioxide/.test(venus));
+  await check("and flags the poisonous ones", () => /Unsafe/.test(venus));
+
+  await page.locator(".tree-row", { hasText: "Mars" }).first().click();
+  const marsBefore = await page.locator("#detail-panel").innerText();
+  await check("Mars reads its observed temperature", () => /-63\.1 C|210 K/.test(marsBefore));
+
+  // Settle Mars and research terraforming.
+  await page.getByRole("button", { name: "Colony", exact: true }).click();
+  await page.getByRole("button", { name: "Establish Colony" }).click();
+
+  await page.getByRole("button", { name: "Research", exact: true }).click();
+  const running = await page.locator("#view-research .project-card").count();
+  for (let i = 0; i < running; i++) {
+    await page.locator("#view-research .project-card").first()
+      .getByRole("button", { name: "Cancel" }).click();
+    await page.waitForTimeout(120);
+  }
+  const tech = page.locator(".tech-row", { hasText: "Terraforming Technology" }).first();
+  await tech.getByRole("button", { name: "Begin Research" }).click();
+  const labs = tech.locator(".assign-form .number-input");
+  await labs.fill("40");
+  await labs.press("Enter");
+  await tech.getByRole("button", { name: "Start" }).click();
+  await skip(12);
+  await check("terraforming technology is researched", async () =>
+    (await page.locator(".tech-row", { hasText: "Terraforming Technology" }).first().innerText())
+      .includes("researched"));
+
+  // Build the processors on Earth and ship them to Mars.
+  await page.getByRole("button", { name: "Colonies", exact: true }).click();
+  await page.locator("#view-colonies .tree-row", { hasText: "Earth" }).click();
+  // Processors need people to run them, so the colony needs housing first.
+  const add = page.locator("#view-colonies .add-order").first();
+  const queueForMars = async (installationId, quantity) => {
+    await add.locator("select").first().selectOption(installationId);
+    await add.locator(".number-input").fill(String(quantity));
+    await add.locator(".number-input").press("Enter");
+    await add.locator("select").last().selectOption("mars");
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+  };
+  await queueForMars("infrastructure", 600);
+  await queueForMars("terraforming", 30);
+  await skip(50);
+
+  await page.locator("#view-colonies .tree-row", { hasText: "Mars" }).click();
+  await page.waitForTimeout(300);
+  const terraSection = () => page.locator("#view-colonies .terraform-section");
+  await check("the processors were shipped to the colony", async () => {
+    const match = (await terraSection().innerText()).match(/Installations\s+([\d,]+)/);
+    return match ? Number(match[1].replace(/,/g, "")) >= 30 : false;
+  });
+
+  // Set a programme and read the forecast.
+  await terraSection().locator("select").first().selectOption("nitrous-oxide");
+  await terraSection().locator("select").nth(1).selectOption("add");
+  await terraSection().getByRole("button", { name: "Set programme" }).click();
+  await page.waitForTimeout(300);
+  const forecast = await terraSection().innerText();
+  await check(`the forecast names a goal and a date`, () =>
+    /Surface temperature reaches 253 K/.test(forecast) && /in \d/.test(forecast));
+
+  // Run it, and the world should actually warm.
+  const tempBefore = await readTemperature(page);
+  await skip(40);
+  const tempAfter = await readTemperature(page);
+  await check(`terraforming warms the world (${tempBefore} K -> ${tempAfter} K)`,
+    () => tempAfter > tempBefore);
+  await page.screenshot({ path: `${SHOTS}/terraform.png` });
+
+  await check("no console errors", () => errors.length === 0);
+  if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
+  await page.close();
+}
+
+async function readTemperature(page) {
+  const text = await page.locator("#view-colonies .section", { hasText: "Colony" }).first().innerText();
+  const match = text.match(/Temperature\s+(\d+)\s*K/);
+  return match ? Number(match[1]) : NaN;
 }
 
 // ----------------------------------------------------------------- mobile
@@ -219,7 +443,7 @@ async function mobileSuite(browser) {
     (await page.locator("#triage-rail").getAttribute("class")).includes("collapsed"));
 
   // The map, and a two-finger pinch.
-  await page.locator("#view-tabs").getByRole("button", { name: "System Map" }).click();
+  await page.locator("#view-tabs").getByRole("button", { name: "Map" }).click();
   await page.waitForTimeout(500);
   const canvas = await page.locator("#map").boundingBox();
   await check("map canvas has room", () => canvas.width > 300 && canvas.height > 250);
@@ -265,6 +489,8 @@ async function mobileSuite(browser) {
 const browser = await chromium.launch(launch);
 try {
   await desktopSuite(browser);
+  await shipSuite(browser);
+  await terraformSuite(browser);
   await mobileSuite(browser);
 } finally {
   await browser.close();

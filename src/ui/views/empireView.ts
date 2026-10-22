@@ -59,6 +59,7 @@ export class EmpireView {
     body.append(split);
     this.renderLedger(split);
     this.renderResearch(split);
+    this.renderLogistics(split);
 
     this.renderEvents(body);
   }
@@ -383,6 +384,46 @@ export class EmpireView {
   }
 
   // ---------------------------------------------------------------- events
+
+  /**
+   * Civilian shipping is the stand-in that moves installations and colonists
+   * without ships. Once there are freighters, it can be switched off.
+   */
+  private renderLogistics(parent: HTMLElement): void {
+    const { empire } = this.game;
+    const sec = section(parent, "Logistics");
+    const on = empire.civilianShipping;
+
+    stat(sec, "Civilian Shipping", on ? "Enabled" : "Disabled", on ? "good" : "warn");
+    sec.append(
+      el(
+        "p",
+        "muted small",
+        on
+          ? "Installations built for another colony arrive by themselves and colonists migrate from the capital. Turn it off to run logistics on ships you have built."
+          : "Installations built for another colony are crated up where they are built, and colonists only move aboard ship.",
+      ),
+    );
+    sec.append(
+      button(on ? "Turn off civilian shipping" : "Turn on civilian shipping", () => {
+        empire.civilianShipping = !empire.civilianShipping;
+        empire.addLog(
+          this.game.clock.seconds,
+          "economy",
+          empire.civilianShipping
+            ? "Civilian shipping contracts resumed."
+            : "Civilian shipping contracts ended; the fleet now carries everything.",
+        );
+        this.game.emit();
+      }),
+    );
+
+    const fleets = empire.fleets.size;
+    if (fleets) {
+      stat(sec, "Fleets", `${fleets}`);
+      stat(sec, "Ships", `${empire.ships.size}`);
+    }
+  }
 
   private renderEvents(parent: HTMLElement): void {
     const { empire } = this.game;

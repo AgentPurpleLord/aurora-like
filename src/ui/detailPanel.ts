@@ -9,6 +9,21 @@ import {
   populationCapacity,
 } from "../sim/economy/production";
 import { fullName } from "../sim/people/officers";
+import {
+  GAS_BY_ID,
+  isBreathable,
+  maxPressureFor,
+  toxicGases,
+  totalPressure,
+} from "../sim/atmosphere";
+import { formatPressure } from "./format";
+import {
+  destinationOf,
+  fleetEta,
+  fleetStats,
+  type Fleet,
+} from "../sim/ships/fleet";
+import { formatYears } from "./views/economyView";
 import { AU_KM } from "../sim/orbit";
 import {
   compact,
@@ -41,7 +56,11 @@ export class DetailPanel {
   constructor(
     private root: HTMLElement,
     private game: Game,
-    private actions: { zoomTo: (body: Body) => void; openEconomy: () => void },
+    private actions: {
+      zoomTo: (body: Body) => void;
+      openEconomy: () => void;
+      openFleets: () => void;
+    },
   ) {
     this.header = el("div", "detail-head");
     this.tabBar = el("div", "tabs");
@@ -67,6 +86,12 @@ export class DetailPanel {
     const body = this.game.selected;
     this.header.textContent = "";
     this.body.textContent = "";
+
+    const fleet = this.game.empire.fleets.get(this.game.selectedFleet ?? "");
+    if (fleet) {
+      this.renderFleetCard(fleet);
+      if (!body) return;
+    }
 
     for (const btn of Array.from(this.tabBar.children) as HTMLElement[]) {
       btn.classList.toggle("active", btn.dataset.tab === this.tab);
@@ -99,6 +124,47 @@ export class DetailPanel {
       case "minerals": this.renderMinerals(body); break;
       case "colony": this.renderColony(body); break;
     }
+  }
+
+  /** A compact read-out for the fleet picked on the map. */
+  private renderFleetCard(fleet: Fleet): void {
+    const { game } = this;
+    const stats = fleetStats(game.empire, fleet);
+    const card = el("div", "fleet-card");
+
+    const title = el("div", "detail-title", fleet.name);
+    card.append(title);
+
+    const destination = destinationOf(fleet);
+    const eta = fleetEta(game.empire, game.system, fleet);
+    const where = fleet.anchorId
+      ? `At ${game.system.byId.get(fleet.anchorId)?.name ?? fleet.anchorId}`
+      : destination
+        ? `To ${game.system.byId.get(destination)?.name ?? destination}${
+            eta !== null ? ` - ${formatYears(eta / (365.25 * 86400))}` : ""
+          }`
+        : "In deep space";
+    card.append(el("div", "detail-sub", where));
+
+    const stripe = el("div", "fleet-card-stats");
+    stripe.append(el("span", undefined, `${stats.ships} ship${stats.ships === 1 ? "" : "s"}`));
+    stripe.append(el("span", undefined, `${num(stats.speed)} km/s`));
+    stripe.append(el("span", stats.fuel <= 0 ? "bad" : undefined, `${compact(stats.fuel)} l`));
+    card.append(stripe);
+    if (fleet.note) card.append(el("div", "project-warning", fleet.note));
+    card.append(
+      el("p", "muted small", "Right-click a body on the map to send this fleet there."),
+    );
+
+    const actions = el("div", "form-actions");
+    const open = el("button", "ghost-btn", "Open in Fleets");
+    open.addEventListener("click", () => this.actions.openFleets());
+    const clear = el("button", "ghost-btn", "Deselect");
+    clear.addEventListener("click", () => this.game.selectFleet(null));
+    actions.append(open, clear);
+    card.append(actions);
+
+    this.header.append(card);
   }
 
   private section(title: string): HTMLElement {
@@ -159,8 +225,15 @@ export class DetailPanel {
 
   private renderEnvironment(body: Body): void {
     const env = this.section("Surface Conditions");
-    if (body.def.tempK !== undefined) {
-      this.stat(env, "Mean Temperature", `${kelvinToCelsius(body.def.tempK)}  (${body.def.tempK} K)`);
+    const observed = body.def.tempK ?? 0;
+    this.stat(env, "Temperature", `${kelvinToCelsius(body.tempK)}  (${body.tempK.toFixed(0)} K)`);
+    if (Math.abs(body.tempK - observed) > 0.5) {
+      // Only worth saying once someone has changed the air.
+      this.stat(
+        env,
+        "Before Terraforming",
+        `${kelvinToCelsius(observed)}  (${observed} K)`,
+      );
     }
     this.stat(env, "Day Length", dayLength(body.def.rotationDays));
     if (body.cls !== "star") {
@@ -168,17 +241,37 @@ export class DetailPanel {
     }
 
     const atmo = this.section("Atmosphere");
-    if (body.def.atmosphere) {
-      this.stat(atmo, "Pressure", `${body.def.atmosphere.pressureAtm} atm`);
-      this.stat(atmo, "Composition", body.def.atmosphere.composition);
-      this.stat(atmo, "Breathable", body.def.atmosphere.breathable ? "Yes" : "No");
-    } else {
+    const pressure = totalPressure(body.atmosphere);
+    if (pressure <= 0) {
       this.stat(atmo, "Pressure", "None - vacuum");
+    } else {
+      this.stat(atmo, "Pressure", `${formatPressure(pressure)} atm`);
+      this.stat(atmo, "Breathable", isBreathable(body.atmosphere) ? "Yes" : "No");
+      const table = el("div", "gas-table");
+      for (const [id, partial] of Object.entries(body.atmosphere).sort((a, b) => b[1] - a[1])) {
+        if (partial <= 0) continue;
+        const gas = GAS_BY_ID.get(id);
+        const toxic = gas?.toxicAbove !== undefined && partial > gas.toxicAbove;
+        const row = el("div", `gas-row${toxic ? " bad" : ""}`);
+        row.append(el("span", undefined, gas?.name ?? id));
+        row.append(el("span", "right", `${formatPressure(partial)} atm`));
+        row.append(
+          el("span", "right muted", `${((partial / pressure) * 100).toFixed(1)}%`),
+        );
+        table.append(row);
+      }
+      atmo.append(table);
+      const toxins = toxicGases(body.atmosphere);
+      if (toxins.length) {
+        atmo.append(
+          el("p", "notes bad",
+            `Unsafe: ${toxins.map((t) => t.gas.name).join(", ")}. Colonists need sealed habitats.`),
+        );
+      }
     }
 
     const hab = this.section("Habitability");
-    const colony = this.game.empire.colony(body.id);
-    const cost = effectiveColonyCost(body, colony, this.game.empire.stats);
+    const cost = effectiveColonyCost(body, this.game.empire.stats);
     if (Number.isFinite(cost) && Math.abs(cost - body.colonyCost) > 0.001) {
       this.stat(hab, "Unmodified Colony Cost", body.colonyCost.toFixed(2));
     }
@@ -197,9 +290,7 @@ export class DetailPanel {
               : "Extreme. Only automated or short-duration operations are practical.";
       hab.append(el("p", "notes", verdict));
       this.stat(hab, "Infrastructure / 1m pop", cost === 0 ? "0" : num(Math.ceil(cost * 100)));
-      if (colony && colony.terraformed > 0) {
-        this.stat(hab, "Terraformed", `-${colony.terraformed.toFixed(2)} colony cost`);
-      }
+      this.stat(hab, "Maximum Pressure", `${formatPressure(maxPressureFor(body.gravity))} atm`);
     }
   }
 
@@ -239,7 +330,7 @@ export class DetailPanel {
     }
 
     if (!colony) {
-      const cost = effectiveColonyCost(body, undefined, empire.stats);
+      const cost = effectiveColonyCost(body, empire.stats);
       sec.append(el("p", "muted", `No colony on ${body.name}. Colony cost ${cost.toFixed(2)}.`));
       const btn = el("button", "primary-btn", "Establish Colony");
       btn.addEventListener("click", () => {
@@ -266,7 +357,7 @@ export class DetailPanel {
       "Annual Growth",
       `${output.populationGrowth >= 0 ? "+" : ""}${population(output.populationGrowth)}`,
     );
-    this.stat(sec, "Colony Cost", effectiveColonyCost(body, colony, empire.stats).toFixed(2));
+    this.stat(sec, "Colony Cost", effectiveColonyCost(body, empire.stats).toFixed(2));
     this.stat(sec, "Governor", governor ? fullName(governor) : "vacant");
     this.stat(
       sec,

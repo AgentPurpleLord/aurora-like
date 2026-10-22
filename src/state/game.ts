@@ -6,6 +6,7 @@ import { StarSystem, type Body } from "../sim/system";
 import { Random } from "../sim/rng";
 import { CYCLE_DAYS, computeSnapshot, runCycle } from "../sim/economy/production";
 import { MINERALS } from "../sim/minerals";
+import { updateFleets } from "../sim/ships/fleet";
 import { Empire } from "./empire";
 import { emptyStockpile } from "./colony";
 import { labCapacity, type Officer } from "../sim/people/officers";
@@ -22,6 +23,8 @@ export class Game {
   readonly empire: Empire;
 
   selected: Body | null = null;
+  /** Fleet selected on the map or in the fleets view. */
+  selectedFleet: string | null = null;
   /** Keep the camera locked to the selected body as it moves. */
   follow = false;
 
@@ -46,9 +49,9 @@ export class Game {
     const empire = this.empire;
 
     empire.research("trans-newtonian");
-    empire.research("mass-drivers");
     empire.treasury = 50_000;
 
+    // One world, one industry, and everything else still to be reached for.
     const earth = empire.foundColony("earth", now);
     earth.population = 8_100;
     earth.installations = {
@@ -57,18 +60,15 @@ export class Game {
       mine: 400,
       "fuel-refinery": 100,
       spaceport: 1,
+      shipyard: 2,
     };
     earth.stockpile = emptyStockpile();
     for (const mineral of MINERALS) earth.stockpile[mineral] = 50_000;
     earth.fuel = 2_000_000;
 
-    const luna = empire.foundColony("luna", now);
-    luna.population = 4.2;
-    luna.installations = { infrastructure: 900, "automated-mine": 40, "mass-driver": 2 };
-
-    const mars = empire.foundColony("mars", now);
-    mars.population = 0.8;
-    mars.installations = { infrastructure: 260, "automated-mine": 22, "mass-driver": 1 };
+    // Only the worlds already settled have been surveyed from the ground;
+    // everything else needs a survey ship.
+    empire.surveyed.add("earth");
 
     empire.seedOfficers({ science: 8, civilian: 8, navy: 12, ground: 5 }, now);
 
@@ -96,7 +96,11 @@ export class Game {
       labsLeft -= labs;
     }
 
-    empire.addLog(now, "economy", "Trans-Newtonian industry comes online across Earth.");
+    empire.addLog(
+      now,
+      "economy",
+      "Trans-Newtonian industry comes online across Earth. No other world has been surveyed.",
+    );
     empire.snapshot = computeSnapshot(empire, this.system);
     empire.markReviewed(now);
   }
@@ -111,16 +115,24 @@ export class Game {
   }
 
   tick(realSeconds: number): void {
+    const before = this.clock.seconds;
     this.clock.advance(realSeconds);
-    this.system.update(this.clock.days);
+    this.advanceWorld(this.clock.seconds - before);
     if (this.runCycles()) this.emit();
   }
 
   step(seconds: number): void {
     this.clock.step(seconds);
-    this.system.update(this.clock.days);
+    this.advanceWorld(seconds);
     this.runCycles();
     this.emit();
+  }
+
+  /** Move the bodies, then the fleets that are chasing them. */
+  private advanceWorld(elapsedSeconds: number): void {
+    this.system.update(this.clock.days);
+    this.empire.lastTick = this.clock.seconds;
+    updateFleets(this.empire, this.system, elapsedSeconds);
   }
 
   /**
@@ -144,6 +156,11 @@ export class Game {
 
   select(body: Body | null): void {
     this.selected = body;
+    this.emit();
+  }
+
+  selectFleet(fleetId: string | null): void {
+    this.selectedFleet = fleetId;
     this.emit();
   }
 }

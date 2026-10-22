@@ -17,7 +17,21 @@ import type { EmpireStats } from "../research/techs";
 import { TECH_BY_ID } from "../research/techs";
 import { MINERALS, type MineralName } from "../minerals";
 import { DAYS_PER_YEAR } from "../orbit";
-import { INSTALLATION_BY_ID } from "./installations";
+import { INSTALLATION_BY_ID, SHIPYARD_TONS } from "./installations";
+import { designStats } from "../ships/design";
+import { recomputeEnvironment } from "../system";
+import {
+  GAS_BY_ID,
+  GREENHOUSE_MAX_K,
+  GREENHOUSE_SCALE,
+  OXYGEN_MIN,
+  TEMP_MIN,
+  greenhousePressure,
+  greenhouseWarming,
+  isBreathable,
+  maxPressureFor,
+  totalPressure,
+} from "../atmosphere";
 import { bonus, fullName, labCapacity } from "../people/officers";
 import { evaluateStandingOrders } from "./standingOrders";
 
@@ -40,19 +54,19 @@ const EARTH_CAPACITY = 12_000;
 /** Litres of fuel from one ton of Sorium. */
 const FUEL_PER_SORIUM = 2000;
 
-export function effectiveColonyCost(
-  body: Body,
-  colony: Colony | undefined,
-  stats: EmpireStats,
-): number {
+/**
+ * Colony cost as the empire experiences it: the world's own figure, less
+ * whatever genetic adaptation has bought. The world's figure already
+ * reflects any terraforming done to its atmosphere.
+ */
+export function effectiveColonyCost(body: Body, stats: EmpireStats): number {
   if (!Number.isFinite(body.colonyCost)) return Infinity;
-  const reduction = (colony?.terraformed ?? 0) + stats.colonyCostReduction;
-  return Math.max(0, body.colonyCost - reduction);
+  return Math.max(0, body.colonyCost - stats.colonyCostReduction);
 }
 
 /** Population the colony can sustain, in millions. */
 export function populationCapacity(body: Body, colony: Colony, stats: EmpireStats): number {
-  const cost = effectiveColonyCost(body, colony, stats);
+  const cost = effectiveColonyCost(body, stats);
   if (!Number.isFinite(cost)) return 0;
   if (cost <= 0) return EARTH_CAPACITY * (body.def.radiusKm / 6371) ** 2;
   const infrastructure = installationCount(colony, "infrastructure");
@@ -229,7 +243,7 @@ export function runCycle(empire: Empire, system: StarSystem, now: number, days: 
     }
 
     // --- industry
-    const spent = buildFromQueue(empire, colony, output.buildPoints * year, now, body.name);
+    const spent = buildFromQueue(empire, system, colony, output.buildPoints * year, now, body.name);
     buildPoints += spent / year;
     expenses += (spent * WEALTH_PER_BUILD_POINT) / year;
 
@@ -237,18 +251,7 @@ export function runCycle(empire: Empire, system: StarSystem, now: number, days: 
     shipMinerals(empire, colony, stats, year);
 
     // --- terraforming
-    const terraformers = installationCount(colony, "terraforming") * output.employment;
-    if (terraformers > 0 && Number.isFinite(body.colonyCost)) {
-      const before = effectiveColonyCost(body, colony, stats);
-      colony.terraformed = Math.min(
-        body.colonyCost,
-        colony.terraformed + terraformers * stats.terraformRate * year,
-      );
-      const after = effectiveColonyCost(body, colony, stats);
-      if (before > 0 && after <= 0) {
-        empire.addLog(now, "colony", `${body.name} has been terraformed to colony cost 0.00.`);
-      }
-    }
+    runTerraforming(empire, body, colony, output.employment, year, now);
 
     // --- population
     colony.population = Math.max(0, colony.population + output.populationGrowth * year);
@@ -302,6 +305,7 @@ export function runCycle(empire: Empire, system: StarSystem, now: number, days: 
 export const MIGRATION_PER_COLONY = 1.0;
 
 function migrate(empire: Empire, system: StarSystem, year: number): void {
+  if (!empire.civilianShipping) return;
   const capital = empire.colonies.get(empire.capital);
   if (!capital || capital.population <= 1) return;
 
@@ -322,11 +326,149 @@ function migrate(empire: Empire, system: StarSystem, year: number): void {
 
 /** Colonists per year currently arriving at a colony. */
 export function migrationInflow(empire: Empire, body: Body, colony: Colony): number {
+  if (!empire.civilianShipping) return 0;
   const capital = empire.colonies.get(empire.capital);
   if (!capital || colony === capital || capital.population <= 1) return 0;
   const room = populationCapacity(body, colony, empire.stats) - colony.population;
   if (room <= 0) return 0;
   return Math.min(room, MIGRATION_PER_COLONY, capital.population * 0.01);
+}
+
+/** Atmospheres per year the colony's terraformers can shift. */
+export function terraformRate(empire: Empire, colony: Colony): number {
+  return (
+    installationCount(colony, "terraforming") *
+    employmentRatio(colony) *
+    empire.stats.terraformRate
+  );
+}
+
+/**
+ * What the current terraforming programme will achieve, and roughly when.
+ * The same arithmetic the cycle uses, run forwards for the player.
+ */
+export function terraformOutlook(
+  empire: Empire,
+  body: Body,
+  colony: Colony,
+): { text: string; years: number | null } | null {
+  const target = colony.terraforming;
+  if (!target) return null;
+  const gas = GAS_BY_ID.get(target.gasId);
+  if (!gas) return null;
+
+  const rate = terraformRate(empire, colony);
+  if (rate <= 0) {
+    // Terraformers need people to run them, which is the first thing a
+    // hostile world does not have.
+    const installations = installationCount(colony, "terraforming");
+    if (installations > 0 && employmentRatio(colony) <= 0) {
+      return {
+        text: "Nobody is here to run the processors. The colony needs population.",
+        years: null,
+      };
+    }
+    return { text: "No terraforming installations are working.", years: null };
+  }
+
+  const held = body.atmosphere[target.gasId] ?? 0;
+
+  if (target.mode === "remove") {
+    if (held <= 0) return { text: `${gas.name} has already been cleared.`, years: 0 };
+    return {
+      text: `${gas.name} cleared from the atmosphere`,
+      years: held / rate,
+    };
+  }
+
+  const headroom = maxPressureFor(body.gravity) - totalPressure(body.atmosphere);
+  if (headroom <= 0) {
+    return { text: "The world cannot hold any more air.", years: null };
+  }
+
+  // Oxygen is about reaching a breathable partial pressure.
+  if (gas.oxygen) {
+    if (held >= OXYGEN_MIN) {
+      return { text: "Oxygen is already at a breathable level.", years: 0 };
+    }
+    return { text: "Oxygen reaches a breathable level", years: (OXYGEN_MIN - held) / rate };
+  }
+
+  // A greenhouse gas is about reaching a liveable temperature.
+  if (gas.greenhouse > 0 && body.tempK < TEMP_MIN) {
+    const needed = pressureForTemperature(body, gas.greenhouse, TEMP_MIN);
+    if (needed === null) {
+      return { text: `${gas.name} alone cannot warm this world enough.`, years: null };
+    }
+    if (needed > headroom) {
+      return { text: `Warming this world needs more air than it can hold.`, years: null };
+    }
+    return { text: `Surface temperature reaches ${TEMP_MIN} K`, years: needed / rate };
+  }
+
+  return { text: `${gas.name} thickens the atmosphere`, years: null };
+}
+
+/**
+ * How much more of a greenhouse gas is needed to reach a temperature, given
+ * that warming saturates. Null when the target is out of reach.
+ */
+function pressureForTemperature(body: Body, greenhouse: number, targetK: number): number | null {
+  if (greenhouse <= 0) return null;
+  const currentWarming = greenhouseWarming(body.atmosphere);
+  const wanted = currentWarming + (targetK - body.tempK);
+  if (wanted >= GREENHOUSE_MAX_K) return null;
+  const ghNeeded = -GREENHOUSE_SCALE * Math.log(1 - wanted / GREENHOUSE_MAX_K);
+  const extra = (ghNeeded - greenhousePressure(body.atmosphere)) / greenhouse;
+  return extra > 0 ? extra : 0;
+}
+
+/**
+ * Terraformers add or remove the gas the colony has been told to work on.
+ * Everything that follows - temperature, breathability, colony cost - comes
+ * out of recomputing the environment afterwards.
+ */
+function runTerraforming(
+  empire: Empire,
+  body: Body,
+  colony: Colony,
+  employment: number,
+  year: number,
+  now: number,
+): void {
+  const target = colony.terraforming;
+  if (!target || !Number.isFinite(body.colonyCost)) return;
+  const installations = installationCount(colony, "terraforming") * employment;
+  if (installations <= 0) return;
+
+  const amount = installations * empire.stats.terraformRate * year;
+  if (amount <= 0) return;
+
+  const wasBreathable = isBreathable(body.atmosphere);
+  const held = body.atmosphere[target.gasId] ?? 0;
+
+  if (target.mode === "add") {
+    // A world can only hold on to so much air.
+    const room = Math.max(0, maxPressureFor(body.gravity) - totalPressure(body.atmosphere));
+    const added = Math.min(amount, room);
+    if (added <= 0) return;
+    body.atmosphere[target.gasId] = held + added;
+  } else {
+    if (held <= 0) return;
+    const left = Math.max(0, held - amount);
+    if (left <= 0) delete body.atmosphere[target.gasId];
+    else body.atmosphere[target.gasId] = left;
+  }
+
+  const before = body.colonyCost;
+  recomputeEnvironment(body);
+
+  if (!wasBreathable && isBreathable(body.atmosphere)) {
+    empire.addLog(now, "colony", `The air on ${body.name} is now breathable.`);
+  }
+  if (before > 0 && body.colonyCost <= 0) {
+    empire.addLog(now, "colony", `${body.name} has been terraformed to colony cost 0.00.`);
+  }
 }
 
 function totalUpkeep(colony: Colony): number {
@@ -353,6 +495,7 @@ function academyRate(empire: Empire): number {
  */
 function buildFromQueue(
   empire: Empire,
+  system: StarSystem,
   colony: Colony,
   budget: number,
   now: number,
@@ -360,19 +503,30 @@ function buildFromQueue(
 ): number {
   let remaining = budget;
   let spent = 0;
+  const capacity = shipyardCapacity(colony);
 
   for (const order of [...colony.buildQueue]) {
     if (remaining <= 0) break;
-    const type = INSTALLATION_BY_ID.get(order.installationId);
-    if (!type) continue;
+    const buildable = empire.buildableOf(order);
+    if (!buildable) continue;
 
-    const outstanding = order.quantity * type.cost - order.progress;
+    // A hull needs a slipway long enough to lay it down in.
+    if (buildable.isShip) {
+      const design = empire.design(order.designId);
+      const tons = design ? designStats(design, empire.researched, empire.stats).tons : 0;
+      if (tons > capacity) {
+        order.starved = true;
+        continue;
+      }
+    }
+
+    const outstanding = order.quantity * buildable.cost - order.progress;
     if (outstanding <= 0) continue;
 
     // How far the stockpile stretches, expressed in build points.
     let mineralLimit = Infinity;
-    for (const [mineral, tons] of Object.entries(type.minerals) as [MineralName, number][]) {
-      const perPoint = tons / type.cost;
+    for (const [mineral, tons] of Object.entries(buildable.minerals) as [MineralName, number][]) {
+      const perPoint = tons / buildable.cost;
       if (perPoint > 0) {
         mineralLimit = Math.min(mineralLimit, colony.stockpile[mineral] / perPoint);
       }
@@ -384,31 +538,115 @@ function buildFromQueue(
 
     if (applied <= 0) continue;
 
-    for (const [mineral, tons] of Object.entries(type.minerals) as [MineralName, number][]) {
-      colony.stockpile[mineral] = Math.max(0, colony.stockpile[mineral] - (tons / type.cost) * applied);
+    for (const [mineral, tons] of Object.entries(buildable.minerals) as [MineralName, number][]) {
+      colony.stockpile[mineral] = Math.max(
+        0,
+        colony.stockpile[mineral] - (tons / buildable.cost) * applied,
+      );
     }
 
     order.progress += applied;
     remaining -= applied;
     spent += applied;
 
-    const completed = Math.floor(order.progress / type.cost + 1e-9);
+    const completed = Math.floor(order.progress / buildable.cost + 1e-9);
     if (completed > 0) {
-      order.progress -= completed * type.cost;
+      order.progress -= completed * buildable.cost;
       order.quantity -= completed;
-      // Civilian shipping carries the finished item to its destination.
-      const target = order.destination
-        ? empire.colonies.get(order.destination) ?? colony
-        : colony;
-      target.installations[type.id] = (target.installations[type.id] ?? 0) + completed;
+
+      if (buildable.isShip && order.designId) {
+        commissionShips(empire, system, colony, order.designId, completed, bodyName, now);
+      } else {
+        deliver(empire, colony, order.installationId, completed, order.destination, bodyName, now);
+      }
+
       if (order.quantity <= 0) {
         colony.buildQueue = colony.buildQueue.filter((o) => o.id !== order.id);
-        const where = target === colony ? bodyName : `${bodyName} for ${order.destination}`;
-        empire.addLog(now, "construction", `${where}: construction of ${type.name} complete.`);
+        empire.addLog(
+          now,
+          buildable.isShip ? "fleet" : "construction",
+          `${bodyName}: ${buildable.name} complete.`,
+        );
       }
     }
   }
   return spent;
+}
+
+/** The largest hull a colony's shipyards can lay down, in tons. */
+export function shipyardCapacity(colony: Colony): number {
+  return installationCount(colony, "shipyard") * SHIPYARD_TONS;
+}
+
+/**
+ * Where a finished installation ends up. With civilian shipping it arrives at
+ * its destination by itself; without it, it is crated up at the colony that
+ * built it and waits for a freighter.
+ */
+function deliver(
+  empire: Empire,
+  colony: Colony,
+  installationId: string,
+  count: number,
+  destination: string | null,
+  bodyName: string,
+  now: number,
+): void {
+  if (!destination || destination === colony.bodyId) {
+    colony.installations[installationId] = (colony.installations[installationId] ?? 0) + count;
+    return;
+  }
+
+  if (empire.civilianShipping) {
+    const target = empire.colonies.get(destination) ?? colony;
+    target.installations[installationId] = (target.installations[installationId] ?? 0) + count;
+    return;
+  }
+
+  colony.stored[installationId] = (colony.stored[installationId] ?? 0) + count;
+  empire.addLog(
+    now,
+    "construction",
+    `${bodyName}: ${count} ${installationId.replace(/-/g, " ")} awaiting transport.`,
+  );
+}
+
+/** New hulls join the colony's own yard fleet, fuelled from its stores. */
+function commissionShips(
+  empire: Empire,
+  system: StarSystem,
+  colony: Colony,
+  designId: string,
+  count: number,
+  bodyName: string,
+  now: number,
+): void {
+  const design = empire.design(designId);
+  if (!design) return;
+  const stats = designStats(design, empire.researched, empire.stats);
+
+  let fleet = [...empire.fleets.values()].find(
+    (f) => f.anchorId === colony.bodyId && f.name === `${bodyName} Yard`,
+  );
+  if (!fleet) {
+    // Start the fleet where the yard is, or it spends a tick at the origin.
+    const where = system.byId.get(colony.bodyId)?.world ?? { x: 0, y: 0, z: 0 };
+    fleet = empire.createFleet(`${bodyName} Yard`, where, colony.bodyId);
+  }
+
+  for (let i = 0; i < count; i++) {
+    const ship = empire.commissionShip(designId, fleet, shipName(empire, design.name), now);
+    const fuel = Math.min(stats.fuelCapacity, colony.fuel);
+    ship.fuel = fuel;
+    colony.fuel -= fuel;
+  }
+}
+
+function shipName(empire: Empire, className: string): string {
+  const existing = [...empire.ships.values()].filter((s) =>
+    s.name.startsWith(`${className} `),
+  ).length;
+  return `${className} ${String(existing + 1).padStart(3, "0")}`;
 }
 
 /** Mass drivers throw minerals to the colony's designated destination. */

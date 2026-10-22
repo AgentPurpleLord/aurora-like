@@ -16,11 +16,12 @@ import { mineralLedger, queuedBuildPoints } from "./economy/ledger";
 import { TECH_BY_ID } from "./research/techs";
 import { labCapacity } from "./people/officers";
 import { deriveProposals, proposalLabel } from "./governors";
+import { bestEngine } from "./ships/design";
 
 export type Severity = "critical" | "warning" | "info";
 
 /** Where an issue is resolved. Mirrors the view ids the UI uses. */
-export type IssueView = "empire" | "colonies" | "research" | "officers" | "map";
+export type IssueView = "empire" | "colonies" | "fleets" | "research" | "officers" | "map";
 
 /** A governor's draft order, ready for the player to accept. */
 export interface IssueProposal {
@@ -55,6 +56,8 @@ export const SEVERITY_ORDER: Record<Severity, number> = {
 const COVER_WARNING_YEARS = 8;
 const COVER_CRITICAL_YEARS = 3;
 const DEPLETION_WARNING_YEARS = 5;
+/** Idle fleets are listed individually only up to this many. */
+const IDLE_FLEET_LIMIT = 4;
 
 export function deriveIssues(empire: Empire, system: StarSystem): Issue[] {
   const issues: Issue[] = [];
@@ -160,6 +163,16 @@ export function deriveIssues(empire: Empire, system: StarSystem): Issue[] {
       });
     }
 
+    if (installationCount(colony, "terraforming") > 0 && !colony.terraforming) {
+      add({
+        id: `colony:terraformers-idle:${colony.bodyId}`,
+        severity: "warning",
+        title: `${name}: terraformers have no programme`,
+        detail: `${installationCount(colony, "terraforming")} installations are standing idle. Choose a gas to add or remove.`,
+        action: { label: "Open colony", view: "colonies", bodyId: colony.bodyId },
+      });
+    }
+
     if (!empire.governorOf(colony.bodyId) && colony.population >= 1) {
       add({
         id: `colony:governor:${colony.bodyId}`,
@@ -171,7 +184,7 @@ export function deriveIssues(empire: Empire, system: StarSystem): Issue[] {
     }
 
     // A queue with nothing behind it is about to leave the colony idle.
-    const outstanding = queuedBuildPoints(colony);
+    const outstanding = queuedBuildPoints(empire, colony);
     if (output.buildPoints > 0 && outstanding > 0 && outstanding / output.buildPoints < 0.5) {
       add({
         id: `colony:queue-short:${colony.bodyId}`,
@@ -183,6 +196,72 @@ export function deriveIssues(empire: Empire, system: StarSystem): Issue[] {
         action: { label: "Queue work", view: "colonies", bodyId: colony.bodyId },
       });
     }
+  }
+
+  // ------------------------------------------------------------- fleets
+  const idle: typeof issues = [];
+  for (const fleet of empire.fleets.values()) {
+    if (fleet.note) {
+      add({
+        id: `fleet:blocked:${fleet.id}`,
+        severity: fleet.note === "Out of fuel" ? "critical" : "warning",
+        title: `${fleet.name}: ${fleet.note.toLowerCase()}`,
+        detail:
+          fleet.note === "Out of fuel"
+            ? "The fleet cannot move until a tanker reaches it or it is refuelled at a colony."
+            : "The fleet cannot carry out the order at the head of its queue.",
+        action: { label: "Open fleet", view: "fleets" },
+      });
+    } else if (fleet.shipIds.length && !fleet.orders.length && fleet.anchorId) {
+      idle.push({
+        id: `fleet:idle:${fleet.id}`,
+        severity: "info",
+        title: `${fleet.name} is idle`,
+        detail: `${fleet.shipIds.length} ship${fleet.shipIds.length === 1 ? "" : "s"} holding station at ${
+          system.byId.get(fleet.anchorId)?.name ?? fleet.anchorId
+        }.`,
+        action: { label: "Give orders", view: "fleets" },
+      });
+    }
+  }
+
+  // A rail with forty "X is idle" cards is a rail nobody reads, so past a
+  // handful they are collapsed into one line.
+  if (idle.length > IDLE_FLEET_LIMIT) {
+    add({
+      id: "fleet:idle:many",
+      severity: "info",
+      title: `${idle.length} fleets are idle`,
+      detail: "They are holding station with no orders queued.",
+      action: { label: "Open fleets", view: "fleets" },
+    });
+  } else {
+    for (const issue of idle) add(issue);
+  }
+
+  // Crates on the dock are only a problem when nothing collects them.
+  if (!empire.civilianShipping) {
+    for (const colony of empire.colonies.values()) {
+      const waiting = Object.values(colony.stored).reduce((sum, n) => sum + n, 0);
+      if (waiting <= 0) continue;
+      add({
+        id: `cargo:waiting:${colony.bodyId}`,
+        severity: "warning",
+        title: `${system.byId.get(colony.bodyId)?.name ?? colony.bodyId}: ${waiting} installations await transport`,
+        detail: "Civilian shipping is off, so a freighter has to collect them.",
+        action: { label: "Open colony", view: "colonies", bodyId: colony.bodyId },
+      });
+    }
+  }
+
+  if (!empire.designs.length && bestEngine(empire.researched)) {
+    add({
+      id: "fleet:no-designs",
+      severity: "info",
+      title: "No ship classes have been designed",
+      detail: "An engine has been researched, so hulls can now be laid out and built.",
+      action: { label: "Design a class", view: "fleets" },
+    });
   }
 
   // ---------------------------------------------------------- research

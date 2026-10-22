@@ -54,11 +54,11 @@ export const SKILL_LABELS: Record<SkillId, string> = {
 /** Skills expressed as a rating rather than a percentage bonus. */
 export const RATING_SKILLS: SkillId[] = ["administration"];
 
-export type AssignmentKind = "research" | "governor";
+export type AssignmentKind = "research" | "governor" | "fleet";
 
 export interface Assignment {
   kind: AssignmentKind;
-  /** Project id for research, colony (body) id for a governorship. */
+  /** Project id, colony (body) id for a governorship, or fleet id. */
   targetId: string;
   since: number;
 }

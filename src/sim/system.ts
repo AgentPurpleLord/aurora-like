@@ -19,6 +19,17 @@ import {
 } from "./orbit";
 import { mineralsFor, type MineralDeposit } from "./minerals";
 import { mulberry32 } from "./rng";
+import {
+  PRESSURE_MAX_BREATHABLE,
+  TEMP_MAX,
+  TEMP_MIN,
+  cloneAtmosphere,
+  isBreathable,
+  toxicGases,
+  totalPressure,
+  surfaceTemperature,
+  type Atmosphere,
+} from "./atmosphere";
 
 const G = 6.674e-11;
 const EARTH_G = 9.80665;
@@ -40,6 +51,10 @@ export interface Body {
 
   /** Surface gravity in Earth gravities. */
   gravity: number;
+  /** Current atmosphere, in partial pressures. Terraforming changes it. */
+  atmosphere: Atmosphere;
+  /** Current surface temperature in kelvin, warmed by the atmosphere. */
+  tempK: number;
   /** Escape velocity, km/s. */
   escapeVelocity: number;
   /** Orbital period in days, 0 for the star. */
@@ -94,7 +109,7 @@ export class StarSystem {
     const rMeters = def.radiusKm * 1000;
     const gravity = (G * def.massKg) / (rMeters * rMeters) / EARTH_G;
     const escapeVelocity = Math.sqrt((2 * G * def.massKg) / rMeters) / 1000;
-    return {
+    const body: Body = {
       def,
       id: def.id,
       name: def.name,
@@ -105,12 +120,16 @@ export class StarSystem {
       local: { x: 0, y: 0, z: 0 },
       world: { x: 0, y: 0, z: 0 },
       gravity,
+      atmosphere: cloneAtmosphere(def.atmosphere ?? {}),
+      tempK: def.tempK ?? 0,
       escapeVelocity,
       periodDays: def.orbit ? Math.abs(def.orbit.periodDays) : 0,
-      colonyCost: colonyCost(def, gravity),
+      colonyCost: Infinity,
       minerals: mineralsFor(def),
       orbitPath: [],
     };
+    recomputeEnvironment(body);
+    return body;
   }
 
   /** Recompute every position for time `t`, in days since J2000. */
@@ -170,35 +189,53 @@ function tracePath(orbit: OrbitalElements | undefined): Vec3[] {
 }
 
 /**
- * A simplified read of Aurora's colony cost: the worst of the gravity,
- * temperature and atmospheric penalties. 0.0 is a garden world, 2.0 is the
- * floor for anything without a breathable atmosphere, and anything above
- * about 3 is a serious infrastructure commitment.
+ * Recompute everything that follows from a body's atmosphere. Called when a
+ * world is created and whenever terraforming changes the air.
  */
-export function colonyCost(def: BodyDef, gravity: number): number {
-  if (def.cls === "star") return Infinity;
-  // No solid surface to build on.
-  if (def.cls === "planet" && def.massKg > 5e25) return Infinity;
+export function recomputeEnvironment(body: Body): void {
+  body.tempK = surfaceTemperature(
+    body.def.tempK ?? 0,
+    body.def.atmosphere ?? {},
+    body.atmosphere,
+  );
+  body.colonyCost = colonyCostOf(body);
+}
 
-  const breathable = def.atmosphere?.breathable ?? false;
-  const pressure = def.atmosphere?.pressureAtm ?? 0;
+/**
+ * Colony cost: the worst of what is wrong with a world. 0.0 is a garden
+ * world, 2.0 is the floor for anything whose air cannot be breathed, and
+ * anything above about 3 is a serious infrastructure commitment.
+ *
+ * Every term reads the body's *current* state, so terraforming moves it.
+ */
+export function colonyCostOf(body: Body): number {
+  if (body.cls === "star") return Infinity;
+  // Gas giants have no surface to build on.
+  if (body.cls === "planet" && body.def.massKg > 5e25) return Infinity;
 
-  // Each factor is costed independently and the worst one wins; a world with
-  // no breathable atmosphere can never be cheaper than 2.0.
+  const breathable = isBreathable(body.atmosphere);
   let cost = breathable ? 0 : 2;
 
   // Gravity: 0.1 g to 1.9 g is tolerable for the base species.
-  if (gravity < 0.1) cost = Math.max(cost, (0.1 - gravity) * 10);
-  else if (gravity > 1.9) cost = Math.max(cost, (gravity - 1.9) * 10);
+  if (body.gravity < 0.1) cost = Math.max(cost, (0.1 - body.gravity) * 10);
+  else if (body.gravity > 1.9) cost = Math.max(cost, (body.gravity - 1.9) * 10);
 
   // Temperature: comfortable between 253 K and 313 K, then one point of
   // colony cost for every 44 K beyond that band.
-  const t = def.tempK ?? 0;
-  if (t < 253) cost = Math.max(cost, (253 - t) / 44);
-  else if (t > 313) cost = Math.max(cost, (t - 313) / 44);
+  if (body.tempK < TEMP_MIN) cost = Math.max(cost, (TEMP_MIN - body.tempK) / 44);
+  else if (body.tempK > TEMP_MAX) cost = Math.max(cost, (body.tempK - TEMP_MAX) / 44);
 
-  // A crushing or corrosive atmosphere is its own problem.
-  if (!breathable && pressure > 4) cost = Math.max(cost, pressure / 25);
+  // A crushing atmosphere is its own problem, whatever it is made of.
+  const pressure = totalPressure(body.atmosphere);
+  if (!breathable && pressure > PRESSURE_MAX_BREATHABLE) {
+    cost = Math.max(cost, pressure / 25);
+  }
+
+  // So is a poisonous one, in proportion to how far past safe it is.
+  for (const toxic of toxicGases(body.atmosphere)) {
+    const excess = toxic.pressure / (toxic.gas.toxicAbove ?? 1);
+    cost = Math.max(cost, 2 + Math.log10(1 + excess) * 0.5);
+  }
 
   return Math.round(cost * 100) / 100;
 }
