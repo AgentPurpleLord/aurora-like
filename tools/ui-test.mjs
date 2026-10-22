@@ -44,6 +44,26 @@ async function check(name, fn) {
   }
 }
 
+/**
+ * Research a technology through the real interface: find it with search,
+ * select it, and take the recommended setup. `freeUp` first cancels whatever
+ * is under way so there are laboratories to spare.
+ */
+async function startResearch(page, techName, { freeUp = false } = {}) {
+  await page.getByRole("button", { name: "Research", exact: true }).click();
+  if (freeUp) {
+    while ((await page.locator(".proj-card").count()) > 0) {
+      await page.locator(".proj-card").first().click();
+      await page.getByRole("button", { name: "Cancel research" }).click();
+      await page.waitForTimeout(100);
+    }
+  }
+  await page.locator(".research-search").fill(techName);
+  await page.locator(".tech-node", { hasText: techName }).first().click();
+  await page.locator("#view-research").getByRole("button", { name: /^Start research/ }).click();
+  await page.waitForTimeout(150);
+}
+
 function watchErrors(page) {
   const errors = [];
   page.on("console", (message) => {
@@ -199,77 +219,132 @@ async function desktopSuite(browser) {
 // ------------------------------------------------------------------ ships
 
 async function shipSuite(browser) {
-  console.log("\nShips and fleets (1680x980)");
+  console.log("\nResearch, designers and fleets (1680x980)");
   const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
   const errors = watchErrors(page);
   await page.goto(URL, { waitUntil: "networkidle" });
   await page.waitForTimeout(700);
+  const skip = async (times) => {
+    for (let i = 0; i < times; i++) {
+      await page.getByRole("button", { name: "+30d", exact: true }).click();
+    }
+    await page.waitForTimeout(250);
+  };
 
-  // Nothing can be designed until an engine exists.
-  await page.getByRole("button", { name: "Fleets", exact: true }).click();
-  await check("no classes can be designed without an engine", async () =>
-    (await page.locator("#view-fleets .panel-right").innerText()).includes("No engine"));
-
-  // Research the first drive. The opening projects hold every lab on Earth,
-  // so they are cancelled to free them.
+  // --- the research view explains itself
   await page.getByRole("button", { name: "Research", exact: true }).click();
-  let running = await page.locator("#view-research .project-card").count();
-  for (let i = 0; i < running; i++) {
-    await page.locator("#view-research .project-card").first()
-      .getByRole("button", { name: "Cancel" }).click();
-    await page.waitForTimeout(150);
-  }
-  const engine = page.locator(".tech-row", { hasText: "Nuclear Thermal Engine Technology" }).first();
-  await engine.getByRole("button", { name: "Begin Research" }).click();
-  // Give it every lab the scientist can direct, or this takes half a year.
-  const labs = engine.locator(".assign-form .number-input");
-  await labs.fill("40");
-  await labs.press("Enter");
-  await engine.getByRole("button", { name: "Start" }).click();
-  await page.getByRole("button", { name: "30 days/s", exact: true }).click();
-  await page.waitForTimeout(5000);
-  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await check("research opens on what is ready to start", async () =>
+    (await page.locator(".research-tab.active").innerText()).includes("Ready now"));
+  await check("the summary strip shows laboratories and scientists", async () =>
+    /Laboratories/i.test(await page.locator(".research-summary").innerText()));
+  await check("projects under way are listed at the top", async () =>
+    (await page.locator(".proj-card").count()) >= 1);
 
-  await page.getByRole("button", { name: "Fleets", exact: true }).click();
-  await page.waitForTimeout(300);
-  await check("researching an engine unlocks ship design", async () =>
-    (await page.locator("#view-fleets .panel-right").innerText()).includes("New class"));
+  await page.getByRole("button", { name: /^Propulsion/ }).click();
+  await page.locator(".tech-node", { hasText: "Ion Drive Technology" }).first().click();
+  await check("a locked technology says what to research first", async () =>
+    /Research Nuclear Pulse Engine Technology first/.test(await page.locator(".research-side").innerText()));
+  await check("selecting a technology highlights what it needs", async () =>
+    (await page.locator(".tech-node.is-prereq").count()) === 1);
+  await check("and what it opens", async () =>
+    (await page.locator(".tech-node.is-dependent").count()) >= 1);
+  await page.locator(".tech-node", { hasText: "Nuclear Thermal Engine Technology" }).first().click();
+  await check("a technology says what it unlocks", async () =>
+    /engines in the component designer/.test(await page.locator(".research-side").innerText()));
+  await check("a ready technology offers a recommended start", async () =>
+    (await page.getByRole("button", { name: /Start research \(recommended\)/ }).count()) === 1);
+  await check("and estimates how long it will take", async () =>
+    /Finishes in about/.test(await page.locator(".research-side").innerText()));
 
-  // The designer derives figures as components are added.
+  // --- nothing can fly until an engine exists
+  await page.getByRole("button", { name: "Design", exact: true }).click();
+  await page.getByRole("button", { name: "New component", exact: true }).click();
+  await check("engines show as locked in the component designer", async () =>
+    (await page.locator("#view-design select").first().locator("option", { hasText: "Engine (locked)" }).count()) === 1);
+  await page.locator("#view-design select").first().selectOption("engine");
+  await check("choosing a locked kind says what to research", async () =>
+    /Research Nuclear Thermal/.test(await page.locator("#view-design .fleet-detail").innerText()));
+
+  // --- research the drive in one click
+  await startResearch(page, "Nuclear Thermal Engine Technology", { freeUp: true });
+  await skip(14);
+  await check("the engine is researched", async () => {
+    await page.locator(".research-search").fill("Nuclear Thermal Engine Technology");
+    return /Researched/.test(await page.locator(".tech-node", { hasText: "Nuclear Thermal Engine Technology" }).first().innerText());
+  });
+
+  // --- the component designer
+  await page.getByRole("button", { name: "Design", exact: true }).click();
+  await page.getByRole("button", { name: "Add standard set", exact: true }).click();
+  await page.waitForTimeout(200);
+  await check("the standard set adds components", async () =>
+    (await page.locator("#view-design .design-row").count()) >= 5);
+
+  await page.getByRole("button", { name: "New component", exact: true }).click();
+  await page.waitForTimeout(150);
+  const derived = () => page.locator("#view-design .derived-host").innerText();
+  await check("a new engine starts at modifier 1.0", async () =>
+    /Power\s+60\.0/.test(await derived()));
+  const modifier = page.locator("#view-design .field-row", { hasText: "Power modifier" }).locator(".number-input");
+  await modifier.fill("0.5");
+  await modifier.press("Enter");
+  await page.waitForTimeout(150);
+  await check("halving the modifier halves the power", async () => /Power\s+30\.0/.test(await derived()));
+  await check("and cuts fuel per unit of power to a quarter", async () =>
+    /Fuel per power-hour\s+1\.25/.test(await derived()));
+  await check("the name follows the parameters", async () =>
+    (await page.locator("#view-design .name-input").inputValue()).includes("x0.50"));
+  await page.getByRole("button", { name: "Create component", exact: true }).click();
+  await page.waitForTimeout(200);
+  await check("the saved component appears in the library", async () =>
+    (await page.locator("#view-design .design-row", { hasText: "x0.50" }).count()) === 1);
+
+  // --- the ship designer
+  await page.getByRole("button", { name: /Ship Classes/ }).click();
   await page.getByRole("button", { name: "New class", exact: true }).click();
-  await page.waitForTimeout(200);
-  const engineRow = page.locator(".component-row", { hasText: "Nuclear Thermal Engine" }).first();
-  await engineRow.getByRole("button", { name: "+", exact: true }).click();
+  await page.locator("#view-design .name-input").fill("Test Runner");
+  const addPart = async (name, times = 1) => {
+    const row = page.locator("#view-design .component-row", { hasText: name }).first();
+    for (let i = 0; i < times; i++) await row.getByRole("button", { name: "+", exact: true }).click();
+  };
+  await addPart("Nuclear Thermal 5HS", 2);
+  await addPart("Fuel Tank 5HS", 4);
+  await addPart("Cargo Hold 20HS", 4);
+  const classDerived = () => page.locator("#view-design .derived-host").innerText();
+  await check("a class with no quarters flags the crew shortfall", async () =>
+    /Add \d+ x Crew Quarters/.test(await classDerived()));
+  await page.getByRole("button", { name: /to berth the crew/ }).click();
   await page.waitForTimeout(150);
-  await check("a design with only an engine has no crew quarters", async () =>
-    (await page.locator("#view-fleets .fleet-detail").innerText()).includes("Crew quarters short"));
-  const beforeTons = await page.locator("#view-fleets .fleet-detail").innerText();
-  await page.locator(".component-row", { hasText: "Cargo Hold" }).first()
-    .getByRole("button", { name: "+", exact: true }).click();
-  await page.waitForTimeout(150);
-  await check("adding a component changes the derived figures", async () =>
-    (await page.locator("#view-fleets .fleet-detail").innerText()) !== beforeTons);
-  await page.getByRole("button", { name: "Cancel", exact: true }).click();
-
-  // Standard classes, then build one.
-  await page.getByRole("button", { name: /Add \d+ standard classes/ }).click();
-  await page.waitForTimeout(300);
-  await check("standard classes are added", async () =>
-    (await page.locator("#view-fleets .project-card").count()) >= 2);
-  const hauler = page.locator("#view-fleets .project-card", { hasText: "Hauler" }).first();
-  await check("a class reports its speed and range", async () =>
-    /km\/s/.test(await hauler.innerText()) && /AU/.test(await hauler.innerText()));
-  await hauler.getByRole("button", { name: "Build", exact: true }).click();
+  await check("one click berths the crew", async () =>
+    !/to berth the crew/.test(await classDerived()));
+  // 120 power over 5,600 t (112 hull spaces): the one-click fix adds a single
+  // 100 t quarters, not the two the standard Hauler carries.
+  await check("the class reports its speed from its parts", async () =>
+    /Speed\s+1,071 km\/s/.test(await classDerived()));
+  await page.getByRole("button", { name: "Create class", exact: true }).click();
   await page.waitForTimeout(200);
+  await check("the class is saved", async () =>
+    (await page.locator("#view-design .design-row", { hasText: "Test Runner" }).count()) === 1);
 
+  // A component already built into a class cannot be rewritten.
+  await page.getByRole("button", { name: /Components/ }).click();
+  await page.locator("#view-design .design-row", { hasText: "Nuclear Thermal 5HS" }).first().click();
+  await check("a component in use is superseded, not edited", async () =>
+    /superseded rather than rewritten/.test(await page.locator("#view-design .fleet-detail").innerText()));
+
+  // --- build it from the Fleets view
+  await page.getByRole("button", { name: "Fleets", exact: true }).click();
+  const runner = page.locator("#view-fleets .project-card", { hasText: "Test Runner" }).first();
+  await check("the class is offered for building", async () => (await runner.count()) === 1);
+  await runner.getByRole("button", { name: "Build", exact: true }).click();
   await page.getByRole("button", { name: "30 days/s", exact: true }).click();
-  await page.waitForTimeout(4000);
+  await page.waitForTimeout(4500);
   await page.getByRole("button", { name: "Pause", exact: true }).click();
   await page.waitForTimeout(300);
   await check("the hull was commissioned into a fleet", async () =>
     (await page.locator("#view-fleets .panel-left .tree-row").count()) > 0);
 
-  // Orders: send it to Mars.
+  // --- orders
   await page.locator("#view-fleets .panel-left .tree-row").first().click();
   await page.waitForTimeout(200);
   await check("the fleet reports where it is", async () =>
@@ -282,24 +357,17 @@ async function shipSuite(browser) {
   await page.waitForTimeout(200);
   await check("the move order is queued", async () =>
     (await page.locator("#view-fleets .order-row").innerText()).includes("Mars"));
-
-  await page.getByRole("button", { name: "1 day/s", exact: true }).click();
-  await page.waitForTimeout(2500);
-  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  // Eight hours at ~1,000 km/s is about 0.2 AU: well short of Mars.
+  await page.getByRole("button", { name: "+8h", exact: true }).click();
   await page.waitForTimeout(300);
-  await check("the fleet is under way and burning fuel", async () => {
-    const text = await page.locator("#view-fleets .fleet-detail").innerText();
-    return /Under way to Mars/.test(text);
-  });
+  await check("the fleet is under way", async () =>
+    /Under way to Mars/.test(await page.locator("#view-fleets .fleet-detail").innerText()));
 
-  // The map draws it, and clicking it selects it.
   await page.getByRole("button", { name: "Map", exact: true }).click();
   await page.waitForTimeout(600);
   await page.screenshot({ path: `${SHOTS}/ships-map.png` });
-  await check("the map shows the fleet in the detail panel after selection", async () => {
-    const panel = await page.locator("#detail-panel").innerText();
-    return panel.length > 0;
-  });
+  await check("the map shows the fleet in the detail panel", async () =>
+    (await page.locator("#detail-panel").innerText()).length > 0);
 
   await check("no console errors", () => errors.length === 0);
   if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
@@ -339,23 +407,13 @@ async function terraformSuite(browser) {
   await page.getByRole("button", { name: "Colony", exact: true }).click();
   await page.getByRole("button", { name: "Establish Colony" }).click();
 
-  await page.getByRole("button", { name: "Research", exact: true }).click();
-  const running = await page.locator("#view-research .project-card").count();
-  for (let i = 0; i < running; i++) {
-    await page.locator("#view-research .project-card").first()
-      .getByRole("button", { name: "Cancel" }).click();
-    await page.waitForTimeout(120);
-  }
-  const tech = page.locator(".tech-row", { hasText: "Terraforming Technology" }).first();
-  await tech.getByRole("button", { name: "Begin Research" }).click();
-  const labs = tech.locator(".assign-form .number-input");
-  await labs.fill("40");
-  await labs.press("Enter");
-  await tech.getByRole("button", { name: "Start" }).click();
+  await startResearch(page, "Terraforming Technology", { freeUp: true });
   await skip(12);
+  await page.getByRole("button", { name: "Research", exact: true }).click();
+  await page.locator(".research-search").fill("Terraforming Technology");
   await check("terraforming technology is researched", async () =>
-    (await page.locator(".tech-row", { hasText: "Terraforming Technology" }).first().innerText())
-      .includes("researched"));
+    (await page.locator(".tech-node", { hasText: "Terraforming Technology" }).first().innerText())
+      .includes("Researched"));
 
   // Build the processors on Earth and ship them to Mars.
   await page.getByRole("button", { name: "Colonies", exact: true }).click();
@@ -475,6 +533,28 @@ async function mobileSuite(browser) {
   await check("colony view does not scroll sideways", async () => (await overflow()) <= 1);
   await check("the order form fits the width", async () =>
     (await page.locator("#view-colonies .add-order").first().boundingBox()).width <= viewport.width + 1);
+
+  // The two newest screens, on a phone.
+  await page.locator("#view-tabs").getByRole("button", { name: "Research" }).click();
+  await page.waitForTimeout(400);
+  await check("research does not scroll sideways", async () => (await overflow()) <= 1);
+  await check("research tiers stack into one column", async () => {
+    const tabsBox = await page.locator("#view-tabs").boundingBox();
+    return tabsBox.width <= viewport.width + 1;
+  });
+  await page.locator(".research-search").fill("Mining");
+  await page.locator(".tech-node").first().click();
+  await page.waitForTimeout(600);
+  await check("selecting a technology brings its detail into view", async () => {
+    const box = await page.locator(".research-side").boundingBox();
+    return box.y < viewport.height;
+  });
+  await page.screenshot({ path: `${SHOTS}/mobile-research.png` });
+
+  await page.locator("#view-tabs").getByRole("button", { name: "Design" }).click();
+  await page.waitForTimeout(400);
+  await check("the designer does not scroll sideways", async () => (await overflow()) <= 1);
+  await page.screenshot({ path: `${SHOTS}/mobile-design.png` });
 
   await check("controls are big enough to tap", async () =>
     (await page.evaluate(() =>

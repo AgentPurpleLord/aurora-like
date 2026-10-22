@@ -61,13 +61,9 @@ const colonyCount = empire.colonies.size;
 
 // A navy at a scale the current game cannot reach but a later one will.
 empire.research("nuclear-thermal");
-const design = empire.addDesign("Bench Hauler", [
-  { componentId: "engine-nuclear-thermal", count: 2 },
-  { componentId: "fuel-tank", count: 4 },
-  { componentId: "cargo-hold", count: 4 },
-  { componentId: "crew-quarters", count: 2 },
-], 0);
-const stats = designStats(design, empire.researched, empire.stats);
+empire.addStandardComponents(0);
+const design = empire.addStandardClasses(0).find((d) => d.name === "Hauler")!;
+const stats = empire.statsOf(design.id)!;
 
 const FLEETS = Number(process.argv[2] ?? 1000);
 const SHIPS_PER_FLEET = 5;
@@ -115,8 +111,8 @@ bench("deriveIssues (attention list)", 50, "call", () => {
   deriveIssues(empire, game.system);
 });
 
-bench("designStats (single class)", 20_000, "call", () => {
-  designStats(design, empire.researched, empire.stats);
+bench("designStats (single class, uncached)", 20_000, "call", () => {
+  designStats(design, empire.resolveComponent);
 });
 
 // Raw Kepler throughput, for comparison with anything that might replace it.

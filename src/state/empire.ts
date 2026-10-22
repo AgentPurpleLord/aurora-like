@@ -13,7 +13,23 @@ import { createColony, type Colony } from "./colony";
 import type { StandingOrder } from "../sim/economy/standingOrders";
 import type { Vec3 } from "../sim/orbit";
 import { INSTALLATION_BY_ID, SHIP_ORDER } from "../sim/economy/installations";
-import { designStats, type DesignComponent, type DesignStats, type ShipDesign } from "../sim/ships/design";
+import {
+  designStats,
+  type DesignComponent,
+  type DesignStats,
+  type ResolvedComponent,
+  type ShipDesign,
+} from "../sim/ships/design";
+import {
+  ENGINE_TYPES,
+  SENSOR_TYPES,
+  componentStats,
+  defaultParams,
+  suggestName,
+  type ComponentDesign,
+  type ComponentKind,
+  type ParamSet,
+} from "../sim/ships/components";
 import { emptyCargo, type Fleet, type Ship } from "../sim/ships/fleet";
 import { BUILT_IN_TEMPLATES, type BuildTemplate } from "../sim/economy/templates";
 
@@ -84,6 +100,8 @@ export class Empire {
   readonly dismissed = new Map<string, number>();
   /** Rules that top colonies up without being asked each time. */
   standingOrders: StandingOrder[] = [];
+  /** Component designs: the library ship classes are assembled from. */
+  componentDesigns: ComponentDesign[] = [];
   /** Ship classes the empire has designed. */
   designs: ShipDesign[] = [];
   readonly ships = new Map<string, Ship>();
@@ -115,6 +133,9 @@ export class Empire {
    */
   revision = 0;
   private readonly designIndex = new Map<string, ShipDesign>();
+  private readonly componentIndex = new Map<string, ComponentDesign>();
+  private readonly componentCache = new Map<string, { revision: number; resolved: ResolvedComponent }>();
+  private nextComponentId = 1;
   private readonly designStatsCache = new Map<string, { revision: number; stats: DesignStats }>();
 
   constructor(readonly rng: Random = new Random("empire")) {
@@ -291,6 +312,12 @@ export class Empire {
     return id ? this.designIndex.get(id) : undefined;
   }
 
+  /** A class is superseded rather than deleted while ships still fly it. */
+  setDesignObsolete(id: string, obsolete: boolean): void {
+    const design = this.designIndex.get(id);
+    if (design) design.obsolete = obsolete;
+  }
+
   /** Rename or re-equip a class, invalidating everything derived from it. */
   updateDesign(id: string, name: string, components: DesignComponent[]): void {
     const design = this.designIndex.get(id);
@@ -309,9 +336,146 @@ export class Empire {
     if (!design) return undefined;
     const cached = this.designStatsCache.get(design.id);
     if (cached && cached.revision === this.revision) return cached.stats;
-    const stats = designStats(design, this.researched, this.stats);
+    const stats = designStats(design, this.resolveComponent);
     this.designStatsCache.set(design.id, { revision: this.revision, stats });
     return stats;
+  }
+
+  /** Component design and figures, cached until research or the library changes. */
+  readonly resolveComponent = (id: string): ResolvedComponent | undefined => {
+    const design = this.componentIndex.get(id);
+    if (!design) return undefined;
+    const cached = this.componentCache.get(id);
+    if (cached && cached.revision === this.revision) return cached.resolved;
+    const resolved = { design, stats: componentStats(design.kind, design.params, this.researched) };
+    this.componentCache.set(id, { revision: this.revision, resolved });
+    return resolved;
+  };
+
+  // ------------------------------------------------------ component library
+
+  component(id: string | null | undefined): ComponentDesign | undefined {
+    return id ? this.componentIndex.get(id) : undefined;
+  }
+
+  addComponentDesign(
+    kind: ComponentKind,
+    params: ParamSet,
+    now: number,
+    name?: string,
+  ): ComponentDesign {
+    const normal = { ...defaultParams(kind, this.researched), ...params };
+    const design: ComponentDesign = {
+      id: `comp-${this.nextComponentId++}`,
+      name: name?.trim() || suggestName(kind, normal, this.researched),
+      kind,
+      params: normal,
+      created: now,
+    };
+    this.componentDesigns.push(design);
+    this.componentIndex.set(design.id, design);
+    this.revision++;
+    return design;
+  }
+
+  /** Classes that use a component, so it is not edited out from under them. */
+  componentUsers(id: string): ShipDesign[] {
+    return this.designs.filter((d) => d.components.some((c) => c.componentId === id && c.count > 0));
+  }
+
+  updateComponentDesign(id: string, name: string, params: ParamSet): boolean {
+    const design = this.componentIndex.get(id);
+    // A component already built into a class is superseded, never rewritten.
+    if (!design || this.componentUsers(id).length) return false;
+    design.name = name.trim() || design.name;
+    design.params = { ...params };
+    this.revision++;
+    return true;
+  }
+
+  setComponentObsolete(id: string, obsolete: boolean): void {
+    const design = this.componentIndex.get(id);
+    if (!design) return;
+    design.obsolete = obsolete;
+  }
+
+  removeComponentDesign(id: string): boolean {
+    if (this.componentUsers(id).length) return false;
+    this.componentDesigns = this.componentDesigns.filter((c) => c.id !== id);
+    this.componentIndex.delete(id);
+    this.componentCache.delete(id);
+    this.revision++;
+    return true;
+  }
+
+  /**
+   * The workhorse set for whatever has been researched: one of each kind
+   * sized for a general-purpose ship. Names are kept, so asking twice adds
+   * nothing.
+   */
+  addStandardComponents(now: number): ComponentDesign[] {
+    const made: ComponentDesign[] = [];
+    const want: [ComponentKind, ParamSet][] = [];
+    const engine = [...ENGINE_TYPES].reverse().find((e) => this.researched.has(e.tech));
+    if (engine) want.push(["engine", { type: engine.id, size: 5, modifier: 1 }]);
+    if (this.researched.has("trans-newtonian")) {
+      want.push(
+        ["fuel-tank", { size: 5 }],
+        ["crew-quarters", { size: 2 }],
+        ["cargo-hold", { size: 20 }],
+        ["colony-module", { size: 20 }],
+      );
+    }
+    const sensor = SENSOR_TYPES.find((s) => this.researched.has(s.tech));
+    if (sensor) want.push(["survey-sensor", { type: sensor.id, size: 4 }]);
+
+    for (const [kind, params] of want) {
+      const name = suggestName(kind, params, this.researched);
+      if (this.componentDesigns.some((c) => c.name === name)) continue;
+      made.push(this.addComponentDesign(kind, params, now, name));
+    }
+    return made;
+  }
+
+  /** Hauler, Pioneer and Surveyor, assembled from the standard components. */
+  addStandardClasses(now: number): ShipDesign[] {
+    this.addStandardComponents(now);
+
+    // Always the standard parts, never whatever was designed most recently.
+    const standard = (kind: ComponentKind, params: ParamSet) => {
+      const name = suggestName(kind, params, this.researched);
+      return this.componentDesigns.find((c) => c.kind === kind && c.name === name);
+    };
+    const engineType = [...ENGINE_TYPES].reverse().find((e) => this.researched.has(e.tech));
+    const sensorType = SENSOR_TYPES.find((s) => this.researched.has(s.tech));
+    const engine = engineType && standard("engine", { type: engineType.id, size: 5, modifier: 1 });
+    const tank = standard("fuel-tank", { size: 5 });
+    const quarters = standard("crew-quarters", { size: 2 });
+    if (!engine || !tank || !quarters) return [];
+
+    const cargo = standard("cargo-hold", { size: 20 });
+    const colony = standard("colony-module", { size: 20 });
+    const sensor = sensorType && standard("survey-sensor", { type: sensorType.id, size: 4 });
+    const specs: [string, DesignComponent[] | null | undefined][] = [
+      ["Hauler", cargo && [
+        { componentId: engine.id, count: 2 }, { componentId: tank.id, count: 4 },
+        { componentId: cargo.id, count: 4 }, { componentId: quarters.id, count: 2 },
+      ]],
+      ["Pioneer", colony && [
+        { componentId: engine.id, count: 2 }, { componentId: tank.id, count: 4 },
+        { componentId: colony.id, count: 4 }, { componentId: quarters.id, count: 2 },
+      ]],
+      ["Surveyor", sensor && [
+        { componentId: engine.id, count: 1 }, { componentId: tank.id, count: 3 },
+        { componentId: sensor.id, count: 1 }, { componentId: quarters.id, count: 1 },
+      ]],
+    ];
+    const made: ShipDesign[] = [];
+    for (const [name, components] of specs) {
+      if (!components || this.designs.some((d) => d.name === name)) continue;
+      made.push(this.addDesign(name, components, now));
+    }
+    return made;
   }
 
   removeDesign(id: string): void {
@@ -334,6 +498,7 @@ export class Empire {
       position: { ...position },
       anchorId,
       orders: [],
+      surveyProgress: 0,
       cargo: emptyCargo(),
       commanderId: null,
       note: null,

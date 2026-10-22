@@ -21,7 +21,23 @@ import { BUILT_IN_TEMPLATES, resolveTemplate } from "../src/sim/economy/template
 import { supplyToward } from "../src/sim/economy/standingOrders";
 import { deriveProposals } from "../src/sim/governors";
 import { effectiveColonyCost, shipyardCapacity } from "../src/sim/economy/production";
-import { designStats } from "../src/sim/ships/design";
+import { componentStats, normaliseParams, SURVEY_POINTS_NEEDED } from "../src/sim/ships/components";
+import type { Empire } from "../src/state/empire";
+
+/** Component designs by role, made the way a player would. */
+function parts(empire: Empire, now = 0) {
+  const kind = (k: Parameters<Empire["addComponentDesign"]>[0], params: Record<string, number | string>) =>
+    empire.componentDesigns.find((c) => c.kind === k && JSON.stringify(c.params) === JSON.stringify({ ...params })) ??
+    empire.addComponentDesign(k, params, now);
+  return {
+    engine: (type: string, size = 5, modifier = 1) => kind("engine", { type, size, modifier }),
+    tank: (size = 5) => kind("fuel-tank", { size }),
+    quarters: (size = 2) => kind("crew-quarters", { size }),
+    cargo: (size = 20) => kind("cargo-hold", { size }),
+    colony: (size = 20) => kind("colony-module", { size }),
+    sensor: (size = 4) => kind("survey-sensor", { type: "geological", size }),
+  };
+}
 import {
   isBreathable,
   maxPressureFor,
@@ -577,13 +593,15 @@ console.log("");
 
   // --- design arithmetic
   empire.research("nuclear-thermal");
+  const p = parts(empire);
+  const thermal = p.engine("nuclear-thermal");
   const hauler = empire.addDesign("Hauler", [
-    { componentId: "engine-nuclear-thermal", count: 2 },
-    { componentId: "fuel-tank", count: 4 },
-    { componentId: "cargo-hold", count: 4 },
-    { componentId: "crew-quarters", count: 2 },
+    { componentId: thermal.id, count: 2 },
+    { componentId: p.tank().id, count: 4 },
+    { componentId: p.cargo().id, count: 4 },
+    { componentId: p.quarters().id, count: 2 },
   ], 0);
-  const stats = designStats(hauler, empire.researched, empire.stats);
+  const stats = empire.statsOf(hauler.id)!;
   check("design tonnage", stats.tons, 2 * 250 + 4 * 250 + 4 * 1000 + 2 * 100, 0);
   // Speed is engine power per hull space: 120 power, 5700 t = 114 HS.
   check("design speed (km/s)", stats.speed, (120 * 1000) / (5700 / 50), 1e-9);
@@ -592,25 +610,89 @@ console.log("");
   check("design crew required", stats.crewRequired, 2 * 3 + 4 * 2, 0);
   assert("a complete design has no problems", stats.problems.length === 0);
 
-  const unpowered = empire.addDesign("Hulk", [{ componentId: "cargo-hold", count: 1 }], 0);
+  // --- standard classes use the standard parts, even after custom ones exist
+  {
+    const std = new Game("standard");
+    std.empire.research("nuclear-thermal");
+    const customEngine = std.empire.addComponentDesign("engine", { type: "nuclear-thermal", size: 8, modifier: 0.6 }, 0);
+    const standardHauler = std.empire.addStandardClasses(0).find((d) => d.name === "Hauler")!;
+    assert(
+      "standard classes ignore a custom engine designed earlier",
+      standardHauler.components.every((c) => c.componentId !== customEngine.id),
+    );
+    check("and the standard Hauler is the familiar 5,700 t", std.empire.statsOf(standardHauler.id)!.tons, 5700, 0);
+  }
+
+  // --- the component designer's arithmetic
+  const thermalStats = componentStats("engine", { type: "nuclear-thermal", size: 5, modifier: 1 }, empire.researched);
+  check("engine power is size x type power x modifier", thermalStats.power ?? 0, 5 * 12, 1e-9);
+  const eco = componentStats("engine", { type: "nuclear-thermal", size: 5, modifier: 0.5 }, empire.researched);
+  check("an eco-tuned engine makes half the power", eco.power ?? 0, 30, 1e-9);
+  assert(
+    "and burns far less fuel per unit of power",
+    (eco.fuelPerHour! / eco.power!) < (thermalStats.fuelPerHour! / thermalStats.power!) / 3,
+  );
+  check(
+    "fuel per power-hour falls with the square of the modifier",
+    (eco.fuelPerHour! / eco.power!) / (thermalStats.fuelPerHour! / thermalStats.power!),
+    0.25,
+    1e-9,
+  );
+  assert("a tuned-down engine is cheaper to build", eco.cost < thermalStats.cost);
+  check(
+    "an overdriven modifier is clamped without the technology",
+    Number(normaliseParams("engine", { type: "nuclear-thermal", size: 5, modifier: 1.25 }, empire.researched).modifier),
+    1.0,
+    1e-9,
+  );
+  const withTuning = new Set([...empire.researched, "engine-power-125"]);
+  check(
+    "and allowed once engine power tuning is researched",
+    Number(normaliseParams("engine", { type: "nuclear-thermal", size: 5, modifier: 1.25 }, withTuning).modifier),
+    1.25,
+    1e-9,
+  );
+  check(
+    "a stepped parameter carries no float noise",
+    Number(normaliseParams("engine", { type: "nuclear-thermal", size: 8, modifier: 0.6 }, empire.researched).modifier),
+    0.6,
+    0,
+  );
+  check("component size is clamped to its range", Number(normaliseParams("fuel-tank", { size: 9999 }, empire.researched).size), 40, 0);
+  const sensorStats = componentStats("survey-sensor", { type: "geological", size: 4 }, new Set([...empire.researched, "geo-survey-sensors"]));
+  check("survey rate scales with sensor size (points/day)", sensorStats.survey?.rate ?? 0, 40, 0);
+
+  // A component in use cannot be rewritten out from under a class.
+  const usedTank = p.tank();
+  assert("a component in use is reported as used", empire.componentUsers(usedTank.id).length > 0);
+  assert("and refuses to be edited in place", !empire.updateComponentDesign(usedTank.id, "x", { size: 9 }));
+  assert("or deleted", !empire.removeComponentDesign(usedTank.id));
+  const spare = empire.addComponentDesign("fuel-tank", { size: 7 }, 0);
+  assert("an unused one can be edited", empire.updateComponentDesign(spare.id, "Big Tank", { size: 9 }));
+  check("and the edit is reflected in its figures", empire.resolveComponent(spare.id)!.stats.fuel ?? 0, 90_000, 0);
+  assert("and removed", empire.removeComponentDesign(spare.id));
+
+  const unpowered = empire.addDesign("Hulk", [{ componentId: p.cargo().id, count: 1 }], 0);
   assert(
     "a design with no engine is rejected",
-    designStats(unpowered, empire.researched, empire.stats).problems.some((p) => p.includes("No engine")),
+    empire.statsOf(unpowered.id)!.problems.some((m) => m.includes("No engine")),
   );
+  const ion = p.engine("ion");
   const unresearched = empire.addDesign("Dreamer", [
-    { componentId: "engine-ion", count: 1 },
-    { componentId: "crew-quarters", count: 1 },
+    { componentId: ion.id, count: 1 },
+    { componentId: p.quarters().id, count: 1 },
   ], 0);
   assert(
-    "a design using unresearched components is rejected",
-    designStats(unresearched, empire.researched, empire.stats).problems.length > 0,
+    "a component of an unresearched type is rejected",
+    empire.statsOf(unresearched.id)!.problems.some((m) => m.includes("not been researched")),
   );
 
   // --- a hull larger than the slipways never starts
   const leviathan = empire.addDesign("Leviathan", [
-    { componentId: "engine-nuclear-thermal", count: 2 },
-    { componentId: "cargo-hold", count: 40 },
-    { componentId: "crew-quarters", count: 5 },
+    { componentId: thermal.id, count: 2 },
+    { componentId: p.cargo().id, count: 40 },
+    { componentId: p.quarters().id, count: 5 },
+    { componentId: p.tank().id, count: 2 },
   ], 0);
   empire.queueShip("earth", leviathan.id, 1);
   navy.step(CYCLE_DAYS * SECONDS_PER_DAY);
@@ -680,14 +762,14 @@ console.log("");
   // --- colonists are moved, not minted. Measured around the order itself,
   // since population grows while time passes.
   const pioneer = empire.addDesign("Pioneer", [
-    { componentId: "engine-nuclear-thermal", count: 2 },
-    { componentId: "fuel-tank", count: 4 },
-    { componentId: "cryogenic-berths", count: 2 },
-    { componentId: "crew-quarters", count: 2 },
+    { componentId: thermal.id, count: 2 },
+    { componentId: p.tank().id, count: 4 },
+    { componentId: p.colony().id, count: 2 },
+    { componentId: p.quarters().id, count: 2 },
   ], 0);
   const colonyFleet = empire.createFleet("Settlers", { x: 0, y: 0, z: 0 }, "earth");
   const colonyShip = empire.commissionShip(pioneer.id, colonyFleet, "Pioneer 001", 0);
-  colonyShip.fuel = designStats(pioneer, empire.researched, empire.stats).fuelCapacity;
+  colonyShip.fuel = empire.statsOf(pioneer.id)!.fuelCapacity;
   const beforeEmbark = earth.population;
   colonyFleet.orders.push({ kind: "load-colonists", amount: 40_000 });
   executeArrivalOrders(empire, navy.system, colonyFleet);
@@ -718,21 +800,32 @@ console.log("");
   );
 
   // --- survey
-  const surveyor = empire.addDesign("Surveyor", [
-    { componentId: "engine-nuclear-thermal", count: 1 },
-    { componentId: "fuel-tank", count: 2 },
-    { componentId: "geo-survey-sensor", count: 1 },
-    { componentId: "crew-quarters", count: 1 },
-  ], 0);
-  assert("survey sensors need their own technology", !empire.researched.has("geo-survey-sensors"));
   empire.research("geo-survey-sensors");
+  const surveyor = empire.addDesign("Surveyor", [
+    { componentId: thermal.id, count: 1 },
+    { componentId: p.tank().id, count: 2 },
+    { componentId: p.sensor().id, count: 1 },
+    { componentId: p.quarters().id, count: 1 },
+  ], 0);
   const surveyFleet = empire.createFleet("Survey Group", { x: 0, y: 0, z: 0 }, "earth");
   const surveyShip = empire.commissionShip(surveyor.id, surveyFleet, "Surveyor 001", 0);
-  surveyShip.fuel = designStats(surveyor, empire.researched, empire.stats).fuelCapacity;
+  surveyShip.fuel = empire.statsOf(surveyor.id)!.fuelCapacity;
   assert("Callisto starts unsurveyed", !empire.surveyed.has("callisto"));
   surveyFleet.orders.push({ kind: "move", bodyId: "callisto" }, { kind: "survey" });
-  for (let i = 0; i < 400 && surveyFleet.orders.length; i++) navy.step(SECONDS_PER_DAY);
+  let arrived = -1;
+  let finished = -1;
+  for (let day = 0; day < 600 && finished < 0; day++) {
+    navy.step(SECONDS_PER_DAY / 4);
+    if (arrived < 0 && surveyFleet.anchorId === "callisto") arrived = day;
+    if (empire.surveyed.has("callisto")) finished = day;
+  }
   assert("the survey ship reached Callisto and surveyed it", empire.surveyed.has("callisto"));
+  // 4 HS of sensor is 40 points a day against 200 points: five days, not instant.
+  const rateDays = SURVEY_POINTS_NEEDED / 40;
+  assert(
+    `surveying took about ${rateDays} days, not an instant (${((finished - arrived) / 4).toFixed(1)} days)`,
+    (finished - arrived) / 4 >= rateDays - 1.5 && (finished - arrived) / 4 <= rateDays + 1.5,
+  );
 
   // --- with civilian shipping off, finished work waits for a ship
   empire.queueBuild("earth", "automated-mine", 1, "mars");

@@ -18,7 +18,6 @@ import { TECH_BY_ID } from "../research/techs";
 import { MINERALS, type MineralName } from "../minerals";
 import { DAYS_PER_YEAR } from "../orbit";
 import { INSTALLATION_BY_ID, SHIPYARD_TONS } from "./installations";
-import { designStats } from "../ships/design";
 import { recomputeEnvironment } from "../system";
 import {
   GAS_BY_ID,
@@ -512,8 +511,7 @@ function buildFromQueue(
 
     // A hull needs a slipway long enough to lay it down in.
     if (buildable.isShip) {
-      const design = empire.design(order.designId);
-      const tons = design ? designStats(design, empire.researched, empire.stats).tons : 0;
+      const tons = empire.statsOf(order.designId)?.tons ?? 0;
       if (tons > capacity) {
         order.starved = true;
         continue;
@@ -622,8 +620,8 @@ function commissionShips(
   now: number,
 ): void {
   const design = empire.design(designId);
-  if (!design) return;
-  const stats = designStats(design, empire.researched, empire.stats);
+  const stats = empire.statsOf(designId);
+  if (!design || !stats) return;
 
   let fleet = [...empire.fleets.values()].find(
     (f) => f.anchorId === colony.bodyId && f.name === `${bodyName} Yard`,

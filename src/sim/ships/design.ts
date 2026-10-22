@@ -1,17 +1,22 @@
 /**
- * Ship classes, and the figures derived from their components.
+ * Ship classes: a list of designed components, and the figures derived from
+ * them.
  *
- * Nothing about a class is stored twice: tonnage, speed, range, cost and
- * capacity are all computed from the component list and the empire's current
- * technology, so researching a better fuel efficiency improves every ship
- * already flying.
+ * Nothing about a class is stored twice. Tonnage, speed, range, cost and
+ * capacity are computed from the component designs and current research, so a
+ * better fuel efficiency improves every ship already flying.
  */
 
-import type { EmpireStats } from "../research/techs";
 import type { MineralName } from "../minerals";
-import { COMPONENT_BY_ID, type ShipComponent } from "./components";
+import {
+  TONS_PER_HS,
+  type ComponentDesign,
+  type ComponentKind,
+  type ComponentStats,
+} from "./components";
 
 export interface DesignComponent {
+  /** Id of a ComponentDesign in the empire's library. */
   componentId: string;
   count: number;
 }
@@ -20,109 +25,108 @@ export interface ShipDesign {
   id: string;
   name: string;
   components: DesignComponent[];
-  /** Simulation time the class was laid down. */
   created: number;
+  /** Superseded classes stay in service but cannot be laid down again. */
+  obsolete?: boolean;
 }
+
+/** What a class needs to know about a component: the design and its figures. */
+export interface ResolvedComponent {
+  design: ComponentDesign;
+  stats: ComponentStats;
+}
+
+export type ComponentResolver = (id: string) => ResolvedComponent | undefined;
 
 export interface DesignStats {
   tons: number;
+  hullSpaces: number;
   /** Total engine power. */
   power: number;
   /** km/s. */
   speed: number;
-  /** Litres carried. */
   fuelCapacity: number;
   /** Litres burned per hour at full thrust. */
   fuelPerHour: number;
-  /** Billions of km at cruising speed before the tanks run dry. */
+  enduranceHours: number;
   rangeAu: number;
   crewRequired: number;
   berths: number;
   cargoCapacity: number;
   colonistCapacity: number;
-  survey: { geological: boolean; gravitational: boolean };
+  /** Survey points per day, by sensor type. */
+  survey: { geological: number; gravitational: number };
   buildCost: number;
   minerals: Partial<Record<MineralName, number>>;
-  /** Problems that stop the class being built. */
+  /** Components by kind, for the designer's summary. */
+  counts: Partial<Record<ComponentKind, number>>;
+  /** Problems that stop the class being built or flown. */
   problems: string[];
 }
 
-/** Aurora's hull space: the speed formula is the one place it still matters. */
-const TONS_PER_HS = 50;
-/** Litres burned per point of engine power per hour. */
-const FUEL_PER_POWER_HOUR = 5;
 const AU_KM = 149_597_870.7;
 
-export function engineModifier(stats: EmpireStats | undefined, researched: ReadonlySet<string>): number {
-  void stats;
-  // Tuned engines trade fuel for thrust; both are flat multipliers for now.
-  return researched.has("engine-power-125") ? 1.25 : 1;
-}
-
-export function fuelModifier(researched: ReadonlySet<string>): number {
-  return researched.has("fuel-consumption-08") ? 0.8 : 1;
-}
-
-export function designStats(
-  design: ShipDesign,
-  researched: ReadonlySet<string>,
-  stats?: EmpireStats,
-): DesignStats {
+export function designStats(design: ShipDesign, resolve: ComponentResolver): DesignStats {
   let tons = 0;
   let power = 0;
   let fuelCapacity = 0;
+  let fuelPerHour = 0;
   let crewRequired = 0;
   let berths = 0;
   let cargoCapacity = 0;
   let colonistCapacity = 0;
   let buildCost = 0;
+  const survey = { geological: 0, gravitational: 0 };
   const minerals: Partial<Record<MineralName, number>> = {};
-  const survey = { geological: false, gravitational: false };
+  const counts: Partial<Record<ComponentKind, number>> = {};
   const problems: string[] = [];
 
   for (const entry of design.components) {
-    const component = COMPONENT_BY_ID.get(entry.componentId);
-    if (!component || entry.count <= 0) continue;
-    if (component.requires && !researched.has(component.requires)) {
-      problems.push(`${component.name} needs ${component.requires.replace(/-/g, " ")}.`);
+    if (entry.count <= 0) continue;
+    const resolved = resolve(entry.componentId);
+    if (!resolved) {
+      problems.push("A component in this class no longer exists.");
       continue;
     }
+    const { stats, design: component } = resolved;
+    const n = entry.count;
 
-    tons += component.tons * entry.count;
-    power += (component.power ?? 0) * entry.count;
-    fuelCapacity += (component.fuel ?? 0) * entry.count;
-    crewRequired += component.crew * entry.count;
-    berths += (component.berths ?? 0) * entry.count;
-    cargoCapacity += (component.cargo ?? 0) * entry.count;
-    colonistCapacity += (component.colonists ?? 0) * entry.count;
-    buildCost += component.cost * entry.count;
-    if (component.survey === "geological") survey.geological = true;
-    if (component.survey === "gravitational") survey.gravitational = true;
+    tons += stats.tons * n;
+    power += (stats.power ?? 0) * n;
+    fuelCapacity += (stats.fuel ?? 0) * n;
+    fuelPerHour += (stats.fuelPerHour ?? 0) * n;
+    crewRequired += stats.crew * n;
+    berths += (stats.berths ?? 0) * n;
+    cargoCapacity += (stats.cargo ?? 0) * n;
+    colonistCapacity += (stats.colonists ?? 0) * n;
+    buildCost += stats.cost * n;
+    if (stats.survey) survey[stats.survey.type] += stats.survey.rate * n;
+    counts[component.kind] = (counts[component.kind] ?? 0) + n;
 
-    for (const [mineral, amount] of Object.entries(component.minerals) as [MineralName, number][]) {
-      minerals[mineral] = (minerals[mineral] ?? 0) + amount * entry.count;
+    for (const [mineral, amount] of Object.entries(stats.minerals) as [MineralName, number][]) {
+      minerals[mineral] = (minerals[mineral] ?? 0) + amount * n;
     }
+    for (const problem of stats.problems) problems.push(`${component.name}: ${problem}`);
   }
 
-  const enginePower = power * engineModifier(stats, researched);
-  const speed = tons > 0 ? (enginePower * 1000) / (tons / TONS_PER_HS) : 0;
-  const fuelPerHour = enginePower * FUEL_PER_POWER_HOUR * fuelModifier(researched);
-  // Hours of thrust the tanks allow, turned into a distance at cruise.
+  const hullSpaces = tons / TONS_PER_HS;
+  const speed = hullSpaces > 0 ? (power * 1000) / hullSpaces : 0;
   const enduranceHours = fuelPerHour > 0 ? fuelCapacity / fuelPerHour : 0;
   const rangeAu = (speed * 3600 * enduranceHours) / AU_KM;
 
   if (tons === 0) problems.push("The class has no components.");
-  if (power === 0 && tons > 0) problems.push("No engine: the class cannot move.");
-  if (berths < crewRequired) {
-    problems.push(`Crew quarters short by ${crewRequired - berths}.`);
-  }
+  else if (power === 0) problems.push("No engine: the class cannot move.");
+  else if (fuelCapacity === 0) problems.push("No fuel tank: the engines have nothing to burn.");
+  if (berths < crewRequired) problems.push(`Crew quarters short by ${crewRequired - berths} berths.`);
 
   return {
     tons,
-    power: enginePower,
+    hullSpaces,
+    power,
     speed,
     fuelCapacity,
     fuelPerHour,
+    enduranceHours,
     rangeAu,
     crewRequired,
     berths,
@@ -131,6 +135,7 @@ export function designStats(
     survey,
     buildCost,
     minerals,
+    counts,
     problems,
   };
 }
@@ -140,55 +145,13 @@ export function describeDesign(stats: DesignStats): string {
   const roles: string[] = [];
   if (stats.cargoCapacity > 0) roles.push("freighter");
   if (stats.colonistCapacity > 0) roles.push("colony ship");
-  if (stats.survey.geological) roles.push("survey ship");
-  if (stats.survey.gravitational) roles.push("jump survey");
+  if (stats.survey.geological > 0) roles.push("survey ship");
+  if (stats.survey.gravitational > 0) roles.push("jump survey");
   if (!roles.length) roles.push(stats.speed > 0 ? "scout" : "hulk");
   return roles.join(", ");
 }
 
-/** Starter classes offered once the technology for them exists. */
-export function starterDesigns(researched: ReadonlySet<string>): Omit<ShipDesign, "id" | "created">[] {
-  const engine = bestEngine(researched);
-  if (!engine) return [];
-  return [
-    {
-      name: "Hauler",
-      components: [
-        { componentId: engine.id, count: 2 },
-        { componentId: "fuel-tank", count: 4 },
-        { componentId: "cargo-hold", count: 4 },
-        { componentId: "crew-quarters", count: 2 },
-      ],
-    },
-    {
-      name: "Pioneer",
-      components: [
-        { componentId: engine.id, count: 2 },
-        { componentId: "fuel-tank", count: 4 },
-        { componentId: "cryogenic-berths", count: 4 },
-        { componentId: "crew-quarters", count: 2 },
-      ],
-    },
-    {
-      name: "Surveyor",
-      components: [
-        { componentId: engine.id, count: 1 },
-        { componentId: "fuel-tank", count: 3 },
-        { componentId: "geo-survey-sensor", count: 1 },
-        { componentId: "crew-quarters", count: 1 },
-      ],
-    },
-  ].filter((design) =>
-    design.components.every((c) => {
-      const component = COMPONENT_BY_ID.get(c.componentId);
-      return component && (!component.requires || researched.has(component.requires));
-    }),
-  );
-}
-
-export function bestEngine(researched: ReadonlySet<string>): ShipComponent | undefined {
-  const engines = [...COMPONENT_BY_ID.values()]
-    .filter((c) => c.category === "engine" && (!c.requires || researched.has(c.requires)))
-    .sort((a, b) => (b.power ?? 0) - (a.power ?? 0));
-  return engines[0];
+/** Crew quarters (in components of this size) needed to berth everyone. */
+export function quartersNeeded(shortfall: number, berthsPerQuarters: number): number {
+  return berthsPerQuarters > 0 ? Math.ceil(shortfall / berthsPerQuarters) : 0;
 }

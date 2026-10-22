@@ -149,14 +149,9 @@ rather than pretending otherwise.
 
 ![the class designer](docs/designer.png)
 
-**Classes are designed, not chosen.** A hull is a bag of components - engines,
-fuel tanks, crew quarters, cargo holds, cryogenic berths, survey sensors - and
-every figure about the ship is derived from them: tonnage, speed, endurance,
-range, crew, build cost and minerals. Nothing is stored twice, so researching a
-better fuel efficiency improves every ship already flying.
-
-Each component is gated on a technology, which is what finally gives the
-engine and sensor branches of the tree something to do. At the start of a
+**Classes come from the designers above.** Every figure about a ship is
+derived from its components, so nothing is stored twice and researching a
+better fuel efficiency improves every ship already flying. At the start of a
 campaign no engine has been researched, so nothing can be built; Nuclear
 Thermal Engine Technology is the first thing that puts a hull in space.
 
@@ -276,18 +271,77 @@ results.
 
 ## Research
 
-![research](docs/research.png)
+![the research view](docs/research.png)
 
-55 technologies across the eight Aurora research fields. A tech becomes
-available once its prerequisites are researched, and its effects are
-declarative - the empire's working figures are always recomputed from the set
-of researched techs, so there is no incremental state to drift.
+Research is organised around four questions, asked in order: *what is
+happening, what can I start, what does it do, and what is stopping me?*
 
-A project needs three things: a tech, a scientist, and laboratories on a
-colony. A scientist can only direct as many labs as their administration rating
-allows, so a brilliant researcher with poor administration is a specialist, not
-a department head. Techs marked *future system* are real research targets whose
-effects arrive with ship design, surveying and combat.
+- **What is happening.** A summary strip (output, laboratories working,
+  scientists free, technologies ready) and the projects under way sit at the
+  top, so the state of research is visible without clicking anything. A
+  project that has stalled says so on its card.
+- **What can I start.** The default tab is **Ready now**: every technology
+  whose prerequisites are done, grouped by field. You do not have to know the
+  tree to find a next step.
+- **What does it do.** Select a technology and the side panel says, in plain
+  words, what it unlocks ("Ion Drive engines in the component designer"), what
+  it improves ("Mine output becomes 12 t/year per mine"), and what it opens
+  next. Techs whose effects belong to systems not built yet are marked
+  *future* rather than pretending to do something.
+- **What is stopping me.** A locked technology names the prerequisite to
+  research first and links straight to it. If nothing is free to do the work,
+  it says whether the missing thing is a scientist or a laboratory.
+
+![a branch of the tree](docs/research-tree.png)
+
+Each field is a board of columns by tier, so the shape of a branch is
+visible. Selecting a technology outlines what it needs in amber and what it
+opens in blue. Starting one is a single click: the panel proposes the best free
+scientist (a specialist in the field first), the colony with the most free
+laboratories, and as many labs as that scientist can direct, with a finishing
+estimate. Everything can still be changed.
+
+A scientist can direct only as many laboratories as their administration
+rating allows, so a brilliant researcher with poor administration is a
+specialist, not a department head - and the panel tells you when that is the
+limit. On a phone the tiers stack and selecting a technology scrolls its
+details into view.
+
+## Ship design
+
+![the component designer](docs/component-designer.png)
+
+Ships are not picked from a catalogue. As in Aurora, **you design the
+components, then assemble them into classes**.
+
+**Component designer.** Choose a kind and its parameters, and every figure is
+recomputed as you edit. An engine has a type (set by what you have researched),
+a size, and a **power modifier**: push it above 1.0 for thrust at a steep fuel
+premium (fuel per unit of power rises with the square of the modifier), or
+below 1.0 to buy range. Fuel tanks, crew quarters, cargo holds, cryogenic
+berths and survey sensors are designed by size; a survey sensor's size sets how
+many days a survey takes. Names follow the parameters until you type your own.
+
+Engine types, sensor types and the modifier ceiling come from the technology
+tree, so researching Nuclear Pulse really does add a new engine to design.
+A component already built into a class is **superseded, not rewritten**: save a
+new one and mark the old one obsolete, so ships already flying are never
+altered by an edit.
+
+![the ship designer](docs/ship-designer.png)
+
+**Ship designer.** Assemble a class from your saved components and watch the
+derived figures: tonnage and hull spaces, speed, engine power, fuel, burn,
+endurance, range, crew against berths, cargo, colonists, survey rate, build
+cost and minerals, and the slipway it needs against the largest yard you have.
+Common mistakes are caught as you make them - no engine, no fuel, too few
+berths, a hull too big for any slipway - and the commonest, crew, has a
+one-click fix. Classes can be duplicated, superseded, and built from the Fleets
+view. *Add standard set* and *Add standard classes* give you a working Hauler,
+Pioneer and Surveyor in one step.
+
+Surveying is now a timed activity: it takes survey points, so a ship with a
+bigger sensor finishes sooner, and a progress bar shows on the fleet.
 
 ## People
 
@@ -309,7 +363,7 @@ rank nudged by their best skill, and retire from about 58 onward.
 
 | Input | Action |
 | --- | --- |
-| `E` `M` `C` `F` `R` `O` | Empire / Map / Colonies / Fleets / Research / Officers |
+| `E` `M` `C` `F` `D` `R` `O` | Empire / Map / Colonies / Fleets / Design / Research / Officers |
 | Drag | Pan the map |
 | Scroll | Zoom at the cursor |
 | Click | Select a body |
@@ -337,7 +391,8 @@ src/
               economy/        installations, the production cycle, the ledger,
                               order previews, templates, standing orders
               governors.ts    policies, and the proposals they file
-              ships/          components, class design, fleets and movement
+              research/graph.ts  tiers, unlocks and recommendations for the tree
+              ships/          component designs, class design, fleets, movement
               research/       the eight fields and the technology tree
               people/         officer generation, promotion, retirement
   data/       bodies.ts       the Sol dataset: elements and physical data
@@ -348,7 +403,7 @@ src/
               colony.ts       a colony and its build queue
   ui/         app.ts          input, the frame loop, view switching
               triageRail.ts   the persistent attention rail
-              views/          empire, colony, research and officer views
+              views/          empire, colony, fleet, design, research, officer views
               bodyTree.ts, detailPanel.ts, timeControls.ts, widgets.ts
 tools/        sanity.ts       the checks behind `npm run check`
               ui-test.mjs     the browser checks behind `npm run ui`
@@ -384,6 +439,13 @@ invariants - among them:
   researched; standing orders deliver their target and then stop, counting what
   is already on its way; a governor proposes only with a policy and a governor,
   and stops once the policy is satisfied.
+- Component designs: engine power is size x type x modifier, fuel per
+  power-hour falls with the square of the modifier, an overdriven modifier is
+  clamped until its technology is researched, parameters carry no float noise,
+  a component built into a class refuses to be rewritten, and standard classes
+  use standard parts even after custom ones exist.
+- Surveying takes the time its sensor size says (a 4 HS sensor: five days),
+  not an instant.
 - A class's tonnage, speed, capacity and crew match the components it is made
   of; a hull larger than the slipways never starts; fuel burn matches the
   design's hourly rate; cargo and colonists are carried, not created; a dry
@@ -415,7 +477,7 @@ With 48 colonies, 5,000 ships and 1,555 belt objects, on one core:
 | One five-day production cycle | 0.68 ms |
 | Empire mineral ledger | 0.35 ms |
 | Attention list | 0.91 ms |
-| Kepler solves | ~4.2 million/second |
+| Kepler solves | ~3.6-4.2 million/second |
 
 That is **1.2 ms of a 16.7 ms frame** - 7% of the budget at sixty frames a
 second. At ten times the navy (50,000 ships) it is 6.2 ms, still inside budget.
@@ -439,7 +501,8 @@ game.
 
 ## Not built yet
 
-Ground forces; sensors, surveying and
+Ground forces; armour, shields and weapons in the component designer (they need
+combat); sensors, surveying and
 combat and armour; jump points and other star systems; sector administration;
 ship maintenance and crew grade. Terraforming cannot yet be done from orbit by
 a ship, only by installations on the ground. Ordnance

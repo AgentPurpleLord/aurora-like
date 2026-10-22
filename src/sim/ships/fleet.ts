@@ -15,6 +15,7 @@ import { MINERALS } from "../minerals";
 import { AU_KM, vecLength, vecSub, type Vec3 } from "../orbit";
 import { INSTALLATION_BY_ID } from "../economy/installations";
 import { bonus } from "../people/officers";
+import { SURVEY_POINTS_NEEDED } from "./components";
 
 export interface Ship {
   id: string;
@@ -48,6 +49,8 @@ export interface Fleet {
   id: string;
   name: string;
   shipIds: string[];
+  /** Survey points banked on the body the fleet is currently surveying. */
+  surveyProgress: number;
   /** Heliocentric position in AU. */
   position: Vec3;
   /** Body the fleet is sitting at, if any. A parked fleet orbits with it. */
@@ -78,6 +81,8 @@ export interface FleetStats {
   cargoUsed: number;
   colonistCapacity: number;
   canSurvey: boolean;
+  /** Survey points per day across every geological sensor in the fleet. */
+  surveyRate: number;
   /** AU the fleet can still cover on the fuel aboard. */
   rangeAu: number;
 }
@@ -104,7 +109,7 @@ export function fleetStats(empire: Empire, fleet: Fleet): FleetStats {
   let fuelPerHour = 0;
   let cargoCapacity = 0;
   let colonistCapacity = 0;
-  let canSurvey = false;
+  let surveyRate = 0;
   let dry = false;
 
   for (const shipId of fleet.shipIds) {
@@ -118,7 +123,7 @@ export function fleetStats(empire: Empire, fleet: Fleet): FleetStats {
     fuelPerHour += stats.fuelPerHour;
     cargoCapacity += stats.cargoCapacity;
     colonistCapacity += stats.colonistCapacity;
-    if (stats.survey.geological) canSurvey = true;
+    surveyRate += stats.survey.geological;
     if (ship.fuel <= 0) dry = true;
   }
 
@@ -140,7 +145,8 @@ export function fleetStats(empire: Empire, fleet: Fleet): FleetStats {
     cargoCapacity,
     cargoUsed: cargoTons(fleet.cargo),
     colonistCapacity,
-    canSurvey,
+    canSurvey: surveyRate > 0,
+    surveyRate,
     rangeAu: (finalSpeed * 3600 * enduranceHours) / AU_KM,
   };
 }
@@ -192,6 +198,10 @@ export function updateFleets(empire: Empire, system: StarSystem, seconds: number
     let guard = 0;
     while (budget > 0 && guard++ < 16) {
       const order = fleet.orders[0];
+      if (order?.kind === "survey" && fleet.anchorId) {
+        budget = spendSurveyTime(empire, system, fleet, budget);
+        continue;
+      }
       if (!order || order.kind !== "move") break;
 
       const target = system.byId.get(order.bodyId);
@@ -231,11 +241,50 @@ export function updateFleets(empire: Empire, system: StarSystem, seconds: number
         z: fleet.position.z + delta.z * scale,
       };
       fleet.anchorId = null;
+      fleet.surveyProgress = 0;
       fleet.note = null;
       burnFuel(empire, fleet, budget);
       budget = 0;
     }
   }
+}
+
+/**
+ * Survey a body for as long as the budget allows. Returns the budget left.
+ * Completing a survey reveals the body's deposits and moves on to the next
+ * order.
+ */
+function spendSurveyTime(empire: Empire, system: StarSystem, fleet: Fleet, budget: number): number {
+  const bodyId = fleet.anchorId!;
+  const stats = fleetStats(empire, fleet);
+  if (stats.surveyRate <= 0) {
+    fleet.note = "No survey sensors aboard";
+    return 0;
+  }
+  fleet.note = null;
+
+  const needed = SURVEY_POINTS_NEEDED - fleet.surveyProgress;
+  const secondsNeeded = (needed / stats.surveyRate) * 86_400;
+
+  if (budget < secondsNeeded) {
+    fleet.surveyProgress += (stats.surveyRate * budget) / 86_400;
+    return 0;
+  }
+
+  fleet.surveyProgress = 0;
+  fleet.orders.shift();
+  empire.surveyed.add(bodyId);
+  const body = system.byId.get(bodyId);
+  const deposits = body?.minerals.length ?? 0;
+  empire.addLog(
+    empire.lastTick,
+    "fleet",
+    `${fleet.name} has surveyed ${body?.name ?? bodyId}: ${
+      deposits ? `${deposits} mineral deposits found` : "no deposits found"
+    }.`,
+  );
+  executeArrivalOrders(empire, system, fleet);
+  return budget - secondsNeeded;
 }
 
 function burnFuel(empire: Empire, fleet: Fleet, seconds: number): void {
@@ -269,25 +318,15 @@ export function executeArrivalOrders(empire: Empire, system: StarSystem, fleet: 
 
     if (order.kind === "survey") {
       if (!fleet.anchorId) break;
-      const stats = fleetStats(empire, fleet);
-      if (!stats.canSurvey) {
-        fleet.note = "No survey sensors aboard";
-        break;
+      // Already known: nothing to do. Otherwise surveying takes time, which
+      // updateFleets spends; here the order simply waits its turn.
+      if (empire.surveyed.has(fleet.anchorId)) {
+        fleet.orders.shift();
+        fleet.surveyProgress = 0;
+        continue;
       }
-      if (!empire.surveyed.has(fleet.anchorId)) {
-        empire.surveyed.add(fleet.anchorId);
-        const body = system.byId.get(fleet.anchorId);
-        const deposits = body?.minerals.length ?? 0;
-        empire.addLog(
-          empire.lastTick,
-          "fleet",
-          `${fleet.name} has surveyed ${body?.name ?? fleet.anchorId}: ${
-            deposits ? `${deposits} mineral deposits found` : "no deposits found"
-          }.`,
-        );
-      }
-      fleet.orders.shift();
-      continue;
+      if (!fleetStats(empire, fleet).canSurvey) fleet.note = "No survey sensors aboard";
+      break;
     }
 
     if (!colony) {

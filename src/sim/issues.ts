@@ -16,12 +16,12 @@ import { mineralLedger, queuedBuildPoints } from "./economy/ledger";
 import { TECH_BY_ID } from "./research/techs";
 import { labCapacity } from "./people/officers";
 import { deriveProposals, proposalLabel } from "./governors";
-import { bestEngine } from "./ships/design";
+import { ENGINE_TYPES } from "./ships/components";
 
 export type Severity = "critical" | "warning" | "info";
 
 /** Where an issue is resolved. Mirrors the view ids the UI uses. */
-export type IssueView = "empire" | "colonies" | "fleets" | "research" | "officers" | "map";
+export type IssueView = "empire" | "colonies" | "fleets" | "design" | "research" | "officers" | "map";
 
 /** A governor's draft order, ready for the player to accept. */
 export interface IssueProposal {
@@ -254,13 +254,13 @@ export function deriveIssues(empire: Empire, system: StarSystem): Issue[] {
     }
   }
 
-  if (!empire.designs.length && bestEngine(empire.researched)) {
+  if (!empire.designs.length && ENGINE_TYPES.some((e) => empire.researched.has(e.tech))) {
     add({
       id: "fleet:no-designs",
       severity: "info",
       title: "No ship classes have been designed",
-      detail: "An engine has been researched, so hulls can now be laid out and built.",
-      action: { label: "Design a class", view: "fleets" },
+      detail: "An engine has been researched. Design the components, then assemble a class.",
+      action: { label: "Open the designer", view: "design" },
     });
   }
 

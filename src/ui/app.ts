@@ -15,6 +15,7 @@ import type { Issue } from "../sim/issues";
 import { ResearchView } from "./views/researchView";
 import { OfficersView } from "./views/officersView";
 import { FleetsView } from "./views/fleetsView";
+import { DesignView } from "./views/designView";
 import { distance, el, lightTime, num } from "./format";
 
 interface ZoomPreset {
@@ -34,13 +35,14 @@ const ZOOM_PRESETS: ZoomPreset[] = [
   { label: "Kuiper", spanAu: 75 },
 ];
 
-export type ViewId = "empire" | "map" | "colonies" | "fleets" | "research" | "officers";
+export type ViewId = "empire" | "map" | "colonies" | "fleets" | "design" | "research" | "officers";
 
 const VIEW_TABS: { id: ViewId; label: string; key: string }[] = [
   { id: "empire", label: "Empire", key: "e" },
   { id: "map", label: "Map", key: "m" },
   { id: "colonies", label: "Colonies", key: "c" },
   { id: "fleets", label: "Fleets", key: "f" },
+  { id: "design", label: "Design", key: "d" },
   { id: "research", label: "Research", key: "r" },
   { id: "officers", label: "Officers", key: "o" },
 ];
@@ -51,6 +53,7 @@ const RAIL_COLLAPSED_BY_DEFAULT: Record<ViewId, boolean> = {
   map: true,
   colonies: false,
   fleets: false,
+  design: true,
   research: false,
   officers: false,
 };
@@ -78,6 +81,7 @@ export class App {
   private research: ResearchView;
   private officers: OfficersView;
   private fleetsView: FleetsView;
+  private designView: DesignView;
   private rail: TriageRail;
 
   private view: ViewId = "empire";
@@ -117,7 +121,15 @@ export class App {
     this.empireView = new EmpireView(roots.views.empire, this.game, (bodyId) =>
       this.openColony(bodyId),
     );
-    this.fleetsView = new FleetsView(roots.views.fleets, this.game);
+    this.fleetsView = new FleetsView(roots.views.fleets, this.game, {
+      openDesigner: (classId) => {
+        this.designView.focusClass(classId);
+        this.setView("design");
+      },
+    });
+    this.designView = new DesignView(roots.views.design, this.game, {
+      openFleets: () => this.setView("fleets"),
+    });
     this.rail = new TriageRail(
       roots.rail,
       this.game,
@@ -255,6 +267,7 @@ export class App {
       case "empire": this.empireView.render(); break;
       case "colonies": this.economy.render(); break;
       case "fleets": this.fleetsView.render(); break;
+      case "design": this.designView.render(); break;
       case "research": this.research.render(); break;
       case "officers": this.officers.render(); break;
       case "map": break;
