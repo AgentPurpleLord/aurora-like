@@ -79,7 +79,7 @@ export const INSTALLATIONS: InstallationType[] = [
   },
   {
     id: "terraforming", name: "Terraforming Installation", category: "support",
-    blurb: "Alters the atmosphere, permanently reducing this world's colony cost.",
+    blurb: "Adds or removes a chosen gas from the atmosphere. Warming a world, or making its air breathable, is the work of decades.",
     cost: 600, minerals: { Duranium: 200, Boronide: 200, Vendarite: 200 }, workers: 0.05, tons: 25_000,
   },
   {

@@ -3,13 +3,21 @@
 A prototype 4X strategy game in the spirit of Aurora 4X: the dawn of the
 trans-Newtonian age, starting in Sol and expanding outward.
 
-Five milestones are in: the **system map**, which models Sol to scale from real
+Six milestones are in: the **system map**, which models Sol to scale from real
 orbital elements; the **economy, research and officer corps** that turn it into
 a game you can play forward; the **command interface** built to answer Aurora's
 oldest complaint - that the game shows you every number and tells you nothing;
 the **automation ladder**, which stops the tenth colony being nine times the
-work of the first; and **ships**, which turn the research tree's engine branch
-into something that flies. It runs on a phone.
+work of the first; **ships**, which turn the research tree's engine branch into
+something that flies; and **terraforming**, which turns a world's atmosphere
+into something you can argue with. It runs on a phone.
+
+A campaign opens on **Earth alone**. One colony, one surveyed world,
+trans-Newtonian theory and nothing else: no Lunar base, no Martian outpost, no
+engine, no ship. Everything beyond Earth has to be surveyed, settled and
+supplied.
+
+![the opening position](docs/start.png)
 
 ![empire dashboard](docs/dashboard.png)
 
@@ -98,6 +106,44 @@ At thirty days a second it is easy to skip five years, so the dashboard also
 carries a **since you last looked** strip - population, treasury, technologies
 and construction since your last visit - and the event log marks where you had
 read up to.
+
+## Terraforming
+
+![a terraforming programme](docs/terraforming.png)
+
+A body's atmosphere is a set of partial pressures, and **everything about the
+environment is derived from it**: total pressure, what the air is made of,
+whether it can be breathed, how warm the surface is, and what a colony there
+costs. That is what makes terraforming a mechanic rather than a number ticking
+down - you change the gases, and the consequences follow.
+
+- **Temperature** comes from greenhouse warming, which saturates: the hundredth
+  atmosphere of a gas does far less than the first. Observed temperatures are
+  the anchor, so an untouched world reads exactly as it does in the almanac and
+  only changes to its air move it.
+- **Breathable** means oxygen between 0.1 and 0.3 atmospheres, total pressure
+  under four, and nothing toxic above its safe level. Carbon dioxide, methane,
+  ammonia and sulphur dioxide are poisons; nitrous oxide is the greenhouse gas
+  you can actually live with, which is what makes it the terraformer's tool.
+- **Gravity sets a ceiling.** A world only holds the air its gravity allows -
+  four atmospheres per gravity - so the Moon cannot be given an Earth-like sky,
+  though it can be given a breathable one.
+
+A programme is a gas and a direction. The colony's processors add or remove it,
+and the panel forecasts the consequence using the same arithmetic the
+production cycle runs: *"Surface temperature reaches 253 K in 17.8 years"*.
+The forecast and the simulation agree to within a degree.
+
+Processors need people to run them, so the first thing a hostile world needs is
+somewhere for them to live. Warming Mars with nitrous oxide and then raising
+its oxygen to a breathable level is a project of decades, and it ends with a
+colony cost of zero.
+
+![a hostile atmosphere](docs/atmosphere.png)
+
+Venus shows the other end of it: 92 atmospheres of carbon dioxide, poisonous
+and 737 K. Stripping it is the work of millennia, and the interface says so
+rather than pretending otherwise.
 
 ## Ships
 
@@ -342,6 +388,14 @@ invariants - among them:
   of; a hull larger than the slipways never starts; fuel burn matches the
   design's hourly rate; cargo and colonists are carried, not created; a dry
   tank strands a fleet where it stands.
+- The campaign starts with one colony, one surveyed world and one technology.
+- Atmospheres read correctly through the gas model: Earth is one bar and
+  breathable, Mars is not, Venus is poisonous as well as hot. A gas with no
+  greenhouse effect does not warm a world and warming saturates rather than
+  running away. Ten years of terraforming adds exactly ten years of gas,
+  removal stops at nothing, a world stops filling at the ceiling its gravity
+  allows - and a world reaches the temperature the forecast predicted, on the
+  year it predicted it.
 
 ## Performance
 
@@ -387,7 +441,8 @@ game.
 
 Ground forces; sensors, surveying and
 combat and armour; jump points and other star systems; sector administration;
-ship maintenance and crew grade. Ordnance
+ship maintenance and crew grade. Terraforming cannot yet be done from orbit by
+a ship, only by installations on the ground. Ordnance
 factories, maintenance facilities, tracking stations and spaceports can be
 built but do nothing yet, and mineral and colonist transport is handled by the
 civilian-shipping stand-in described above rather than by freighters you build.

@@ -15,16 +15,9 @@
  */
 
 import { AU_KM, type OrbitalElements } from "../sim/orbit";
+import type { Atmosphere } from "../sim/atmosphere";
 
 export type BodyClass = "star" | "planet" | "dwarf" | "moon" | "asteroid" | "comet";
-
-export interface Atmosphere {
-  /** Surface pressure in Earth atmospheres. */
-  pressureAtm: number;
-  composition: string;
-  /** True only for an atmosphere a colonist could breathe unaided. */
-  breathable: boolean;
-}
 
 export interface BodyDef {
   id: string;
@@ -38,6 +31,11 @@ export interface BodyDef {
   rotationDays?: number;
   /** Mean surface (or 1-bar level) temperature in kelvin. */
   tempK?: number;
+  /**
+   * Partial pressures by gas, in Earth atmospheres. Everything else about
+   * the air - total pressure, composition, whether it can be breathed - is
+   * derived from this, so terraforming has one thing to change.
+   */
   atmosphere?: Atmosphere;
   /** Rendering tint. */
   color: string;
@@ -107,7 +105,7 @@ export const BODIES: BodyDef[] = [
     massKg: 4.8675e24,
     rotationDays: -243.025,
     tempK: 737,
-    atmosphere: { pressureAtm: 92, composition: "96.5% CO2, 3.5% N2", breathable: false },
+    atmosphere: { "carbon-dioxide": 88.8, nitrogen: 3.2 },
     color: "#e8c88a",
     orbit: {
       a: 0.72333566, e: 0.00677672, inc: 3.39467605,
@@ -124,7 +122,7 @@ export const BODIES: BodyDef[] = [
     massKg: 5.97237e24,
     rotationDays: 0.99727,
     tempK: 288,
-    atmosphere: { pressureAtm: 1.0, composition: "78% N2, 21% O2, 0.9% Ar", breathable: true },
+    atmosphere: { nitrogen: 0.781, oxygen: 0.209, argon: 0.0093, "water-vapour": 0.004, "carbon-dioxide": 0.0004 },
     color: "#4a8fd4",
     orbit: {
       a: 1.00000261, e: 0.01671123, inc: 0.00001531,
@@ -141,7 +139,7 @@ export const BODIES: BodyDef[] = [
     massKg: 6.4171e23,
     rotationDays: 1.02595,
     tempK: 210,
-    atmosphere: { pressureAtm: 0.006, composition: "95% CO2, 2.6% N2", breathable: false },
+    atmosphere: { "carbon-dioxide": 0.00566, nitrogen: 0.00016, argon: 0.00012 },
     color: "#c1553a",
     orbit: {
       a: 1.52371034, e: 0.09339410, inc: 1.84969142,
@@ -158,7 +156,7 @@ export const BODIES: BodyDef[] = [
     massKg: 1.8982e27,
     rotationDays: 0.41354,
     tempK: 165,
-    atmosphere: { pressureAtm: 1000, composition: "89% H2, 10% He", breathable: false },
+    atmosphere: { hydrogen: 890, helium: 100, methane: 10 },
     color: "#d9a066",
     rings: { innerKm: 122_500, outerKm: 129_000 },
     orbit: {
@@ -176,7 +174,7 @@ export const BODIES: BodyDef[] = [
     massKg: 5.6834e26,
     rotationDays: 0.44401,
     tempK: 134,
-    atmosphere: { pressureAtm: 1000, composition: "96% H2, 3% He", breathable: false },
+    atmosphere: { hydrogen: 960, helium: 30, methane: 10 },
     color: "#e3cd9b",
     rings: { innerKm: 74_500, outerKm: 140_220 },
     orbit: {
@@ -194,7 +192,7 @@ export const BODIES: BodyDef[] = [
     massKg: 8.6810e25,
     rotationDays: -0.71833,
     tempK: 76,
-    atmosphere: { pressureAtm: 1000, composition: "83% H2, 15% He, 2% CH4", breathable: false },
+    atmosphere: { hydrogen: 830, helium: 150, methane: 20 },
     color: "#a8dce3",
     rings: { innerKm: 41_800, outerKm: 51_150 },
     orbit: {
@@ -212,7 +210,7 @@ export const BODIES: BodyDef[] = [
     massKg: 1.02413e26,
     rotationDays: 0.67125,
     tempK: 72,
-    atmosphere: { pressureAtm: 1000, composition: "80% H2, 19% He, 1% CH4", breathable: false },
+    atmosphere: { hydrogen: 800, helium: 190, methane: 10 },
     color: "#5878d8",
     orbit: {
       a: 30.06992276, e: 0.00859048, inc: 1.77004347,
@@ -316,7 +314,7 @@ export const BODIES: BodyDef[] = [
   {
     id: "titan", name: "Titan", cls: "moon", parent: "saturn",
     radiusKm: 2574.7, massKg: 1.3452e23, rotationDays: 15.945, tempK: 94,
-    atmosphere: { pressureAtm: 1.45, composition: "94% N2, 5% CH4", breathable: false },
+    atmosphere: { nitrogen: 1.4, methane: 0.05 },
     color: "#d99b4a",
     orbit: moonOrbit(1_221_870, 15.945, 0.0288, 27.7, 169.5, 78.3, 120.0),
     notes: "The only moon with a substantial atmosphere. Lakes of liquid methane; a natural Sorium source.",
@@ -381,7 +379,7 @@ export const BODIES: BodyDef[] = [
   {
     id: "triton", name: "Triton", cls: "moon", parent: "neptune",
     radiusKm: 1353.4, massKg: 2.1390e22, rotationDays: -5.876854, tempK: 38,
-    atmosphere: { pressureAtm: 0.000014, composition: "N2 with trace CH4", breathable: false },
+    atmosphere: { nitrogen: 0.000014 },
     color: "#d7c9c0",
     orbit: moonOrbit(354_759, -5.876854, 0.000016, 157.3, 3.5, 66.1, 150.0),
     notes: "Captured Kuiper belt object on a retrograde orbit. Nitrogen geysers; the coldest measured surface in Sol.",
@@ -485,7 +483,7 @@ export const BODIES: BodyDef[] = [
   {
     id: "pluto", name: "Pluto", cls: "dwarf", parent: "sol",
     radiusKm: 1188.3, massKg: 1.303e22, rotationDays: -6.387230, tempK: 44,
-    atmosphere: { pressureAtm: 0.00001, composition: "N2, CH4, CO", breathable: false },
+    atmosphere: { nitrogen: 0.00001, methane: 0.0000005 },
     color: "#c4a98f",
     orbit: {
       a: 39.48211675, e: 0.24882730, inc: 17.14001206,

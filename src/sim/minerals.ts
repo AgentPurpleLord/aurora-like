@@ -40,11 +40,13 @@ export interface MineralDeposit {
  * begin with nothing to mine.
  */
 const AUTHORED: Record<string, [MineralName, number, number][]> = {
+  // Enough for roughly half a century of the opening industry, so leaving
+  // Earth is a decision rather than an emergency.
   earth: [
-    ["Duranium", 120_000, 1.0], ["Neutronium", 48_000, 0.8], ["Corbomite", 36_000, 0.7],
-    ["Tritanium", 72_000, 0.9], ["Boronide", 40_000, 0.8], ["Mercassium", 30_000, 0.6],
-    ["Vendarite", 34_000, 0.7], ["Sorium", 60_000, 0.9], ["Uridium", 44_000, 0.8],
-    ["Corundium", 56_000, 1.0], ["Gallicite", 38_000, 0.7],
+    ["Duranium", 480_000, 1.0], ["Neutronium", 190_000, 0.8], ["Corbomite", 145_000, 0.7],
+    ["Tritanium", 290_000, 0.9], ["Boronide", 160_000, 0.8], ["Mercassium", 120_000, 0.6],
+    ["Vendarite", 135_000, 0.7], ["Sorium", 240_000, 0.9], ["Uridium", 175_000, 0.8],
+    ["Corundium", 225_000, 1.0], ["Gallicite", 150_000, 0.7],
   ],
   luna: [
     ["Duranium", 18_000, 0.8], ["Neutronium", 9_000, 0.7],

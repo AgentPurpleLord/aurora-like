@@ -100,7 +100,7 @@ export function deriveProposals(empire: Empire, system: StarSystem): Proposal[] 
 
     if (policy === "grow") {
       const capacity = populationCapacity(body, colony, empire.stats);
-      const cost = effectiveColonyCost(body, colony, empire.stats);
+      const cost = effectiveColonyCost(body, empire.stats);
       const queued = supplyToward(empire, colony.bodyId, "infrastructure");
       const built = installationCount(colony, "infrastructure");
       // Only once the colony is actually pressing against its ceiling, and

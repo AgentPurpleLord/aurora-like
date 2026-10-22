@@ -17,6 +17,15 @@ export function compact(v: number): string {
   return num(v);
 }
 
+/** Partial pressures run from microbars to tens of atmospheres. */
+export function formatPressure(atm: number): string {
+  if (atm <= 0) return "0";
+  if (atm >= 10) return atm.toFixed(0);
+  if (atm >= 0.1) return atm.toFixed(3);
+  if (atm >= 0.0001) return atm.toFixed(5);
+  return atm.toExponential(1);
+}
+
 export function kelvinToCelsius(k: number): string {
   return `${(k - 273.15).toFixed(1)} C`;
 }

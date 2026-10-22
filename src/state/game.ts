@@ -49,9 +49,9 @@ export class Game {
     const empire = this.empire;
 
     empire.research("trans-newtonian");
-    empire.research("mass-drivers");
     empire.treasury = 50_000;
 
+    // One world, one industry, and everything else still to be reached for.
     const earth = empire.foundColony("earth", now);
     earth.population = 8_100;
     earth.installations = {
@@ -66,17 +66,9 @@ export class Game {
     for (const mineral of MINERALS) earth.stockpile[mineral] = 50_000;
     earth.fuel = 2_000_000;
 
-    const luna = empire.foundColony("luna", now);
-    luna.population = 4.2;
-    luna.installations = { infrastructure: 900, "automated-mine": 40, "mass-driver": 2 };
-
-    const mars = empire.foundColony("mars", now);
-    mars.population = 0.8;
-    mars.installations = { infrastructure: 260, "automated-mine": 22, "mass-driver": 1 };
-
     // Only the worlds already settled have been surveyed from the ground;
     // everything else needs a survey ship.
-    for (const bodyId of ["earth", "luna", "mars"]) empire.surveyed.add(bodyId);
+    empire.surveyed.add("earth");
 
     empire.seedOfficers({ science: 8, civilian: 8, navy: 12, ground: 5 }, now);
 
@@ -104,7 +96,11 @@ export class Game {
       labsLeft -= labs;
     }
 
-    empire.addLog(now, "economy", "Trans-Newtonian industry comes online across Earth.");
+    empire.addLog(
+      now,
+      "economy",
+      "Trans-Newtonian industry comes online across Earth. No other world has been surveyed.",
+    );
     empire.snapshot = computeSnapshot(empire, this.system);
     empire.markReviewed(now);
   }

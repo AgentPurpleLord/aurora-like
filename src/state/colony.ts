@@ -35,8 +35,8 @@ export interface Colony {
   /** Litres. */
   fuel: number;
   buildQueue: BuildOrder[];
-  /** Colony cost permanently removed by terraforming. */
-  terraformed: number;
+  /** What the terraformers here are doing, if anything. */
+  terraforming: { gasId: string; mode: "add" | "remove" } | null;
   /** Body id this colony's mass drivers throw minerals to. */
   massDriverTarget: string | null;
   /** What the governor posted here is allowed to propose. */
@@ -59,7 +59,7 @@ export function createColony(bodyId: string, founded: number): Colony {
     stockpile: emptyStockpile(),
     fuel: 0,
     buildQueue: [],
-    terraformed: 0,
+    terraforming: null,
     massDriverTarget: null,
     policy: "none",
     founded,

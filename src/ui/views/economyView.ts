@@ -23,8 +23,11 @@ import {
   migrationInflow,
   populationCapacity,
   shipyardCapacity,
+  terraformOutlook,
+  terraformRate,
 } from "../../sim/economy/production";
 import { MINERALS } from "../../sim/minerals";
+import { GASES, GAS_BY_ID, maxPressureFor, totalPressure } from "../../sim/atmosphere";
 import { previewItems, previewOrder, type OrderPreview } from "../../sim/economy/ledger";
 import {
   resolveTemplate,
@@ -37,7 +40,7 @@ import {
 } from "../../sim/economy/standingOrders";
 import { POLICY_BLURBS, POLICY_NAMES, type GovernorPolicy } from "../../sim/governors";
 import { fullName, type Officer } from "../../sim/people/officers";
-import { compact, el, num, population } from "../format";
+import { compact, el, formatPressure, num, population } from "../format";
 import { button, emptyNote, numberInput, progressBar, section, select, stat } from "../widgets";
 
 export class EconomyView {
@@ -55,6 +58,8 @@ export class EconomyView {
   private ruleInstallation = "automated-mine";
   private ruleTarget = 20;
   private ruleHeadroom = 25;
+  private terraformGas = "nitrous-oxide";
+  private terraformMode: "add" | "remove" = "add";
 
   constructor(private root: HTMLElement, private game: Game) {
     this.root.classList.add("view-colonies");
@@ -117,7 +122,7 @@ export class EconomyView {
 
     const stats = game.empire.stats;
     const output = colonyOutput(game.empire, body, colony, stats);
-    const cost = effectiveColonyCost(body, colony, stats);
+    const cost = effectiveColonyCost(body, stats);
     const capacity = populationCapacity(body, colony, stats);
 
     const head = el("div", "detail-head");
@@ -141,7 +146,8 @@ export class EconomyView {
     stat(summary, "Supported Population", capacity > 0 ? population(capacity) : "none");
     stat(summary, "Annual Growth", `${output.populationGrowth >= 0 ? "+" : ""}${population(output.populationGrowth)}`,
       output.populationGrowth >= 0 ? "good" : "bad");
-    stat(summary, "Colony Cost", cost.toFixed(2) + (colony.terraformed > 0 ? `  (base ${body.colonyCost.toFixed(2)})` : ""));
+    stat(summary, "Colony Cost", cost.toFixed(2));
+    stat(summary, "Temperature", `${body.tempK.toFixed(0)} K`);
     stat(
       summary,
       "Workforce",
@@ -158,6 +164,7 @@ export class EconomyView {
     this.renderGovernor(scroll, colony);
     this.renderIndustry(scroll, colony, output.buildPoints);
     this.renderTemplates(scroll, body, colony);
+    this.renderTerraforming(scroll, body, colony);
     this.renderStandingOrders(scroll, colony);
     this.renderMining(scroll, body, colony, output.mining);
     this.renderStockpile(scroll, colony);
@@ -173,7 +180,7 @@ export class EconomyView {
 
     const scroll = el("div", "detail-body");
     const sec = section(scroll, "No Colony");
-    const cost = effectiveColonyCost(body, undefined, this.game.empire.stats);
+    const cost = effectiveColonyCost(body, this.game.empire.stats);
     if (!Number.isFinite(cost)) {
       emptyNote(sec, "This body has no surface to build on.");
     } else {
@@ -673,6 +680,109 @@ export class EconomyView {
       ),
     );
     sec.append(form);
+  }
+
+  /**
+   * Terraforming: pick a gas and a direction, and watch the consequences.
+   * The outlook is the same arithmetic the production cycle runs, pointed
+   * forwards, so the number on screen is the number being simulated.
+   */
+  private renderTerraforming(parent: HTMLElement, body: Body, colony: Colony): void {
+    const { empire } = this.game;
+    const installations = installationCount(colony, "terraforming");
+    if (!installations && !empire.stats.unlocked.has("terraforming")) return;
+
+    const sec = section(parent, "Terraforming");
+    sec.classList.add("terraform-section");
+    if (!Number.isFinite(body.colonyCost)) {
+      emptyNote(sec, "There is no surface here to terraform.");
+      return;
+    }
+
+    stat(sec, "Installations", num(installations));
+    const rate = terraformRate(empire, colony);
+    stat(sec, "Rate", `${formatPressure(rate)} atm / year`, rate <= 0 ? "warn" : undefined);
+    stat(sec, "Atmosphere", `${formatPressure(totalPressure(body.atmosphere))} of ${
+      formatPressure(maxPressureFor(body.gravity))
+    } atm`);
+
+    if (!installations) {
+      emptyNote(sec, "No terraforming installations here. Build or ship some in.");
+      return;
+    }
+
+    const current = colony.terraforming;
+    const row = el("div", "add-order");
+    row.append(
+      select(
+        GASES.map((g) => ({
+          value: g.id,
+          label: `${g.name}${g.greenhouse > 0 ? " (greenhouse)" : ""}${g.oxygen ? " (breathable)" : ""}`,
+        })),
+        current?.gasId ?? this.terraformGas,
+        (value) => {
+          this.terraformGas = value;
+          this.render();
+        },
+      ),
+    );
+    row.append(
+      select(
+        [
+          { value: "add", label: "Add to atmosphere" },
+          { value: "remove", label: "Remove from atmosphere" },
+        ],
+        current?.mode ?? this.terraformMode,
+        (value) => {
+          this.terraformMode = value as "add" | "remove";
+          this.render();
+        },
+      ),
+    );
+    row.append(
+      button(
+        "Set programme",
+        () => {
+          colony.terraforming = { gasId: this.terraformGas, mode: this.terraformMode };
+          empire.addLog(
+            this.game.clock.seconds,
+            "colony",
+            `${body.name}: terraformers begin ${
+              this.terraformMode === "add" ? "adding" : "removing"
+            } ${GAS_BY_ID.get(this.terraformGas)?.name}.`,
+          );
+          this.game.emit();
+        },
+        "primary-btn",
+      ),
+    );
+    sec.append(row);
+
+    if (current) {
+      const gas = GAS_BY_ID.get(current.gasId);
+      stat(
+        sec,
+        "Programme",
+        `${current.mode === "add" ? "Adding" : "Removing"} ${gas?.name ?? current.gasId}`,
+      );
+      const outlook = terraformOutlook(empire, body, colony);
+      if (outlook) {
+        const line = el("div", "preview-head");
+        line.append(el("span", "preview-cost", outlook.text));
+        if (outlook.years !== null) {
+          line.append(el("span", undefined, `in ${formatYears(outlook.years)}`));
+        }
+        sec.append(line);
+      }
+      sec.append(
+        button("Stop terraforming", () => {
+          colony.terraforming = null;
+          this.game.emit();
+        }),
+      );
+    } else {
+      emptyNote(sec, "No programme set; the terraformers are idle.");
+    }
   }
 
   private renderMining(

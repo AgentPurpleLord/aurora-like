@@ -22,6 +22,19 @@ import { supplyToward } from "../src/sim/economy/standingOrders";
 import { deriveProposals } from "../src/sim/governors";
 import { effectiveColonyCost, shipyardCapacity } from "../src/sim/economy/production";
 import { designStats } from "../src/sim/ships/design";
+import {
+  isBreathable,
+  maxPressureFor,
+  toxicGases,
+  totalPressure,
+} from "../src/sim/atmosphere";
+import { recomputeEnvironment } from "../src/sim/system";
+import {
+  populationCapacity,
+  terraformOutlook,
+  terraformRate,
+} from "../src/sim/economy/production";
+import { formatPressure } from "../src/ui/format";
 import { cargoTons, distanceToBody, executeArrivalOrders } from "../src/sim/ships/fleet";
 
 const num = (v: number) => Math.round(v).toLocaleString("en-US");
@@ -161,6 +174,14 @@ function runYears(years: number): void {
   for (let i = 0; i < cycles; i++) game.step(CYCLE_DAYS * SECONDS_PER_DAY);
 }
 
+// The campaign opens on Earth alone: one colony, one surveyed world, and
+// nothing researched beyond trans-Newtonian theory.
+check("the campaign starts with one colony", empire.colonies.size, 1, 0);
+assert("that colony is Earth", empire.colonies.has("earth"));
+assert("only Earth has been surveyed", empire.surveyed.size === 1 && empire.surveyed.has("earth"));
+check("only trans-Newtonian theory is known", empire.researched.size, 1, 0);
+assert("no ships are in service", empire.ships.size === 0 && empire.fleets.size === 0);
+
 const startingMinerals = totalMinerals();
 const startingPopulation = empire.colony("earth")!.population;
 
@@ -175,11 +196,17 @@ assert(
 assert("Earth mined minerals into its stockpile", empire.colony("earth")!.stockpile.Duranium > 50_000);
 assert("research is accumulating", empire.projects.every((p) => p.progress > 0));
 
-// Mass drivers move Luna's output to the capital rather than stranding it.
-const lunaColony = empire.colony("luna")!;
+// Mass drivers move an outpost's output to the capital rather than
+// stranding it. Luna has to be settled first - nothing is given.
+empire.research("mass-drivers");
+const lunaColony = empire.foundColony("luna", game.clock.seconds);
+lunaColony.installations = { "automated-mine": 40, "mass-driver": 2 };
+runYears(1);
 assert(
-  "Luna ships its minerals to Earth",
-  lunaColony.stockpile.Duranium < 500 && lunaColony.massDriverTarget === "earth",
+  "an outpost ships its minerals to the capital",
+  lunaColony.stockpile.Duranium < 500 &&
+    lunaColony.massDriverTarget === "earth" &&
+    empire.colony("earth")!.stockpile.Duranium > 0,
 );
 
 // The opening research projects should complete within a decade and change
@@ -190,9 +217,9 @@ check("construction rate after research", empire.stats.constructionRate, 12, 0);
 assert("Mining Production 12 Tons researched", empire.researched.has("mining-12"));
 check("mining rate after research", empire.stats.miningRate, 12, 0);
 
-// Build queue: order automated mines on Mars and confirm they get built and
+// Build queue: order automated mines on Earth and confirm they get built and
 // that the minerals to build them were actually consumed.
-const mars = empire.colony("mars")!;
+const mars = empire.foundColony("mars", game.clock.seconds);
 const marsMines = mars.installations["automated-mine"] ?? 0;
 const earthDuranium = empire.colony("earth")!.stockpile.Duranium;
 empire.queueBuild("earth", "automated-mine", 20);
@@ -203,7 +230,7 @@ assert(
   (earthColony.installations["automated-mine"] ?? 0) >= 20,
 );
 assert("construction consumed Duranium", earthColony.stockpile.Duranium !== earthDuranium);
-assert("Mars was untouched by Earth's queue", (mars.installations["automated-mine"] ?? 0) === marsMines);
+assert("another colony was untouched by Earth's queue", (mars.installations["automated-mine"] ?? 0) === marsMines);
 
 // Employment: a colony cannot staff more manned installations than its
 // population supports.
@@ -332,8 +359,9 @@ assert(
 
 // Triage: an empty queue on an industrial colony is worth saying out loud,
 // and it stops being said once work is queued.
-const freshLuna = freshEmpire.colony("luna")!;
+const freshLuna = freshEmpire.foundColony("luna", fresh.clock.seconds);
 freshLuna.installations["construction-factory"] = 500;
+freshLuna.installations["automated-mine"] = 40;
 freshLuna.population = 30;
 let issues = deriveIssues(freshEmpire, fresh.system);
 assert(
@@ -402,7 +430,7 @@ console.log("");
   // shipping a fixed number that is wrong everywhere.
   const outpost = BUILT_IN_TEMPLATES.find((t) => t.id === "mining-outpost")!;
   const resolved = resolveTemplate(outpost, callistoBody, callisto, autoEmpire.stats);
-  const callistoCost = effectiveColonyCost(callistoBody, callisto, autoEmpire.stats);
+  const callistoCost = effectiveColonyCost(callistoBody, autoEmpire.stats);
   const infra = resolved.find((i) => i.installationId === "infrastructure")!;
   check(
     "template sizes infrastructure to colony cost",
@@ -410,7 +438,22 @@ console.log("");
     Math.ceil(100 * callistoCost),
     0,
   );
-  assert("template includes a researched installation", resolved.some((i) => i.installationId === "mass-driver"));
+  assert(
+    "template includes a researched installation",
+    resolved.some((i) => i.installationId === "automated-mine"),
+  );
+  assert(
+    "a template drops a part the empire cannot build yet",
+    !autoEmpire.researched.has("mass-drivers") &&
+      !resolved.some((i) => i.installationId === "mass-driver"),
+  );
+  autoEmpire.research("mass-drivers");
+  assert(
+    "and includes it once the technology is in hand",
+    resolveTemplate(outpost, callistoBody, callisto, autoEmpire.stats).some(
+      (i) => i.installationId === "mass-driver",
+    ),
+  );
 
   // An item the empire has not researched is dropped rather than queued.
   const forward = BUILT_IN_TEMPLATES.find((t) => t.id === "forward-base")!;
@@ -616,7 +659,7 @@ console.log("");
   // --- cargo: load at Earth, carry to Mars, install on arrival
   empire.civilianShipping = false;
   earth.stored["automated-mine"] = 3;
-  const marsColony = empire.colony("mars")!;
+  const marsColony = empire.colony("mars") ?? empire.foundColony("mars", navy.clock.seconds);
   const marsMinesBefore = marsColony.installations["automated-mine"] ?? 0;
 
   fleet.orders.push(
@@ -698,6 +741,135 @@ console.log("");
   }
   check("without civilian shipping, cargo is crated at the builder",
     earth.stored["automated-mine"] ?? 0, 1, 0);
+}
+
+// ==========================================================================
+// Atmospheres and terraforming
+// ==========================================================================
+
+console.log("");
+
+// Scoped so these fixtures cannot collide with the campaign above.
+{
+  const world = new Game("terraform");
+  const earthBody = world.system.byId.get("earth")!;
+  const marsBody = world.system.byId.get("mars")!;
+
+  // The observed atmospheres read correctly through the gas model.
+  check("Earth's atmosphere is one bar", totalPressure(earthBody.atmosphere), 1.0043, 0.001);
+  assert("Earth's air is breathable", isBreathable(earthBody.atmosphere));
+  check("Earth's colony cost", earthBody.colonyCost, 0, 1e-9);
+  assert("Mars's air is not breathable", !isBreathable(marsBody.atmosphere));
+  check("Mars's colony cost", marsBody.colonyCost, 2.0, 0.01);
+  check("an untouched world reads its observed temperature", marsBody.tempK, 210, 0.5);
+  assert(
+    "Venus is poisonous as well as hot",
+    toxicGases(world.system.byId.get("venus")!.atmosphere).some((t) => t.gas.id === "carbon-dioxide"),
+  );
+
+  // A gas with no greenhouse effect does not warm a world.
+  const before = marsBody.tempK;
+  marsBody.atmosphere.nitrogen = (marsBody.atmosphere.nitrogen ?? 0) + 0.2;
+  recomputeEnvironment(marsBody);
+  check("adding nitrogen does not change the temperature", marsBody.tempK, before, 1e-9);
+
+  // A greenhouse gas does, and saturating warming stays monotonic.
+  marsBody.atmosphere["nitrous-oxide"] = 0.2;
+  recomputeEnvironment(marsBody);
+  const warmed = marsBody.tempK;
+  assert(`nitrous oxide warms Mars (${before.toFixed(0)} K -> ${warmed.toFixed(0)} K)`, warmed > before);
+  marsBody.atmosphere["nitrous-oxide"] = 2.0;
+  recomputeEnvironment(marsBody);
+  assert("more of it warms it further", marsBody.tempK > warmed);
+  marsBody.atmosphere["nitrous-oxide"] = 200;
+  recomputeEnvironment(marsBody);
+  assert("warming saturates rather than running away", marsBody.tempK < 700);
+
+  // Back to where we started, and run a real programme.
+  const fresh = new Game("terraform-run");
+  const freshEmpire = fresh.empire;
+  const mars = fresh.system.byId.get("mars")!;
+  freshEmpire.research("terraforming");
+  freshEmpire.surveyed.add("mars");
+  const colony = freshEmpire.foundColony("mars", fresh.clock.seconds);
+  colony.population = 10;
+  colony.installations = { infrastructure: 20_000, terraforming: 200 };
+  colony.terraforming = { gasId: "nitrous-oxide", mode: "add" };
+
+  const rate = terraformRate(freshEmpire, colony);
+  check("terraforming rate is installations x tech rate", rate, 200 * 0.0001, 1e-12);
+
+  const outlook = terraformOutlook(freshEmpire, mars, colony)!;
+  assert(`the outlook names a goal ("${outlook.text}")`, outlook.text.includes("253"));
+  const predicted = outlook.years!;
+  assert(`the outlook predicts a timescale (${predicted.toFixed(1)} years)`, predicted > 1 && predicted < 500);
+
+  const startPressure = totalPressure(mars.atmosphere);
+  const years = 10;
+  for (let i = 0; i < Math.round((years * DAYS_PER_YEAR) / CYCLE_DAYS); i++) {
+    fresh.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  }
+  check(
+    "ten years of terraforming adds exactly ten years of gas",
+    totalPressure(mars.atmosphere) - startPressure,
+    rate * years,
+    rate * years * 0.01,
+  );
+
+  // Run to the predicted date and the prediction should hold.
+  const remaining = Math.round(((predicted - years) * DAYS_PER_YEAR) / CYCLE_DAYS);
+  for (let i = 0; i < remaining; i++) fresh.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  check(
+    `the world reaches the predicted temperature on schedule`,
+    mars.tempK,
+    253,
+    3,
+  );
+  assert("warming cut the colony cost", mars.colonyCost < 2.0 + 1e-9);
+
+  // Oxygen makes it breathable; the cost falls to zero.
+  colony.terraforming = { gasId: "oxygen", mode: "add" };
+  const oxygenOutlook = terraformOutlook(freshEmpire, mars, colony)!;
+  for (let i = 0; i < Math.ceil((oxygenOutlook.years! * DAYS_PER_YEAR) / CYCLE_DAYS) + 2; i++) {
+    fresh.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  }
+  assert(
+    `Mars is breathable after terraforming (${formatPressure(mars.atmosphere.oxygen ?? 0)} atm oxygen, ${
+      mars.tempK.toFixed(0)
+    } K)`,
+    isBreathable(mars.atmosphere),
+  );
+  check("a terraformed world costs nothing to settle", mars.colonyCost, 0, 1e-9);
+  assert(
+    "and its people can now grow unaided",
+    populationCapacity(mars, colony, freshEmpire.stats) > 100,
+  );
+
+  // A toxic gas undoes it, and removal cannot go below nothing.
+  mars.atmosphere["sulphur-dioxide"] = 0.01;
+  recomputeEnvironment(mars);
+  assert("a toxic gas makes a world unbreathable again", !isBreathable(mars.atmosphere));
+  assert("and raises its colony cost", mars.colonyCost >= 2);
+
+  colony.terraforming = { gasId: "sulphur-dioxide", mode: "remove" };
+  for (let i = 0; i < 400; i++) fresh.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  check("removal stops at nothing", mars.atmosphere["sulphur-dioxide"] ?? 0, 0, 1e-12);
+  assert("and the world recovers", isBreathable(mars.atmosphere));
+
+  // A world can only hold the air its gravity allows.
+  const luna = fresh.system.byId.get("luna")!;
+  const lunaColony = freshEmpire.foundColony("luna", fresh.clock.seconds);
+  lunaColony.population = 5;
+  lunaColony.installations = { infrastructure: 50_000, terraforming: 500 };
+  lunaColony.terraforming = { gasId: "nitrogen", mode: "add" };
+  for (let i = 0; i < 3000; i++) fresh.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  const cap = maxPressureFor(luna.gravity);
+  assert(
+    `a small world stops filling at its own ceiling (${formatPressure(totalPressure(luna.atmosphere))} of ${
+      formatPressure(cap)
+    } atm)`,
+    totalPressure(luna.atmosphere) <= cap + 1e-9,
+  );
 }
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);

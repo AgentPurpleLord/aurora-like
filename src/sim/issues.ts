@@ -163,6 +163,16 @@ export function deriveIssues(empire: Empire, system: StarSystem): Issue[] {
       });
     }
 
+    if (installationCount(colony, "terraforming") > 0 && !colony.terraforming) {
+      add({
+        id: `colony:terraformers-idle:${colony.bodyId}`,
+        severity: "warning",
+        title: `${name}: terraformers have no programme`,
+        detail: `${installationCount(colony, "terraforming")} installations are standing idle. Choose a gas to add or remove.`,
+        action: { label: "Open colony", view: "colonies", bodyId: colony.bodyId },
+      });
+    }
+
     if (!empire.governorOf(colony.bodyId) && colony.population >= 1) {
       add({
         id: `colony:governor:${colony.bodyId}`,
