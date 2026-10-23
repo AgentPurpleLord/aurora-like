@@ -14,6 +14,7 @@ import { previewOrder } from "../../sim/economy/ledger";
 import { MINERALS, type MineralName } from "../../sim/minerals";
 import { SURVEY_POINTS_NEEDED } from "../../sim/ships/components";
 import { describeDesign } from "../../sim/ships/design";
+import { hullOf } from "../../sim/ships/hulls";
 import {
   cargoTons,
   destinationOf,
@@ -534,7 +535,7 @@ export class FleetsView {
       const stats = empire.statsOf(design.id)!;
       const card = el("div", "project-card");
       card.append(el("div", "project-name", design.name));
-      card.append(el("div", "project-field", describeDesign(stats)));
+      card.append(el("div", "project-field", [hullOf(design)?.name, describeDesign(stats)].filter(Boolean).join(" - ")));
       card.append(
         el("div", "project-meta",
           `${num(stats.tons)} t  -  ${num(stats.speed)} km/s  -  ${stats.rangeAu.toFixed(1)} AU  -  ${num(stats.buildCost)} BP`),

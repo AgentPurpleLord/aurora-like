@@ -9,6 +9,7 @@
  */
 
 import { settings } from "../settings";
+import { HULLS, HULL_BY_ID, classTitle, hullAdvice, hullOf, suggestClassName, suggestHull } from "../../sim/ships/hulls";
 import { SERVICE_COST_SHARE, WEAR_PER_YEAR } from "../../sim/ships/maintenance";
 import type { Game } from "../../state/game";
 import { shipyardCapacity } from "../../sim/economy/production";
@@ -48,6 +49,7 @@ interface ComponentDraft {
 interface ClassDraft {
   id: string | null;
   name: string;
+  hullId: string;
   components: DesignComponent[];
 }
 
@@ -175,7 +177,10 @@ export class DesignView {
       const row = el("div", "tree-row design-row");
       row.classList.toggle("selected", this.classDraft?.id === design.id);
       row.classList.toggle("obsolete", Boolean(design.obsolete));
-      row.append(el("span", "tree-name", design.name));
+      const hull = hullOf(design);
+      const title = el("span", "tree-name", design.name);
+      if (hull) title.append(el("span", "muted small", ` - ${hull.name} (${hull.abbr})`));
+      row.append(title);
       const flying = [...empire.ships.values()].filter((s) => s.designId === design.id).length;
       row.append(
         el("span", "tree-meta",
@@ -466,7 +471,7 @@ export class DesignView {
 
   private newClass(): void {
     this.tab = "classes";
-    this.classDraft = { id: null, name: "", components: [] };
+    this.classDraft = { id: null, name: "", hullId: "", components: [] };
     this.render();
   }
 
@@ -477,6 +482,7 @@ export class DesignView {
     this.classDraft = {
       id,
       name: design.name,
+      hullId: design.hullId ?? "",
       components: design.components.map((c) => ({ ...c })),
     };
     this.render();
@@ -485,7 +491,7 @@ export class DesignView {
   private draftStats(draft: ClassDraft): DesignStats {
     const { empire } = this.game;
     return designStats(
-      { id: "draft", name: draft.name, components: draft.components, created: 0 },
+      { id: "draft", name: draft.name, components: draft.components, created: 0, hullId: draft.hullId || undefined },
       empire.resolveComponent,
     );
   }
@@ -514,14 +520,54 @@ export class DesignView {
       existing ? `Ship class${flying ? ` - ${flying} in service` : ""}` : "Ship class - unsaved",
     );
 
-    // --- name
+    // --- hull type and class name
     const nameSec = section(body, "Class");
+    const hullOptions = [
+      { value: "", label: "Unclassed (no restrictions)" },
+      ...HULLS.filter((h) => settings.showLocked || !h.tech || empire.researched.has(h.tech) || h.id === draft.hullId).map((h) => ({
+        value: h.id,
+        label: `${h.name} (${h.abbr})${h.tech && !empire.researched.has(h.tech) ? " - locked" : ""}`,
+      })),
+    ];
+    const hullSelect = select(hullOptions, draft.hullId, (value) => {
+      draft.hullId = value;
+      this.render();
+    });
+    hullSelect.setAttribute("aria-label", "Hull type");
+    nameSec.append(el("label", "muted small", "Hull type"), hullSelect);
+    const hull = HULL_BY_ID.get(draft.hullId);
+    if (hull) {
+      nameSec.append(
+        el("p", "muted small", `${hull.blurb} ${hull.category === "military" ? "Warship" : "Civilian"}, ${num(hull.minTons)}-${num(hull.maxTons)} t.`),
+      );
+    }
+    nameSec.append(el("label", "muted small", "Class name"));
+    const nameRow = el("div", "form-actions");
     const nameInput = el("input", "select name-input");
     nameInput.type = "text";
     nameInput.placeholder = "Class name";
     nameInput.value = draft.name;
     nameInput.addEventListener("input", () => (draft.name = nameInput.value));
-    nameSec.append(nameInput);
+    nameRow.append(
+      nameInput,
+      button("Suggest", () => {
+        const taken = new Set(empire.designs.map((d) => d.name));
+        draft.name = suggestClassName(hull, taken);
+        this.render();
+      }, "ghost-btn"),
+    );
+    nameSec.append(nameRow);
+    if (!hull) {
+      const fit = suggestHull(this.draftStats(draft), empire.researched);
+      if (fit) {
+        nameSec.append(
+          button(`Use ${fit.name} hull`, () => {
+            draft.hullId = fit.id;
+            this.render();
+          }, "ghost-btn"),
+        );
+      }
+    }
 
     // --- derived figures sit above the picker so they stay in view
     body.append(this.derivedHost);
@@ -552,14 +598,14 @@ export class DesignView {
         const components = draft.components.filter((c) => c.count > 0);
         if (!components.length) return;
         if (existing) {
-          empire.updateDesign(existing.id, name, components);
+          empire.updateDesign(existing.id, name, components, draft.hullId);
         } else {
-          const created = empire.addDesign(name, components, this.game.clock.seconds);
-          this.classDraft = { id: created.id, name: created.name, components: components.map((c) => ({ ...c })) };
+          const created = empire.addDesign(name, components, this.game.clock.seconds, draft.hullId);
+          this.classDraft = { id: created.id, name: created.name, hullId: draft.hullId, components: components.map((c) => ({ ...c })) };
           empire.addLog(
             this.game.clock.seconds,
             "fleet",
-            `${created.name} class design completed: ${describeDesign(empire.statsOf(created.id)!)}.`,
+            `${classTitle(created)} design completed: ${describeDesign(empire.statsOf(created.id)!)}.`,
           );
         }
         this.game.emit();
@@ -568,8 +614,8 @@ export class DesignView {
     if (existing) {
       actions.append(
         button("Duplicate", () => {
-          const copy = empire.addDesign(`${existing.name} Mk II`, draft.components.filter((c) => c.count > 0), this.game.clock.seconds);
-          this.classDraft = { id: copy.id, name: copy.name, components: copy.components.map((c) => ({ ...c })) };
+          const copy = empire.addDesign(`${existing.name} Mk II`, draft.components.filter((c) => c.count > 0), this.game.clock.seconds, draft.hullId);
+          this.classDraft = { id: copy.id, name: copy.name, hullId: draft.hullId, components: copy.components.map((c) => ({ ...c })) };
           this.game.emit();
         }),
         button(existing.obsolete ? "Restore" : "Mark obsolete", () => {
@@ -655,6 +701,10 @@ export class DesignView {
     stat(sec, "Full overhaul", `${num(stats.buildCost * SERVICE_COST_SHARE)} BP`);
     stat(sec, "Specification", stats.military ? "Military" : "Commercial");
     stat(sec, "Role", describeDesign(stats));
+    const draftHull = HULL_BY_ID.get(draft.hullId);
+    if (draftHull) {
+      for (const note of hullAdvice(draftHull, stats)) this.derivedHost.append(el("p", "project-warning", note));
+    }
 
     // The slipway a class needs, against the best the empire has.
     let bestYard = 0;

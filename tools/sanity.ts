@@ -24,6 +24,7 @@ import { effectiveColonyCost, shipyardCapacity } from "../src/sim/economy/produc
 import { componentStats, normaliseParams, suggestName, SURVEY_POINTS_NEEDED } from "../src/sim/ships/components";
 import { maintainShips, servicingCapacity } from "../src/sim/ships/maintenance";
 import { statsFor } from "../src/sim/research/techs";
+import { classTitle } from "../src/sim/ships/hulls";
 import type { Empire } from "../src/state/empire";
 import { Galaxy } from "../src/sim/galaxy";
 import { optionsFor, resolveEvent, rollEvent } from "../src/sim/events/engine";
@@ -1699,6 +1700,28 @@ console.log("");
 
   // --- the new techs
   assert("maintenance bays double a facility's capacity", statsFor(["maintenance-bays-2", "maintenance-facilities", "trans-newtonian"]).serviceTonsPerFacility === 8000);
+
+  // --- hull types
+  {
+    const hg = new Game("hulls");
+    const he = hg.empire;
+    he.research("nuclear-thermal");
+    he.research("geo-survey-sensors");
+    for (const std of he.addStandardClasses(0)) {
+      const hull = std.hullId;
+      assert(`standard ${std.name} has a hull and fits it`, Boolean(hull) && he.statsOf(std.id)!.problems.length === 0);
+    }
+    const hauler = he.designs.find((d) => d.name === "Hauler")!;
+    assert("the Hauler is a freighter", hauler.hullId === "freighter");
+    const tiny = he.addDesign("Tiny", hauler.components.map((c) => ({ ...c, count: 1 })), 0, "destroyer");
+    const tinyProblems = he.statsOf(tiny.id)!.problems.join(" ");
+    assert("a destroyer hull rejects a ship that is too small", /at least/.test(tinyProblems));
+    assert("and commercial engines on a warship", /military specification/.test(tinyProblems));
+    const unclassed = he.addDesign("Free", hauler.components, 0);
+    assert("an unclassed design has no hull problems", he.statsOf(unclassed.id)!.problems.length === 0);
+    assert("class titles read 'Hauler-class Freighter'", classTitle(hauler) === "Hauler-class Freighter");
+    assert("hull id survives export", JSON.stringify(he.exportState()).includes('"hullId":"freighter"'));
+  }
 }
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);

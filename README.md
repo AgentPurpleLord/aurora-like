@@ -376,6 +376,17 @@ military hull is dear to keep and a freighter is not. Colonies show their capaci
 how much is in dock. Survey and exploration programmes go to a servicing colony when
 a fleet is worn out, and wait to be serviced before setting out again.
 
+## Hull types and class names
+
+As in Aurora, a class has a **name of its own** ("Kestrel") and a **hull type** chosen
+from a list ("Destroyer"). Commercial hulls - Courier, Survey Ship, Explorer, Freighter,
+Tanker, Colony Ship, Jump Tender, Construction Ship - take only commercial parts.
+Military hulls - Corvette, Frigate, Destroyer, Cruiser, Battleship - need the Military
+Specification and military engines. Each hull has a tonnage range; a class outside it
+cannot be built. Role advice (a freighter wants a hold, a tanker mostly fuel) is shown
+as a warning only. *Suggest* offers an unused class name, and an unclassed design offers
+the hull that fits. Classes made before hulls existed stay unclassed, with no limits.
+
 ## Terraforming
 
 ![a terraforming programme](docs/terraforming.png)

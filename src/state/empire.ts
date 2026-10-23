@@ -430,13 +430,14 @@ export class Empire {
 
   // ----------------------------------------------------------------- ships
 
-  addDesign(name: string, components: DesignComponent[], now: number): ShipDesign {
+  addDesign(name: string, components: DesignComponent[], now: number, hullId?: string): ShipDesign {
     const design: ShipDesign = {
       id: `design-${this.nextDesignId++}`,
       name,
       components,
       created: now,
     };
+    if (hullId) design.hullId = hullId;
     this.designs.push(design);
     this.designIndex.set(design.id, design);
     this.revision++;
@@ -454,10 +455,12 @@ export class Empire {
   }
 
   /** Rename or re-equip a class, invalidating everything derived from it. */
-  updateDesign(id: string, name: string, components: DesignComponent[]): void {
+  updateDesign(id: string, name: string, components: DesignComponent[], hullId?: string): void {
     const design = this.designIndex.get(id);
     if (!design) return;
     design.name = name;
+    if (hullId) design.hullId = hullId;
+    else delete design.hullId;
     design.components = components;
     this.revision++;
   }
@@ -591,24 +594,24 @@ export class Empire {
     const cargo = standard("cargo-hold", { size: 20 });
     const colony = standard("colony-module", { size: 20 });
     const sensor = sensorType && standard("survey-sensor", { type: sensorType.id, size: 4 });
-    const specs: [string, DesignComponent[] | null | undefined][] = [
-      ["Hauler", cargo && [
+    const specs: [string, string, DesignComponent[] | null | undefined][] = [
+      ["Hauler", "freighter", cargo && [
         { componentId: engine.id, count: 2 }, { componentId: tank.id, count: 4 },
         { componentId: cargo.id, count: 4 }, { componentId: quarters.id, count: 2 },
       ]],
-      ["Pioneer", colony && [
+      ["Pioneer", "colony-ship", colony && [
         { componentId: engine.id, count: 2 }, { componentId: tank.id, count: 4 },
         { componentId: colony.id, count: 4 }, { componentId: quarters.id, count: 2 },
       ]],
-      ["Surveyor", sensor && [
+      ["Surveyor", "survey-ship", sensor && [
         { componentId: engine.id, count: 1 }, { componentId: tank.id, count: 3 },
         { componentId: sensor.id, count: 1 }, { componentId: quarters.id, count: 1 },
       ]],
     ];
     const made: ShipDesign[] = [];
-    for (const [name, components] of specs) {
+    for (const [name, hullId, components] of specs) {
       if (!components || this.designs.some((d) => d.name === name)) continue;
-      made.push(this.addDesign(name, components, now));
+      made.push(this.addDesign(name, components, now, hullId));
     }
     return made;
   }

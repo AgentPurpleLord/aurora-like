@@ -8,6 +8,7 @@
  */
 
 import type { MineralName } from "../minerals";
+import { hullOf, hullProblems } from "./hulls";
 import {
   TONS_PER_HS,
   type ComponentDesign,
@@ -28,6 +29,8 @@ export interface ShipDesign {
   created: number;
   /** Superseded classes stay in service but cannot be laid down again. */
   obsolete?: boolean;
+  /** The hull type (see hulls.ts). Classes made before hulls existed have none. */
+  hullId?: string;
 }
 
 /** What a class needs to know about a component: the design and its figures. */
@@ -64,6 +67,8 @@ export interface DesignStats {
   wear: number;
   /** True if any powered component is built to the military specification. */
   military: boolean;
+  /** How many engines of each specification the class carries. */
+  engineGrades: { commercial: number; military: number };
   buildCost: number;
   minerals: Partial<Record<MineralName, number>>;
   /** Components by kind, for the designer's summary. */
@@ -89,6 +94,7 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
   let gateRate = 0;
   let wearTons = 0;
   let military = false;
+  const engineGrades = { commercial: 0, military: 0 };
   const minerals: Partial<Record<MineralName, number>> = {};
   const counts: Partial<Record<ComponentKind, number>> = {};
   const problems: string[] = [];
@@ -115,6 +121,7 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
     if (stats.survey) survey[stats.survey.type] += stats.survey.rate * n;
     wearTons += stats.wear * stats.tons * n;
     if (stats.grade === "military") military = true;
+    if (component.kind === "engine") engineGrades[stats.grade] += n;
     jumpCapacity += (stats.jump ?? 0) * n;
     gateRate += (stats.gate ?? 0) * n;
     counts[component.kind] = (counts[component.kind] ?? 0) + n;
@@ -135,7 +142,7 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
   else if (fuelCapacity === 0) problems.push("No fuel tank: the engines have nothing to burn.");
   if (berths < crewRequired) problems.push(`Crew quarters short by ${crewRequired - berths} berths.`);
 
-  return {
+  const stats: DesignStats = {
     tons,
     hullSpaces,
     power,
@@ -153,11 +160,15 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
     gateRate,
     wear: tons > 0 ? wearTons / tons : 0,
     military,
+    engineGrades,
     buildCost,
     minerals,
     counts,
     problems,
   };
+  const hull = hullOf(design);
+  if (hull) problems.push(...hullProblems(hull, stats));
+  return stats;
 }
 
 /** A one-line description of what a class is for. */
