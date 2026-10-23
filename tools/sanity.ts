@@ -29,6 +29,9 @@ import { buyProgramme, programmeCost, moraleFactor, reserveErosion, stabilityTar
 import {
   FACTIONS, approval, capitalUpkeep, courtFaction, enactPolicy, repealPolicy, rejectDemand, judge, moodEffect, runPolitics,
 } from "../src/sim/politics";
+import {
+  GOODS, baseMood, computeMarket, fertility, invalidateMarket, popInfluence, summarisePops, targetShares,
+} from "../src/sim/economy/goods";
 import { invalidateTrade, tradeConnections } from "../src/sim/economy/trade";
 import { budgetOf } from "../src/sim/economy/budget";
 import type { Empire } from "../src/state/empire";
@@ -231,7 +234,8 @@ const startingPopulation = empire.colony("earth")!.population;
 // Nothing is queued at the start, so minerals only move between deposits,
 // stockpiles and fuel - the total must be conserved exactly.
 runYears(1);
-check("minerals conserved over 1 year (tons)", totalMinerals(), startingMinerals, 1e-6);
+// Earth's consumer plants and luxury workshops burn 800 t of Corundium and 800 t of Gallicite a year.
+assert("minerals conserved over 1 year, less what the plants used (tons)", Math.abs(startingMinerals - totalMinerals() - 1600) < 25);
 assert(
   `Earth population grew (${startingPopulation.toFixed(0)} -> ${empire.colony("earth")!.population.toFixed(0)}m)`,
   empire.colony("earth")!.population > startingPopulation,
@@ -1742,7 +1746,7 @@ console.log("");
     assert("heavier taxes raise tax income", heavy.taxes > base.taxes * 1.6);
     assert("but cut commerce", heavy.trade < base.trade);
     for (let i = 0; i < 400; i++) fg.step(CYCLE_DAYS * SECONDS_PER_DAY);
-    assert("and wear stability down", earthColony.stability < 60);
+    assert("and wear stability down", earthColony.stability < 62);
     const after = colonyOutput(fe, earthBody, earthColony, fe.stats);
     const unrest = earthColony.stability;
     earthColony.stability = 70;
@@ -1802,7 +1806,7 @@ console.log("");
     invalidateTrade(le);
     assert("civilian shipping adds a modest baseline", (tradeConnections(le).get("earth") ?? 0) > 1);
 
-    const calm = { taxRate: 0.3, welfare: 0, treasury: 0, expenses: 0, effect: 1 };
+    const calm = { taxRate: 0.3, welfare: 0, treasury: 0, expenses: 0, effect: 1, pops: 0 };
     const good = stabilityTarget({ ...calm, administration: 8 }).target;
     const poor = stabilityTarget({ ...calm, administration: 1 }).target;
     const none2 = stabilityTarget({ ...calm, administration: null }).target;
@@ -1867,6 +1871,63 @@ console.log("");
     check("politics survives a save", back.empire.politics.capital, 33, 1e-9);
     assert("with its laws in force", back.empire.effectFactor("industry", "earth") === pe.effectFactor("industry", "earth"));
     assert("approval is a weighted mean", approval(pe.politics) > 0 && approval(pe.politics) <= 100);
+  }
+
+  // --- pops and goods
+  {
+    const mg = new Game("pops");
+    const me = mg.empire;
+    const earthC = me.colony("earth")!;
+    let market = computeMarket(me, mg.galaxy);
+    const em = market.colonies.get("earth")!;
+    for (const good of GOODS) assert(`Earth meets its need for ${good.name.toLowerCase()}`, em.goods[good.id].met >= 0.999);
+    assert("Earth has food to spare", em.goods.food.supply > em.goods.food.demand);
+    check("a garden world is fully fertile", fertility(0), 1, 1e-9);
+    check("a hostile one is barren", fertility(2), 0, 1e-9);
+    check("shares add up to one", earthC.pops.reduce((s, g) => s + g.share, 0), 1, 1e-9);
+    assert("people sort by work: factories and mines make labourers", targetShares(earthC).labourers > 0.6);
+    check("the nation's groups cover everyone", summarisePops(me).reduce((s, g) => s + g.share, 0), 1, 1e-9);
+
+    // a colony with poor land and no farm starves when cut off
+    me.civilianShipping = false;
+    const marsC = me.foundColony("mars", 0);
+    marsC.population = 20;
+    invalidateMarket(me);
+    market = computeMarket(me, mg.galaxy);
+    check("an isolated colony on barren land gets no food", market.colonies.get("mars")!.goods.food.met, 0, 1e-9);
+    // civilian shipping feeds it from Earth's surplus
+    me.civilianShipping = true;
+    invalidateMarket(me);
+    market = computeMarket(me, mg.galaxy);
+    check("civilian shipping feeds it", market.colonies.get("mars")!.goods.food.met, 1, 1e-6);
+    assert("and the trade pays a levy", market.levy > 0);
+    // a farm of its own
+    me.civilianShipping = false;
+    marsC.installations["hydroponic-farm"] = 1;
+    invalidateMarket(me);
+    assert("a farm makes food", computeMarket(me, mg.galaxy).colonies.get("mars")!.goods.food.supply > 0);
+    marsC.installations["hydroponic-farm"] = 0;
+    // famine and radicalism
+    invalidateMarket(me);
+    const popBefore = marsC.population;
+    const moodBefore = baseMood(me, "civic").mood;
+    for (let i = 0; i < 250; i++) mg.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    assert("famine kills", marsC.population < popBefore * 0.8 && marsC.population > 0.1);
+    assert("the hungry grow sullen", marsC.pops.every((g) => g.satisfaction < 40));
+    assert("and then radical", marsC.pops.some((g) => g.radicalism > 50));
+    assert("which drags stability down", marsC.stability < 55);
+    // a mood becomes politics
+    assert("the people's mood reaches the factions", baseMood(me, "civic").radicalism > 0 && moodBefore > 0);
+    const w = popInfluence(me);
+    assert("political weight follows who the people are", w.civic > w.admiralty);
+    // plants need minerals
+    const stocked = me.colony("earth")!;
+    stocked.stockpile.Corundium = 0;
+    invalidateMarket(me);
+    assert("a consumer plant without Corundium idles", computeMarket(me, mg.galaxy).colonies.get("earth")!.goods.consumer.supply < 1);
+    // save round trip
+    const rt = gameFromSave(parseSave(JSON.stringify(makeSave(mg, "pp", "pp", "manual"))));
+    assert("pops survive a save", rt.empire.colony("mars")!.pops.some((g) => g.radicalism > 50));
   }
 }
 

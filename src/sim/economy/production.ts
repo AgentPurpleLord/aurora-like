@@ -38,6 +38,7 @@ import {
 import { bonus, fullName, labCapacity } from "../people/officers";
 import { evaluateStandingOrders } from "./standingOrders";
 import { runPolitics } from "../politics";
+import { invalidateMarket, computeMarket, popFactor, popStability, runPops } from "./goods";
 import { invalidateTrade, tradeConnections } from "./trade";
 import {
   DEBT_INTEREST, reserveErosion, GDP_PER_MILLION, RIOTS_BELOW, STABILITY_DRIFT, TRADE_PER_MILLION, UNREST_BELOW,
@@ -131,7 +132,7 @@ export function colonyOutput(
 ): ColonyOutput {
   const employment = employmentRatio(colony);
   const governor = empire.governorOf(colony.bodyId);
-  const industry = (empire.austerity ? 0.5 : 1) * moraleFactor(colony.stability);
+  const industry = (empire.austerity ? 0.5 : 1) * moraleFactor(colony.stability) * popFactor(colony, "labourers");
   const morale = moraleFactor(colony.stability);
 
   const buildPoints =
@@ -142,7 +143,7 @@ export function colonyOutput(
     industry *
     empire.effectFactor("industry", colony.bodyId);
 
-  const mines = effectiveMines(colony, employment) * empire.effectFactor("mining", colony.bodyId) * morale;
+  const mines = effectiveMines(colony, employment) * empire.effectFactor("mining", colony.bodyId) * morale * popFactor(colony, "labourers");
   const mining: Partial<Record<MineralName, number>> = {};
   for (const deposit of body.minerals) {
     if (deposit.amount <= 0) continue;
@@ -151,16 +152,16 @@ export function colonyOutput(
   }
 
   const refineries = installationCount(colony, "fuel-refinery") * employment;
-  const fuel = refineries * stats.fuelPerRefinery * empire.effectFactor("fuel", colony.bodyId) * morale;
+  const fuel = refineries * stats.fuelPerRefinery * empire.effectFactor("fuel", colony.bodyId) * morale * popFactor(colony, "spacers");
 
   const researchPoints = empire.projects
     .filter((p) => p.colonyId === colony.bodyId)
     .reduce((sum, p) => {
       const scientist = empire.officers.get(p.scientistId ?? undefined);
       return sum + p.labs * stats.researchRate * employment * (1 + bonus(scientist, "research"));
-    }, 0) * empire.effectFactor("research", colony.bodyId) * morale;
+    }, 0) * empire.effectFactor("research", colony.bodyId) * morale * popFactor(colony, "specialists");
 
-  const wealthFactor = (1 + stats.wealthBonus + bonus(governor, "wealth")) * empire.effectFactor("wealth", colony.bodyId);
+  const wealthFactor = (1 + stats.wealthBonus + bonus(governor, "wealth")) * empire.effectFactor("wealth", colony.bodyId) * popFactor(colony, "merchants");
   const links = tradeConnections(empire).get(colony.bodyId) ?? 0;
   const taxes = colony.population * GDP_PER_MILLION * empire.taxRate * wealthFactor;
   const trade =
@@ -242,6 +243,11 @@ export function runCycle(empire: Empire, system: Galaxy, now: number, days: numb
   let taxes = 0;
   const minerals: Partial<Record<MineralName, number>> = {};
   invalidateTrade(empire);
+  invalidateMarket(empire);
+  // Goods are made and shared out, and the people react, before anything else this cycle.
+  runPops(empire, system, year, now);
+  const levy = computeMarket(empire, system).levy;
+  income += levy;
 
   for (const colony of empire.colonies.values()) {
     const body = system.byId.get(colony.bodyId);
@@ -300,6 +306,7 @@ export function runCycle(empire: Empire, system: Galaxy, now: number, days: numb
       expenses: empire.snapshot.expenses,
       effect: empire.effectFactor("stability", colony.bodyId),
       administration: empire.governorOf(colony.bodyId)?.skills.administration ?? (empire.governorOf(colony.bodyId) ? 0 : null),
+      pops: popStability(colony),
     });
     colony.stability = before + (target - before) * Math.min(1, STABILITY_DRIFT * year);
     announceMood(empire, body.name, colony.bodyId, before, colony.stability, now);
@@ -346,6 +353,7 @@ export function runCycle(empire: Empire, system: Galaxy, now: number, days: numb
   };
 
   empire.recordHistory(now);
+  invalidateMarket(empire);
   runPolitics(empire, system, now, days);
 
   for (const event of empire.officers.advance(year, now, academyRate(empire))) {

@@ -415,6 +415,32 @@ Wealth now has consequences, managed from the **Finance** panel on the Empire sc
   incentives, Settlement drive (each +25-40% for three years) and Public festival
   (stability, two years). They cost most of a year's takings and run as timed effects.
 
+## People, goods and what they want
+
+Every colony's people fall into four **pop groups** - labourers, specialists, merchants
+and spacers - in proportions set by the work the colony offers (factories and mines
+draw labourers, laboratories specialists, financial centres merchants, shipyards and
+refineries spacers). Open a colony's **People** tab to see them.
+
+- **Needs.** Each group wants food, consumer goods and luxuries in its own proportions
+  (merchants want luxuries, labourers hardly any). Contentment follows how much of that
+  it gets, nudged by welfare and taxes.
+- **Goods.** A garden world grows more food than it eats; poor land needs **hydroponic
+  farms**. **Consumer plants** and **luxury workshops** turn Corundium and Gallicite from
+  the colony's own stockpile into goods, and idle without them. Earth starts self-sufficient
+  with a surplus.
+- **Trade.** Surplus moves to want by civilian shipping within a system and along freight
+  lines between them; a colony cut off from both must make everything itself. The
+  treasury takes a 15% levy on traded goods (see the Finance and Goods panels).
+- **Consequences.** Content groups work a little better - labourers lift construction and
+  mining, specialists research, merchants taxes and trade, spacers fuel - and calm a colony;
+  unmet needs lower contentment, groups below 40 radicalise, radicals drag stability
+  down, and a colony with under 60% of its food starves. Shortages raise issues.
+- **Politics.** Each group leans towards factions (labourers to the Civic Union, specialists
+  to the Academy, merchants to the Industrial Combine, spacers to the Admiralty and the
+  Colonial League). Their mood feeds those factions' support, and who the population is
+  sets the factions' influence - so a famine on one world can lose you an election.
+
 ## Politics
 
 The **Politics** screen (key `P`) is the part of the game that is never finished with.

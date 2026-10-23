@@ -133,6 +133,8 @@ export class Game {
       "research-lab": 30,
       mine: 400,
       "fuel-refinery": 100,
+      "consumer-plant": 40,
+      "luxury-workshop": 40,
       spaceport: 1,
       shipyard: 2,
     };

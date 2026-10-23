@@ -1292,6 +1292,18 @@ async function politicsSuite(browser) {
   await page.waitForTimeout(150);
   await check("and a law repealed", async () =>
     (await page.evaluate(() => window.__game.empire.politics.policies.length)) === 0);
+  await check("the people are listed on the Politics screen", async () => /the people/i.test(await view.innerText()) && /labourers/i.test(await view.innerText()));
+  await nav(page, "Empire").click();
+  await check("the Empire screen has a Goods panel", async () =>
+    /food/i.test(await page.locator("#view-empire .section", { hasText: /goods/i }).first().innerText()));
+  await nav(page, "Colonies").click();
+  await page.locator("#view-colonies .colony-tab", { hasText: "People" }).click();
+  await page.waitForTimeout(150);
+  const people = page.locator("#view-colonies .detail-body");
+  await check("a colony's People tab shows its groups and goods", async () => {
+    const t = await people.innerText();
+    return /who lives here/i.test(t) && /consumer goods/i.test(t) && /met/i.test(t);
+  });
   await check("no console errors", () => errors.length === 0);
   if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
   await page.close();

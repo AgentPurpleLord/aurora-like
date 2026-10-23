@@ -1,5 +1,6 @@
 /** A populated (or merely occupied) body, and what it is building. */
 
+import { defaultPops, type PopGroup } from "../sim/economy/goods";
 import { MINERALS, type MineralName } from "../sim/minerals";
 import type { GovernorPolicy } from "../sim/governors";
 
@@ -44,6 +45,10 @@ export interface Colony {
   founded: number;
   /** How content the people are, 0 to 100. 70 is neutral. */
   stability: number;
+  /** The groups of people who live here; see economy/goods.ts. */
+  pops: PopGroup[];
+  /** Set while the colony is in famine, to log it once. */
+  starving?: boolean;
 }
 
 export function emptyStockpile(): Record<MineralName, number> {
@@ -66,6 +71,7 @@ export function createColony(bodyId: string, founded: number): Colony {
     policy: "none",
     founded,
     stability: 70,
+    pops: defaultPops(),
   };
 }
 

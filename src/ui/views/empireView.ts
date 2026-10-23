@@ -20,6 +20,7 @@ import { deriveGoals } from "../../sim/goals";
 import { saveSettings, settings } from "../settings";
 import type { HistoryPoint, LogLink } from "../../state/empire";
 import { button, emptyNote, numberInput, progressBar, section, select, stat } from "../widgets";
+import { GOODS, computeMarket } from "../../sim/economy/goods";
 import { budgetOf } from "../../sim/economy/budget";
 import {
   MAX_TAX, MAX_WELFARE, NEUTRAL_TAX, PROGRAMMES, activeProgramme, buyProgramme, programmeCost, stabilityLabel,
@@ -79,6 +80,7 @@ export class EmpireView {
     const stack = el("div", "dashboard-stack");
     split.append(stack);
     this.renderFinance(stack);
+    this.renderGoods(stack);
     this.renderResearch(stack);
     this.renderLogistics(stack);
 
@@ -511,7 +513,7 @@ export class EmpireView {
     }
 
     const lines: [string, number][] = [
-      ["Taxes", b.taxes], ["Trade", b.trade], ["Financial centres", b.centres],
+      ["Taxes", b.taxes], ["Trade", b.trade], ["Goods trade levy", b.goods], ["Financial centres", b.centres],
       ["Construction", -b.construction], ["Research", -b.research], ["Upkeep", -b.upkeep],
       ["Welfare", -b.welfare], ["Debt interest", -b.interest], ["Idle reserves lost", -b.erosion], ["Ships and other", -b.other],
     ];
@@ -568,6 +570,34 @@ export class EmpireView {
       }
       prog.append(row);
     }
+  }
+
+  private renderGoods(parent: HTMLElement): void {
+    const { empire } = this.game;
+    const market = computeMarket(empire, this.game.galaxy);
+    const sec = section(parent, "Goods");
+    if (!market.colonies.size) {
+      emptyNote(sec, "No one to feed yet.");
+      return;
+    }
+    for (const good of GOODS) {
+      let supply = 0;
+      let demand = 0;
+      let unmet = 0;
+      let short = 0;
+      for (const m of market.colonies.values()) {
+        const f = m.goods[good.id];
+        supply += f.supply;
+        demand += f.demand;
+        unmet += Math.max(0, f.demand - Math.min(f.demand, f.supply + f.imported - f.exported));
+        if (f.met < 0.7) short++;
+      }
+      const met = demand > 0 ? 1 - unmet / demand : 1;
+      stat(sec, good.name, `${num(supply)} made / ${num(demand)} needed`, met < 0.7 ? "bad" : met < 0.95 ? "warn" : "good");
+      if (short) sec.append(el("p", "muted small", `${short} ${short === 1 ? "colony is" : "colonies are"} short of ${good.name.toLowerCase()}.`));
+    }
+    stat(sec, "Traded between colonies", `${num(market.tradedValue)} value / yr, levy ${num(market.levy)}`);
+    sec.append(el("p", "muted small", "Surplus moves by civilian shipping within a system and along freight lines between them. See a colony's People tab."));
   }
 
   private renderLogistics(parent: HTMLElement): void {

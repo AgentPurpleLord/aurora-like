@@ -5,6 +5,7 @@
  * The per-cycle economic simulation itself lives in sim/economy/production.
  */
 
+import { defaultPops } from "../sim/economy/goods";
 import { defaultPolitics, politicalFactors, type PoliticsState } from "../sim/politics";
 import { OfficerPool, type Assignment, type Branch, type Officer } from "../sim/people/officers";
 import { Random } from "../sim/rng";
@@ -954,6 +955,7 @@ export class Empire {
     this.colonies.clear();
     for (const colony of data.colonies) {
       colony.stability ??= 70;
+      colony.pops ??= defaultPops();
       this.colonies.set(colony.bodyId, colony);
     }
     this.ships.clear();
