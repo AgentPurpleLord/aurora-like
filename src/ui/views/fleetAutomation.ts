@@ -320,7 +320,7 @@ export class FleetAutomation {
     } else if (draft.kind === "installations") {
       row.append(
         select(
-          [{ value: "all", label: "Anything in store" }, ...INSTALLATIONS.map((i) => ({ value: i.id, label: i.name }))],
+          [{ value: "all", label: "Anything in store" }, ...INSTALLATIONS.filter((i) => this.game.empire.stats.unlocked.has(i.id) || i.id === "infrastructure").map((i) => ({ value: i.id, label: i.name }))],
           draft.installationId,
           (value) => (draft.installationId = value),
         ),

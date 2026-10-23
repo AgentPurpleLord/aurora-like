@@ -23,6 +23,8 @@ export interface Settings {
   lens: string;
   /** How often random events happen. */
   events: EventRate;
+  /** Show technology that cannot be started yet (locked techs, unresearched parts). */
+  showLocked: boolean;
   /** Show every event as a popup, not only the ones that need a decision. */
   eventPopups: boolean;
 }
@@ -52,6 +54,7 @@ const DEFAULTS: Settings = {
   colonyTab: "overview",
   lens: "default",
   eventPopups: false,
+  showLocked: false,
 };
 
 function load(): Settings {

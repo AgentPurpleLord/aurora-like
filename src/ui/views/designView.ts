@@ -8,6 +8,7 @@
  * before you commit to it.
  */
 
+import { settings } from "../settings";
 import type { Game } from "../../state/game";
 import { shipyardCapacity } from "../../sim/economy/production";
 import {
@@ -264,7 +265,7 @@ export class DesignView {
     if (this.notice) kindSec.append(el("p", "project-warning", this.notice));
     kindSec.append(
       select(
-        KINDS.map((k) => ({
+        KINDS.filter((k) => settings.showLocked || k.available(empire.researched) || k.kind === draft.kind).map((k) => ({
           value: k.kind,
           label: k.available(empire.researched) ? k.name : `${k.name} (locked)`,
         })),
@@ -373,7 +374,9 @@ export class DesignView {
     row.append(el("label", "field-label", def.label));
 
     if (def.type === "choice") {
-      const options = choiceOptions(draft.kind, def.id, empire.researched);
+      const options = choiceOptions(draft.kind, def.id, empire.researched).filter(
+        (o) => settings.showLocked || !o.locked || o.value === String(draft.params[def.id]),
+      );
       const node = el("select", "select");
       for (const option of options) {
         const opt = el("option", undefined, option.locked ? `${option.label} (not researched)` : option.label);

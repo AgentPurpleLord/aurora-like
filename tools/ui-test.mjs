@@ -276,6 +276,14 @@ async function shipSuite(browser) {
     (await page.locator(".proj-card").count()) >= 1);
 
   await page.getByRole("button", { name: /^Propulsion/ }).click();
+  await check("technology that is not available yet is hidden by default", async () =>
+    (await page.locator(".tech-node", { hasText: "Ion Drive Technology" }).count()) === 0 &&
+    (await page.locator(".tech-node", { hasText: "Nuclear Thermal Engine Technology" }).count()) === 1);
+  await check("and the field tab only counts what is shown", async () =>
+    /\d+\/\d+/.test(await page.locator(".research-tab", { hasText: "Propulsion" }).innerText()));
+  await page.getByLabel("Show locked technologies").check();
+  await check("ticking the box reveals the whole tree", async () =>
+    (await page.locator(".tech-node", { hasText: "Ion Drive Technology" }).count()) === 1);
   await page.locator(".tech-node", { hasText: "Ion Drive Technology" }).first().click();
   await check("a locked technology says what to research first", async () =>
     /Research Nuclear Pulse Engine Technology first/.test(await page.locator(".research-side").innerText()));

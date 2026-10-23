@@ -38,6 +38,7 @@ import { fullName, labCapacity } from "../../sim/people/officers";
 import { compact, el, num } from "../format";
 import { button, emptyNote, numberInput, progressBar, section, select, stat } from "../widgets";
 import { formatYears } from "./economyView";
+import { saveSettings, settings } from "../settings";
 
 type Tab = "ready" | "done" | ResearchField;
 
@@ -58,6 +59,8 @@ export class ResearchView {
   private query = "";
   /** Kept across renders so typing is never interrupted by a redraw. */
   private searchInput = el("input", "search research-search");
+  /** Locked technologies the player was sent to by a link, shown even while locked ones are hidden. */
+  private revealed = new Set<string>();
   private dirty = false;
 
   /** The start-research form, initialised from the recommendation. */
@@ -93,6 +96,7 @@ export class ResearchView {
     this.searchInput.value = "";
     this.query = "";
     this.selected = techId;
+    this.revealed.add(techId);
     this.form.forTech = "";
   }
 
@@ -199,6 +203,16 @@ export class ResearchView {
     this.main.append(sec);
   }
 
+  /**
+   * Technology that cannot be started yet is hidden unless the player asks
+   * to see it: researched, under way and ready technologies always show, and
+   * so does anything the player has been linked to or has selected.
+   */
+  private visible(tech: Tech): boolean {
+    if (settings.showLocked || this.revealed.has(tech.id) || this.selected === tech.id) return true;
+    return techState(this.game.empire, tech) !== "locked";
+  }
+
   private renderToolbar(): void {
     const { empire } = this.game;
     const bar = el("div", "research-toolbar");
@@ -221,11 +235,22 @@ export class ResearchView {
 
     tabButton("ready", "Ready now", String(readyCount));
     for (const field of FIELD_ORDER) {
-      const { done, total } = fieldProgress(empire, field);
-      tabButton(field, FIELD_SHORT[field], `${done}/${total}`);
+      const { done } = fieldProgress(empire, field);
+      const shown = TECHS.filter((t) => t.field === field && this.visible(t)).length;
+      tabButton(field, FIELD_SHORT[field], `${done}/${shown}`);
     }
     tabButton("done", "Researched", String(empire.researched.size));
-    bar.append(tabs, this.searchInput);
+    const reveal = el("label", "check-row research-reveal");
+    const box = el("input");
+    box.type = "checkbox";
+    box.checked = settings.showLocked;
+    box.addEventListener("change", () => {
+      settings.showLocked = box.checked;
+      saveSettings();
+      this.draw();
+    });
+    reveal.append(box, el("span", "check-label", "Show locked technologies"));
+    bar.append(tabs, this.searchInput, reveal);
     this.main.append(bar);
   }
 
@@ -236,14 +261,20 @@ export class ResearchView {
     this.boardHost.textContent = "";
 
     if (this.query) {
-      const matches = TECHS.filter(
+      const all = TECHS.filter(
         (t) =>
           t.name.toLowerCase().includes(this.query) ||
           t.description.toLowerCase().includes(this.query) ||
           FIELD_NAMES[t.field].toLowerCase().includes(this.query),
       );
+      const matches = all.filter((t) => this.visible(t));
       this.boardHost.append(el("h3", "board-title", `${matches.length} match${matches.length === 1 ? "" : "es"}`));
       this.groupedGrid(matches);
+      if (all.length > matches.length) {
+        this.boardHost.append(
+          el("p", "muted research-hint", `${all.length - matches.length} more match technology that is not available yet. Tick "Show locked technologies" to see it.`),
+        );
+      }
       return;
     }
 
@@ -276,12 +307,18 @@ export class ResearchView {
     this.boardHost.append(el("h3", "board-title", FIELD_NAMES[field]));
     const board = el("div", "tier-board");
     techsInField(field).forEach((column, index) => {
+      const shown = column.filter((t) => this.visible(t));
+      if (!shown.length) return;
       const col = el("div", "tier-col");
       col.append(el("div", "tier-head", index === 0 ? "Foundations" : `Tier ${index + 1}`));
-      for (const tech of column) col.append(this.node(tech));
+      for (const tech of shown) col.append(this.node(tech));
       board.append(col);
     });
     this.boardHost.append(board);
+    if (!board.childElementCount) emptyNote(this.boardHost, "Nothing in this field is available yet.");
+    else if (!settings.showLocked) {
+      this.boardHost.append(el("p", "muted research-hint", "Technology that is not available yet is hidden. Tick \"Show locked technologies\" to see the whole tree."));
+    }
   }
 
   private groupedGrid(techs: Tech[]): void {
