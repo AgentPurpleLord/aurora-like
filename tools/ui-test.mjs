@@ -1239,6 +1239,33 @@ async function mobileSuite(browser) {
   await context.close();
 }
 
+async function financeSuite(browser) {
+  console.log("\nFinance");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.goto(`${BASE}?debug&new&seed=sol-1&events=off`);
+  await page.waitForSelector("#view-tabs");
+  await nav(page, "Empire").click();
+  const fin = page.locator("#view-empire .section", { hasText: "Finance" }).first();
+  await check("the Empire screen has a Finance panel", async () => (await fin.count()) > 0);
+  await check("it shows stability", async () => /stability/i.test(await fin.innerText()));
+  await page.locator('[data-field="tax-rate"] input.number-input').fill("45");
+  await page.locator('[data-field="tax-rate"] input.number-input').dispatchEvent("change");
+  await page.waitForTimeout(150);
+  await check("the tax rate can be set", async () =>
+    (await page.evaluate(() => window.__game.empire.taxRate)) === 0.45);
+  await page.evaluate(() => { window.__game.empire.treasury = 1e6; window.__game.emit(); });
+  await page.waitForTimeout(150);
+  await page.getByRole("button", { name: "Fund Industrial subsidy" }).click();
+  await check("funding a programme starts it", async () =>
+    (await page.evaluate(() => window.__game.empire.effects.some((e) => e.label === "Industrial subsidy"))));
+  await check("no console errors", () => errors.length === 0);
+  if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
+  await page.close();
+}
+
 const browser = await chromium.launch(launch);
 try {
   await desktopSuite(browser);
@@ -1249,6 +1276,7 @@ try {
   await explorationSuite(browser);
   await eventSuite(browser);
   await maintenanceSuite(browser);
+  await financeSuite(browser);
   await mobileSuite(browser);
 } finally {
   await browser.close();

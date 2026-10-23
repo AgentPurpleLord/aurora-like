@@ -6,6 +6,7 @@
  * event log.
  */
 
+import { stabilityLabel } from "../../sim/economy/finance";
 import { formatShortDate } from "../../sim/clock";
 import type { Game } from "../../state/game";
 import type { Body } from "../../sim/system";
@@ -288,6 +289,8 @@ export class EconomyView {
       output.employment < 0.999 ? "warn" : undefined,
     );
     stat(summary, "Wealth", `${num(output.wealth)} / year`);
+    stat(summary, "Stability", `${Math.round(colony.stability)} - ${stabilityLabel(colony.stability)}`,
+      colony.stability < 40 ? "bad" : colony.stability < 60 ? "warn" : undefined);
     const governor = game.empire.governorOf(colony.bodyId);
     stat(summary, "Governor", governor ? fullName(governor) : "vacant", governor ? undefined : "warn");
     const inflow = migrationInflow(game.empire, body, colony, game.galaxy);

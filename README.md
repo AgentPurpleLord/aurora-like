@@ -387,6 +387,24 @@ cannot be built. Role advice (a freighter wants a hold, a tanker mostly fuel) is
 as a warning only. *Suggest* offers an unused class name, and an unclassed design offers
 the hull that fits. Classes made before hulls existed stay unclassed, with no limits.
 
+## Money and stability
+
+Wealth now has consequences, managed from the **Finance** panel on the Empire screen.
+
+- **Tax rate** (30% is neutral). Income is taxes on output plus **trade**, which grows
+  with population and the number of colonies to trade with and shrinks under heavy taxes
+  or unrest, plus financial centres.
+- **Stability** (0-100, 70 neutral) is tracked per colony. Heavy taxes, debt and low
+  reserves pull it down; light taxes, **welfare** (a share of tax revenue) and a
+  comfortable treasury push it up. It drifts slowly towards its target.
+- Stability scales output (down to 60% in the worst unrest, slightly above 100% when
+  people are content) and population growth. Below 40 a colony is in unrest, below 20 it
+  riots; both raise an issue and a log entry.
+- **Debt** charges 6% a year in interest, halves industry and drags stability down.
+- **Programmes** spend the treasury: Industrial subsidy, Research grant, Mining
+  incentives, Settlement drive (each +25-40% for three years) and Public festival
+  (stability, two years). They cost most of a year's takings and run as timed effects.
+
 ## Terraforming
 
 ![a terraforming programme](docs/terraforming.png)

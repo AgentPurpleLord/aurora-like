@@ -25,6 +25,8 @@ import { componentStats, normaliseParams, suggestName, SURVEY_POINTS_NEEDED } fr
 import { maintainShips, servicingCapacity } from "../src/sim/ships/maintenance";
 import { statsFor } from "../src/sim/research/techs";
 import { classTitle } from "../src/sim/ships/hulls";
+import { buyProgramme, programmeCost, moraleFactor } from "../src/sim/economy/finance";
+import { budgetOf } from "../src/sim/economy/budget";
 import type { Empire } from "../src/state/empire";
 import { Galaxy } from "../src/sim/galaxy";
 import { optionsFor, resolveEvent, rollEvent } from "../src/sim/events/engine";
@@ -1504,7 +1506,7 @@ console.log("");
 
   for (let i = 0; i < 14; i++) g.step(CYCLE_DAYS * SECONDS_PER_DAY);
   assert("effects end when their time is up", e.effects.length === 0);
-  check("and output returns to normal", colonyOutput(e, body, earth, e.stats).buildPoints / baseline.buildPoints, 1, 1e-9);
+  check("and output returns to normal", colonyOutput(e, body, earth, e.stats).buildPoints / baseline.buildPoints, 1, 0.01);  // stability drifts a little with the treasury
   assert("the end of an effect is logged", e.log.some((l) => /Work-to-rule on Earth has ended/.test(l.text)));
 
   // --- an epidemic ignored always has an aftermath
@@ -1721,6 +1723,53 @@ console.log("");
     assert("an unclassed design has no hull problems", he.statsOf(unclassed.id)!.problems.length === 0);
     assert("class titles read 'Hauler-class Freighter'", classTitle(hauler) === "Hauler-class Freighter");
     assert("hull id survives export", JSON.stringify(he.exportState()).includes('"hullId":"freighter"'));
+  }
+
+  // --- money has consequences
+  {
+    const fg = new Game("finance");
+    const fe = fg.empire;
+    const earthBody = fg.galaxy.byId.get("earth")!;
+    const earthColony = fe.colony("earth")!;
+    const base = colonyOutput(fe, earthBody, earthColony, fe.stats);
+    assert("neutral taxes give at least the familiar 2.5 per million", base.taxes / earthColony.population >= 2.5);
+    fe.taxRate = 0.5;
+    const heavy = colonyOutput(fe, earthBody, earthColony, fe.stats);
+    assert("heavier taxes raise tax income", heavy.taxes > base.taxes * 1.6);
+    assert("but cut commerce", heavy.trade < base.trade);
+    for (let i = 0; i < 400; i++) fg.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    assert("and wear stability down", earthColony.stability < 60);
+    const after = colonyOutput(fe, earthBody, earthColony, fe.stats);
+    const unrest = earthColony.stability;
+    earthColony.stability = 70;
+    const calm = colonyOutput(fe, earthBody, earthColony, fe.stats);
+    earthColony.stability = unrest;
+    assert("unhappy colonies work less", after.buildPoints < calm.buildPoints * 0.97);
+    assert("and grow slower", after.populationGrowth < base.populationGrowth);
+    check("morale is 1 at neutral", moraleFactor(70), 1, 1e-9);
+    fe.taxRate = 0.1;
+    fe.welfare = 0.1;
+    for (let i = 0; i < 600; i++) fg.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    assert("light taxes and welfare make people content", earthColony.stability > 85);
+    fe.welfare = 0;
+    fe.taxRate = 0.3;
+    // programmes
+    fe.treasury = 0;
+    assert("a programme needs money", buyProgramme(fe, "industrial-subsidy", fg.clock.seconds) !== null);
+    fe.treasury = programmeCost(fe.snapshot.income) + 50;
+    const before = colonyOutput(fe, earthBody, earthColony, fe.stats).buildPoints;
+    assert("a funded programme starts", buyProgramme(fe, "industrial-subsidy", fg.clock.seconds) === null);
+    check("and lifts output by a quarter", colonyOutput(fe, earthBody, earthColony, fe.stats).buildPoints / before, 1.25, 1e-9);
+    assert("it cannot be bought twice", buyProgramme(fe, "industrial-subsidy", fg.clock.seconds) !== null);
+    // debt
+    fe.treasury = -5000;
+    const debt = budgetOf(fe, fg.galaxy);
+    assert("debt costs interest", debt.interest > 0);
+    // save round trip
+    fe.taxRate = 0.42;
+    const reloaded = gameFromSave(parseSave(JSON.stringify(makeSave(fg))));
+    check("tax rate survives a save", reloaded.empire.taxRate, 0.42, 1e-9);
+    assert("so does stability", reloaded.empire.colony("earth")!.stability === earthColony.stability);
   }
 }
 

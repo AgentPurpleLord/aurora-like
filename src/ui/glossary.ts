@@ -53,6 +53,9 @@ export const GLOSSARY: Record<string, string> = {
     "A stand-in for freighters: installations built for another colony arrive by themselves and colonists migrate from the capital.",
   "Laboratories": "Research laboratories working, against the number built.",
   "Scientists free": "Scientists not currently leading a project.",
+  "Stability":
+    "How content the people are, 0 to 100 (70 is neutral). Heavy taxes lower it; welfare, reserves and light taxes raise it; debt crushes it. Below 40 output and growth fall, below 20 there are riots.",
+  "Tax rate": "Share of the colonies' taxable output the government takes. Higher is richer now but unhappier, and strangles trade.",
   "Treasury": "Wealth in hand. A deficit halves industrial output.",
 };
 

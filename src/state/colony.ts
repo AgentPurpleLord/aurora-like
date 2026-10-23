@@ -42,6 +42,8 @@ export interface Colony {
   /** What the governor posted here is allowed to propose. */
   policy: GovernorPolicy;
   founded: number;
+  /** How content the people are, 0 to 100. 70 is neutral. */
+  stability: number;
 }
 
 export function emptyStockpile(): Record<MineralName, number> {
@@ -63,6 +65,7 @@ export function createColony(bodyId: string, founded: number): Colony {
     massDriverTarget: null,
     policy: "none",
     founded,
+    stability: 70,
   };
 }
 

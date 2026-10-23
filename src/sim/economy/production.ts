@@ -37,12 +37,14 @@ import {
 } from "../atmosphere";
 import { bonus, fullName, labCapacity } from "../people/officers";
 import { evaluateStandingOrders } from "./standingOrders";
+import {
+  DEBT_INTEREST, GDP_PER_MILLION, RIOTS_BELOW, STABILITY_DRIFT, TRADE_PER_MILLION, UNREST_BELOW,
+  connectionFactor, growthFactor, moraleFactor, stabilityTarget, tradeFactor,
+} from "./finance";
 
 /** Length of one production cycle, in days. */
 export const CYCLE_DAYS = 5;
 
-/** Wealth generated per million population per year. */
-const TAX_PER_MILLION = 2.5;
 const WEALTH_PER_FINANCIAL_CENTRE = 25;
 const WEALTH_PER_BUILD_POINT = 1;
 const WEALTH_PER_RESEARCH_POINT = 1;
@@ -105,6 +107,11 @@ export interface ColonyOutput {
   mining: Partial<Record<MineralName, number>>;
   fuel: number;
   wealth: number;
+  /** The parts of wealth: tax on output, commerce, and financial centres. */
+  taxes: number;
+  trade: number;
+  centres: number;
+  stability: number;
   /** Annual population change in millions. */
   populationGrowth: number;
   capacity: number;
@@ -122,7 +129,8 @@ export function colonyOutput(
 ): ColonyOutput {
   const employment = employmentRatio(colony);
   const governor = empire.governorOf(colony.bodyId);
-  const industry = empire.austerity ? 0.5 : 1;
+  const industry = (empire.austerity ? 0.5 : 1) * moraleFactor(colony.stability);
+  const morale = moraleFactor(colony.stability);
 
   const buildPoints =
     installationCount(colony, "construction-factory") *
@@ -132,7 +140,7 @@ export function colonyOutput(
     industry *
     empire.effectFactor("industry", colony.bodyId);
 
-  const mines = effectiveMines(colony, employment) * empire.effectFactor("mining", colony.bodyId);
+  const mines = effectiveMines(colony, employment) * empire.effectFactor("mining", colony.bodyId) * morale;
   const mining: Partial<Record<MineralName, number>> = {};
   for (const deposit of body.minerals) {
     if (deposit.amount <= 0) continue;
@@ -141,24 +149,31 @@ export function colonyOutput(
   }
 
   const refineries = installationCount(colony, "fuel-refinery") * employment;
-  const fuel = refineries * stats.fuelPerRefinery * empire.effectFactor("fuel", colony.bodyId);
+  const fuel = refineries * stats.fuelPerRefinery * empire.effectFactor("fuel", colony.bodyId) * morale;
 
   const researchPoints = empire.projects
     .filter((p) => p.colonyId === colony.bodyId)
     .reduce((sum, p) => {
       const scientist = empire.officers.get(p.scientistId ?? undefined);
       return sum + p.labs * stats.researchRate * employment * (1 + bonus(scientist, "research"));
-    }, 0) * empire.effectFactor("research", colony.bodyId);
+    }, 0) * empire.effectFactor("research", colony.bodyId) * morale;
 
-  const wealth =
-    (colony.population * TAX_PER_MILLION * (1 + stats.wealthBonus + bonus(governor, "wealth")) +
-      installationCount(colony, "financial-centre") * WEALTH_PER_FINANCIAL_CENTRE) *
+  const wealthFactor = (1 + stats.wealthBonus + bonus(governor, "wealth")) * empire.effectFactor("wealth", colony.bodyId);
+  let populated = 0;
+  for (const c of empire.colonies.values()) if (c.population > 0.1) populated++;
+  const taxes = colony.population * GDP_PER_MILLION * empire.taxRate * wealthFactor;
+  const trade =
+    colony.population * TRADE_PER_MILLION * connectionFactor(populated) *
+    tradeFactor(empire.taxRate, colony.stability) * wealthFactor;
+  const centres =
+    installationCount(colony, "financial-centre") * WEALTH_PER_FINANCIAL_CENTRE *
     empire.effectFactor("wealth", colony.bodyId);
+  const wealth = taxes + trade + centres;
 
   const capacity = populationCapacity(body, colony, stats);
   const growthRate =
     BASE_GROWTH * (1 + stats.popGrowthBonus + bonus(governor, "populationGrowth")) *
-    empire.effectFactor("growth", colony.bodyId);
+    empire.effectFactor("growth", colony.bodyId) * growthFactor(colony.stability);
   const populationGrowth =
     capacity <= 0
       ? colony.population > 0 ? -colony.population * 0.05 : 0
@@ -174,6 +189,10 @@ export function colonyOutput(
     mining,
     fuel,
     wealth,
+    taxes,
+    trade,
+    centres,
+    stability: colony.stability,
     populationGrowth,
     capacity,
   };
@@ -219,6 +238,7 @@ export function runCycle(empire: Empire, system: Galaxy, now: number, days: numb
   let researchPoints = 0;
   let fuelProduced = 0;
   let population = 0;
+  let taxes = 0;
   const minerals: Partial<Record<MineralName, number>> = {};
 
   for (const colony of empire.colonies.values()) {
@@ -266,8 +286,25 @@ export function runCycle(empire: Empire, system: Galaxy, now: number, days: numb
 
     // --- wealth
     income += output.wealth;
-    expenses += totalUpkeep(colony) ;
+    taxes += output.taxes;
+    expenses += totalUpkeep(colony);
+
+    // --- stability drifts towards what taxes, welfare and the treasury call for
+    const before = colony.stability;
+    const { target } = stabilityTarget({
+      taxRate: empire.taxRate,
+      welfare: empire.welfare,
+      treasury: empire.treasury,
+      expenses: empire.snapshot.expenses,
+      effect: empire.effectFactor("stability", colony.bodyId),
+    });
+    colony.stability = before + (target - before) * Math.min(1, STABILITY_DRIFT * year);
+    announceMood(empire, body.name, colony.bodyId, before, colony.stability, now);
   }
+
+  // Welfare is paid out of tax revenue; debts cost interest.
+  expenses += taxes * empire.welfare;
+  if (empire.treasury < 0) expenses += -empire.treasury * DEBT_INTEREST;
 
   migrate(empire, system, year);
 
@@ -497,6 +534,18 @@ function runTerraforming(
   }
   if (before > 0 && body.colonyCost <= 0) {
     empire.addLog(now, "colony", `${body.name} has been terraformed to colony cost 0.00.`, { view: "colonies", bodyId: body.id });
+  }
+}
+
+/** Tell the player when a colony slides into unrest, or recovers from it. */
+function announceMood(empire: Empire, name: string, bodyId: string, before: number, after: number, now: number): void {
+  const link = { view: "colonies" as const, bodyId };
+  if (before >= RIOTS_BELOW && after < RIOTS_BELOW) {
+    empire.addLog(now, "colony", `Riots on ${name}. Output and growth are badly hit; lower taxes or fund welfare.`, link);
+  } else if (before >= UNREST_BELOW && after < UNREST_BELOW) {
+    empire.addLog(now, "colony", `Unrest on ${name}: the people are unhappy with the government.`, link);
+  } else if (before < UNREST_BELOW && after >= UNREST_BELOW) {
+    empire.addLog(now, "colony", `${name} has calmed down.`, link);
   }
 }
 

@@ -120,7 +120,7 @@ export interface ReviewMark {
 }
 
 /** What a timed effect changes. */
-export type EffectKind = "industry" | "mining" | "fuel" | "research" | "wealth" | "growth";
+export type EffectKind = "industry" | "mining" | "fuel" | "research" | "wealth" | "growth" | "stability";
 
 /**
  * A lasting change, applied as a multiplier for a while: a work-to-rule at one
@@ -161,6 +161,8 @@ export interface EmpireState {
   snapshot: EmpireSnapshot;
   capital: string;
   austerity: boolean;
+  taxRate?: number;
+  welfare?: number;
   dismissed: [string, number][];
   standingOrders: StandingOrder[];
   componentDesigns: ComponentDesign[];
@@ -207,6 +209,10 @@ export class Empire {
   capital = "earth";
   /** Set when the treasury is in deficit; halves industrial output. */
   austerity = false;
+  /** Share of taxable output the government takes. 0.3 is neutral. */
+  taxRate = 0.3;
+  /** Share of tax revenue spent on public welfare, which buys stability. */
+  welfare = 0;
   /** Issue id -> simulation time at which the dismissal lapses. */
   readonly dismissed = new Map<string, number>();
   /** Rules that top colonies up without being asked each time. */
@@ -851,6 +857,8 @@ export class Empire {
       snapshot: this.snapshot,
       capital: this.capital,
       austerity: this.austerity,
+      taxRate: this.taxRate,
+      welfare: this.welfare,
       dismissed: [...this.dismissed],
       standingOrders: this.standingOrders,
       componentDesigns: this.componentDesigns,
@@ -905,6 +913,8 @@ export class Empire {
     this.snapshot = { ...emptySnapshot(), ...data.snapshot };
     this.capital = data.capital;
     this.austerity = data.austerity;
+    this.taxRate = data.taxRate ?? 0.3;
+    this.welfare = data.welfare ?? 0;
     this.dismissed.clear();
     for (const [id, until] of data.dismissed) this.dismissed.set(id, until);
     this.standingOrders = data.standingOrders;
@@ -924,7 +934,10 @@ export class Empire {
     this.reviewMark = Object.assign({ time: 0, seq: 0, treasury: 0, population: 0, techs: 0, colonies: 0, ships: 0 }, data.reviewMark);
 
     this.colonies.clear();
-    for (const colony of data.colonies) this.colonies.set(colony.bodyId, colony);
+    for (const colony of data.colonies) {
+      colony.stability ??= 70;
+      this.colonies.set(colony.bodyId, colony);
+    }
     this.ships.clear();
     for (const ship of data.ships) this.ships.set(ship.id, Object.assign({ condition: 100 }, ship));
     this.fleets.clear();

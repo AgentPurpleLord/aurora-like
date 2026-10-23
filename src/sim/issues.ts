@@ -69,7 +69,19 @@ export function deriveIssues(empire: Empire, system: Galaxy): Issue[] {
       id: "treasury:deficit",
       severity: "critical",
       title: "Treasury in deficit",
-      detail: `Balance ${Math.round(empire.treasury).toLocaleString()}. Industrial output is halved until it recovers.`,
+      detail: `Balance ${Math.round(empire.treasury).toLocaleString()}. Industry is halved, interest accrues and stability suffers until it recovers.`,
+      action: { label: "Review economy", view: "empire" },
+    });
+  }
+
+  for (const colony of empire.colonies.values()) {
+    if (colony.population <= 0.1 || colony.stability >= 40) continue;
+    const name = system.byId.get(colony.bodyId)?.name ?? colony.bodyId;
+    add({
+      id: `unrest:${colony.bodyId}`,
+      severity: colony.stability < 20 ? "critical" : "warning",
+      title: `${colony.stability < 20 ? "Riots" : "Unrest"} on ${name}`,
+      detail: `Stability ${Math.round(colony.stability)}. Output and growth are reduced. Lower taxes, fund welfare or hold a festival.`,
       action: { label: "Review economy", view: "empire" },
     });
   }

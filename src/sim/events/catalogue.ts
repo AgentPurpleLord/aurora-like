@@ -43,7 +43,7 @@ function destroy(colony: Colony, id: string, count: number): number {
 }
 
 const KIND_TEXT: Record<EffectKind, string> = {
-  industry: "Industry", mining: "Mining", fuel: "Fuel production", research: "Research", wealth: "Income", growth: "Population growth",
+  industry: "Industry", mining: "Mining", fuel: "Fuel production", research: "Research", wealth: "Income", growth: "Population growth", stability: "Stability",
 };
 const span = (days: number) => (days >= 330 ? `${Math.round(days / 365 * 10) / 10} years` : days >= 45 ? `${Math.round(days / 30)} months` : `${days} days`);
 const pct = (factor: number) => `${factor >= 1 ? "+" : "-"}${Math.round(Math.abs(factor - 1) * 100)}%`;
