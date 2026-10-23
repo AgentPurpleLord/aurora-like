@@ -557,40 +557,33 @@ their family. Flat lists (Ready now, Researched, search) show the sub-field unde
 matches sub-field names. A tech declares its sub-field with `branch`; techs that do not are placed by
 `src/sim/research/branches.ts`, which also sets the order.
 
-## Engines and power systems
+## Engines, speed and fuel
 
-The propulsion tree follows `src/sim/research/propusion-power-techs.ts`, which is the specification;
-`ships/engines.ts` turns it into numbers and `research/propulsion.ts` into technologies.
+Ship movement uses Aurora's formula:
 
-- **Six engine families**, researched in tiers: Chemical Rockets (5), Electric Drives (5), Nuclear
-  Thermal (4), Nuclear Electric (4), Fusion (5), Antimatter (4). Each tier is its own engine type in
-  the component designer. Costs are the ones in the specification.
-- **Baseline density** is thrust per hull space against a chemical rocket's 12 (electric 0.5x, nuclear
-  thermal 2x, nuclear electric 1.5x, fusion 4x, antimatter 8x). **Fuel efficiency** is how many times
-  further a litre goes than a chemical rocket's, rising across a family's tiers (electric 3-10x,
-  nuclear thermal 1.8-3x, nuclear electric 5-15x, fusion 10-30x, antimatter 20-50x).
-- **Order of unlocking:** electric drives need a chemical fuel cell; nuclear thermal follows
-  Pressure-fed Liquid; nuclear electric needs Resistojet and the first nuclear reactor; fusion needs all
-  of nuclear electric; antimatter needs all of fusion. Where the specification was silent, that is my reading.
-- **Power systems** (chemical, nuclear, fusion, antimatter) unlock one after another and give the
-  new **Reactor** component, which makes the stated power output per hull space. **Electric Drives
-  draw 1.0 power per hull space and Nuclear Electric 0.6** (times the power modifier); a ship whose engines draw more
-  than its reactors make is refused. Other families need no reactor. Standard parts use the best
-  engine that needs none.
+    speed (km/s) = total engine power / total ship hull spaces x 1000
+
+with 1 hull space = 50 tons. An engine's power is its size in hull spaces x the power per hull space of
+its technology x the power modifier, so a ship is as fast as the share of it that is engine, and a
+better engine makes the same share faster. A hull space of fuel tank holds 50,000 litres.
+
+- **Engine line** (15 technologies, each simply more power per hull space): Conventional Engine 0.2,
+  Nuclear Thermal 5, Improved Nuclear Thermal 6.4, Nuclear Pulse 8, Improved Nuclear Pulse 10, Ion 12.5,
+  Magneto-Plasma 16, Internal / Magnetic / Inertial Confinement Fusion 20 / 25 / 32, Solid / Gas /
+  Plasma / Beam Core Anti-matter 40 / 50 / 60 / 80, and Photonic 100. They sit in three sub-fields
+  (Conventional & Nuclear, Ion & Fusion, Antimatter & Photonic). Research costs are mine: the
+  specification gave none for this list. Newer engines also burn less fuel per unit of power
+  (60 litres per power-hour for a conventional engine down to 3 for a photonic drive).
+- A standard Hauler (two 5-hull-space engines in 114 hull spaces) does about 17 km/s on conventional
+  engines, 440 km/s on nuclear thermal and 1,100 km/s on ion; its range is 3.5, 5 and 10 AU. Engine-heavy
+  designs go much faster, which is the point of the designer.
 - **Secondary branches**, each opening once an engine exists: *Engine Size* (the largest single engine,
-  20 hull spaces at first, up to 400), *Maximum Engine Power Modifier* (1.25x to 3.0x),
-  *Miniaturisation* (engines take 0.4x down to 0.1x the hull space for the same thrust, ships already
-  built included) and *Fuel Efficiency* (12 tiers, 0.9x down to 0.1x fuel burned).
-- The old Nuclear Thermal / Pulse / Ion / Magneto-Plasma line and its fuel and modifier techs are gone.
-  Other techs that hung from them (military specification, jump point theory, fuel tank linings) now
-  hang from the new engines.
-
-## Ship speed and fuel
-
-Ships are much slower than they were: engine power now gives 15% of the old speed, and fuel burn
-is tuned so a plain hauler on a chemical Solid Motor manages about 160 km/s and a range of about
-3 AU - days to a neighbouring world, most of a year to cross the system. Better engines (and
-fuel-consumption and tank techs) are what extend the reach.
+  20 hull spaces at first, up to 400), *Power Modifier* (1.25x to 3.0x), *Miniaturisation* (engines take
+  0.4x down to 0.1x the hull space for the same thrust, ships already built included, so ships get
+  faster) and *Fuel Efficiency* (12 tiers, 0.9x down to 0.1x fuel burned).
+- **Power systems** (chemical, nuclear, fusion, antimatter; from `propusion-power-techs.ts`) give the
+  **Reactor** component. Nothing aboard draws power yet, so reactors are there for weapons and shields.
+- Not modelled from Aurora's list: maintenance supply points (1 MSP = 2.5 tons, 20 per hull space).
 
 ## Terraforming
 

@@ -264,7 +264,7 @@ async function shipSuite(browser) {
   console.log("\nResearch, designers and fleets (1680x980)");
   const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
   const errors = watchErrors(page);
-  await page.goto(URL, { waitUntil: "networkidle" });
+  await page.goto(`${URL}&debug`, { waitUntil: "networkidle" });
   await page.waitForTimeout(700);
   const skip = async (times) => {
     for (let i = 0; i < times; i++) {
@@ -284,35 +284,35 @@ async function shipSuite(browser) {
 
   await page.getByRole("button", { name: /^Propulsion/ }).click();
   await check("technology that is not available yet is hidden by default", async () =>
-    (await page.locator(".tech-node", { hasText: "Pressure-fed Liquid" }).count()) === 0 &&
-    (await page.locator(".tech-node", { hasText: "Solid Motor" }).count()) === 1);
+    (await page.locator(".tech-node", { hasText: "Ion Engine" }).count()) === 0 &&
+    (await page.locator(".tech-node", { hasText: "Conventional Engine" }).count()) === 1);
   await check("and the field tab only counts what is shown", async () =>
     /\d+\/\d+/.test(await page.locator(".research-tab", { hasText: "Propulsion" }).innerText()));
   await page.getByLabel("Show locked technologies").check();
   await check("ticking the box reveals the whole tree", async () =>
-    (await page.locator(".tech-node", { hasText: "Pressure-fed Liquid" }).count()) === 1);
-  await page.locator(".tech-node", { hasText: "Pressure-fed Liquid" }).first().click();
+    (await page.locator(".tech-node", { hasText: "Ion Engine" }).count()) === 1);
+  await page.locator(".tech-node", { hasText: "Ion Engine" }).first().click();
   await check("technologies sit under their own sub-field headings", async () =>
-    (await page.locator(".branch-head", { hasText: "Chemical Rockets" }).count()) === 1 &&
-    (await page.locator(".branch-head", { hasText: "Fusion" }).count()) >= 1);
+    (await page.locator(".branch-head", { hasText: "Conventional & Nuclear" }).count()) === 1 &&
+    (await page.locator(".branch-head", { hasText: "Ion & Fusion" }).count()) >= 1);
   await check("and the tech names carry no family prefix", async () =>
-    (await page.locator(".tech-node .node-name", { hasText: "Chemical Rockets:" }).count()) === 0);
-  await page.getByRole("button", { name: "Sub-field Electric Drives" }).click();
+    (await page.locator(".tech-node .node-name", { hasText: "Conventional & Nuclear:" }).count()) === 0);
+  await page.getByRole("button", { name: "Sub-field Ion & Fusion" }).click();
   await check("a sub-field chip shows just that sub-field", async () =>
-    (await page.locator(".branch").count()) === 1 && /resistojet/i.test(await page.locator(".branch").innerText()));
+    (await page.locator(".branch").count()) === 1 && /magneto-plasma/i.test(await page.locator(".branch").innerText()));
   await page.getByRole("button", { name: /^Sub-field All/ }).click();
-  await page.locator(".branch-head", { hasText: "Chemical Rockets" }).click();
+  await page.locator(".branch-head", { hasText: "Conventional & Nuclear" }).click();
   await check("a sub-field can be folded away", async () =>
-    (await page.locator(".branch", { hasText: "Chemical Rockets" }).locator(".tech-node").count()) === 0);
-  await page.locator(".branch-head", { hasText: "Chemical Rockets" }).click();
-  await page.locator(".tech-node", { hasText: "Pressure-fed Liquid" }).first().click();
+    (await page.locator(".branch", { hasText: "Conventional & Nuclear" }).locator(".tech-node").count()) === 0);
+  await page.locator(".branch-head", { hasText: "Conventional & Nuclear" }).click();
+  await page.locator(".tech-node", { hasText: "Ion Engine" }).first().click();
   await check("a locked technology says what to research first", async () =>
-    /Research Solid Motor first/.test(await page.locator(".research-side").innerText()));
+    /Research Improved Nuclear Pulse Engine \(Conventional & Nuclear\) first/.test(await page.locator(".research-side").innerText()));
   await check("selecting a technology highlights what it needs", async () =>
     (await page.locator(".tech-node.is-prereq").count()) === 1);
   await check("and what it opens", async () =>
     (await page.locator(".tech-node.is-dependent").count()) >= 1);
-  await page.locator(".tech-node", { hasText: "Solid Motor" }).first().click();
+  await page.locator(".tech-node", { hasText: "Conventional Engine" }).first().click();
   await check("a technology says what it unlocks", async () =>
     /engines in the component designer/.test(await page.locator(".research-side").innerText()));
   await check("a ready technology offers a recommended start", async () =>
@@ -327,14 +327,15 @@ async function shipSuite(browser) {
     (await page.locator("#view-design select").first().locator("option", { hasText: "Engine (locked)" }).count()) === 1);
   await page.locator("#view-design select").first().selectOption("engine");
   await check("choosing a locked kind says what to research", async () =>
-    /Research Chemical Rockets/.test(await page.locator("#view-design .fleet-detail").innerText()));
+    /Research the Conventional Engine/.test(await page.locator("#view-design .fleet-detail").innerText()));
 
   // --- research the drive in one click
-  await startResearch(page, "Solid Motor", { freeUp: true });
+  await startResearch(page, "Conventional Engine", { freeUp: true });
   await skip(14);
+  await page.evaluate(() => { window.__game.empire.research("nuclear-thermal"); window.__game.emit(); });
   await check("the engine is researched", async () => {
-    await page.locator(".research-search").fill("Solid Motor");
-    return /Researched/.test(await page.locator(".tech-node", { hasText: "Solid Motor" }).first().innerText());
+    await page.locator(".research-search").fill("Conventional Engine");
+    return /Researched/.test(await page.locator(".tech-node", { hasText: "Conventional Engine" }).first().innerText());
   });
 
   // --- the component designer
@@ -348,14 +349,14 @@ async function shipSuite(browser) {
   await page.waitForTimeout(150);
   const derived = () => page.locator("#view-design .derived-host").innerText();
   await check("a new engine starts at modifier 1.0", async () =>
-    /Power\s+60\.0/.test(await derived()));
+    /Power\s+25\.0/.test(await derived()));
   const modifier = page.locator("#view-design .field-row", { hasText: "Power modifier" }).locator(".number-input");
   await modifier.fill("0.5");
   await modifier.press("Enter");
   await page.waitForTimeout(150);
-  await check("halving the modifier halves the power", async () => /Power\s+30\.0/.test(await derived()));
+  await check("halving the modifier halves the power", async () => /Power\s+12\.5/.test(await derived()));
   await check("and cuts fuel per unit of power to a quarter", async () =>
-    /Fuel per power-hour\s+0\.5[23]/.test(await derived()));
+    /Fuel per power-hour\s+10\.0/.test(await derived()));
   await check("the name follows the parameters", async () =>
     (await page.locator("#view-design .name-input").inputValue()).includes("x0.50"));
   await page.getByRole("button", { name: "Create component", exact: true }).click();
@@ -394,7 +395,7 @@ async function shipSuite(browser) {
     const row = page.locator("#view-design .component-row", { hasText: name }).first();
     for (let i = 0; i < times; i++) await row.getByRole("button", { name: "+", exact: true }).click();
   };
-  await addPart("Chemical Rockets: Solid Motor 5HS", 2);
+  await addPart("Nuclear Thermal Engine 5HS", 2);
   await addPart("Fuel Tank 5HS", 4);
   await addPart("Cargo Hold 20HS", 4);
   const classDerived = () => page.locator("#view-design .derived-host").innerText();
@@ -407,7 +408,7 @@ async function shipSuite(browser) {
   // 120 power over 5,600 t (112 hull spaces): the one-click fix adds a single
   // 100 t quarters, not the two the standard Hauler carries.
   await check("the class reports its speed from its parts", async () =>
-    /Speed\s+161 km\/s/.test(await classDerived()));
+    /Speed\s+446 km\/s/.test(await classDerived()));
   await page.getByRole("button", { name: "Create class", exact: true }).click();
   await page.waitForTimeout(200);
   await check("the class is saved", async () =>
@@ -415,7 +416,7 @@ async function shipSuite(browser) {
 
   // A component already built into a class cannot be rewritten.
   await page.getByRole("button", { name: /Components/ }).click();
-  await page.locator("#view-design .design-row", { hasText: "Chemical Rockets: Solid Motor 5HS" }).first().click();
+  await page.locator("#view-design .design-row", { hasText: "Nuclear Thermal Engine 5HS" }).first().click();
   await check("a component in use is superseded, not edited", async () =>
     /superseded rather than rewritten/.test(await page.locator("#view-design .fleet-detail").innerText()));
 
@@ -671,10 +672,10 @@ async function programSuite(browser) {
   await page.evaluate(() => {
     const g = window.__game;
     const e = g.empire;
-    e.research("solid-motor");
+    e.research("nuclear-thermal");
     e.research("geo-survey-sensors");
     const part = (kind, params) => e.addComponentDesign(kind, params, 0);
-    const engine = part("engine", { type: "solid-motor", size: 5, modifier: 1 });
+    const engine = part("engine", { type: "nuclear-thermal", size: 5, modifier: 1 });
     const tank = part("fuel-tank", { size: 5 });
     const quarters = part("crew-quarters", { size: 2 });
     const cargo = part("cargo-hold", { size: 20 });
@@ -833,9 +834,9 @@ async function explorationSuite(browser) {
   await page.evaluate(() => {
     const g = window.__game;
     const e = g.empire;
-    for (const t of ["solid-motor", "geo-survey-sensors", "grav-survey-sensors", "nuclear-pulse", "jump-point-theory", "jump-gate-construction"]) e.research(t);
+    for (const t of ["nuclear-thermal", "geo-survey-sensors", "grav-survey-sensors", "nuclear-pulse", "jump-point-theory", "jump-gate-construction"]) e.research(t);
     const mk = (kind, params) => e.addComponentDesign(kind, params, 0);
-    const engine = mk("engine", { type: "solid-motor", size: 5, modifier: 1 });
+    const engine = mk("engine", { type: "nuclear-thermal", size: 5, modifier: 1 });
     const tank = mk("fuel-tank", { size: 5 });
     const quarters = mk("crew-quarters", { size: 2 });
     const drive = mk("jump-drive", { size: 30 });
@@ -1077,7 +1078,7 @@ async function maintenanceSuite(browser) {
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.goto(`${BASE}?debug&new&seed=sol-1&events=off`);
   await page.waitForSelector("#view-tabs");
-  await page.evaluate(() => { window.__game.empire.research("solid-motor"); window.__game.emit(); });
+  await page.evaluate(() => { window.__game.empire.research("nuclear-thermal"); window.__game.emit(); });
 
   await nav(page, "Design").click();
   await page.getByRole("button", { name: "New component", exact: true }).click();
@@ -1098,10 +1099,10 @@ async function maintenanceSuite(browser) {
   await check("researching it offers the military specification", async () =>
     (await spec2.locator("option").count()) === 2);
   const derived = () => page.locator("#view-design .derived-host").innerText();
-  await check("a commercial 5 HS engine makes 60 power", async () => /Power\s+60\.0/.test(await derived()));
+  await check("a commercial 5 HS engine makes 25 power", async () => /Power\s+25\.0/.test(await derived()));
   await spec2.selectOption("military");
   await page.waitForTimeout(150);
-  await check("a military one makes 78", async () => /Power\s+78\.0/.test(await derived()));
+  await check("a military one makes 32.5", async () => /Power\s+32\.5/.test(await derived()));
   await check("is marked and described as hard on maintenance", async () =>
     /Military/.test(await derived()) && /hard on maintenance/.test(await derived()));
   await check("and is named as military", async () =>
@@ -1239,7 +1240,7 @@ async function mobileSuite(browser) {
   await mobileGo(page, "Design");
   await page.waitForTimeout(400);
   await check("the designer does not scroll sideways", async () => (await overflow()) <= 1);
-  await page.evaluate(() => { window.__game.empire.research("solid-motor"); window.__game.empire.addStandardComponents(0); window.__game.empire.addStandardClasses(0); window.__game.emit(); });
+  await page.evaluate(() => { window.__game.empire.research("nuclear-thermal"); window.__game.empire.addStandardComponents(0); window.__game.empire.addStandardClasses(0); window.__game.emit(); });
   await page.waitForTimeout(300);
   const visibleRow = async (sel) => page.evaluate((s) => {
     const row = document.querySelector(s);
@@ -1466,7 +1467,7 @@ async function buildSuite(browser) {
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.goto(`${BASE}?debug&new&seed=sol-1&events=off`);
   await page.waitForSelector("#view-tabs");
-  await page.evaluate(() => { const e = window.__game.empire; e.research("solid-motor"); e.addStandardComponents(0); e.addStandardClasses(0); window.__game.emit(); });
+  await page.evaluate(() => { const e = window.__game.empire; e.research("nuclear-thermal"); e.addStandardComponents(0); e.addStandardClasses(0); window.__game.emit(); });
 
   // --- the designer draws the hull filling up
   await nav(page, "Design").click();

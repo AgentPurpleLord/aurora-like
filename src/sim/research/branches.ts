@@ -77,7 +77,7 @@ const RULES: Record<ResearchField, Rule[]> = {
 export const FIELD_BRANCHES: Record<ResearchField, string[]> = {
   construction: ["Foundations", "Mining", "Factories", "Laboratories", "Fuel Refining", "Mass Drivers", "Maintenance", "Terraforming", "Finance & Trade", "Administration", "Consumer Goods"],
   power: [
-    "Chemical Rockets", "Electric Drives", "Nuclear Thermal", "Nuclear Electric", "Fusion", "Antimatter",
+    "Conventional & Nuclear", "Ion & Fusion", "Antimatter & Photonic",
     "Chemical Power", "Nuclear Power", "Fusion Power", "Antimatter Power",
     "Engine Size", "Power Modifier", "Miniaturisation", "Fuel Efficiency", "Jump Technology", "Ship Components",
   ],

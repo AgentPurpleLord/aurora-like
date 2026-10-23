@@ -47,9 +47,9 @@ export function deriveGoals(empire: Empire, system: Galaxy): Goal[] {
       id: "engine",
       title: "Research your first engine",
       detail:
-        "Nothing can leave Earth without a drive. Chemical Rockets: Solid Motor is the cheapest, and the research view will propose a scientist and laboratories in one click.",
+        "Nothing can leave Earth without a drive. The Conventional Engine is the cheapest, and the research view will propose a scientist and laboratories in one click.",
       done: engine,
-      action: { label: "Open research", link: { view: "research", techId: "solid-motor" } },
+      action: { label: "Open research", link: { view: "research", techId: "conventional-engine" } },
     },
     {
       id: "class",

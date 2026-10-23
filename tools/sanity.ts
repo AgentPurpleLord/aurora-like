@@ -24,7 +24,6 @@ import { effectiveColonyCost, shipyardCapacity } from "../src/sim/economy/produc
 import { componentStats, normaliseParams, suggestName, SURVEY_POINTS_NEEDED } from "../src/sim/ships/components";
 import { maintainShips, servicingCapacity } from "../src/sim/ships/maintenance";
 import { statsFor, TECHS, TECH_BY_ID } from "../src/sim/research/techs";
-import { SPEED_SCALE } from "../src/sim/ships/design";
 import { ENGINE_TYPES, REACTOR_TYPES } from "../src/sim/ships/engines";
 import { FIELD_BRANCHES } from "../src/sim/research/branches";
 import { branchesInField } from "../src/sim/research/graph";
@@ -631,9 +630,9 @@ console.log("");
   const earth = empire.colony("earth")!;
 
   // --- design arithmetic
-  empire.research("solid-motor");
+  empire.research("nuclear-thermal");
   const p = parts(empire);
-  const thermal = p.engine("solid-motor");
+  const thermal = p.engine("nuclear-thermal");
   const hauler = empire.addDesign("Hauler", [
     { componentId: thermal.id, count: 2 },
     { componentId: p.tank().id, count: 4 },
@@ -643,17 +642,17 @@ console.log("");
   const stats = empire.statsOf(hauler.id)!;
   check("design tonnage", stats.tons, 2 * 250 + 4 * 250 + 4 * 1000 + 2 * 100, 0);
   // Speed is engine power per hull space: 120 power, 5700 t = 114 HS.
-  check("design speed (km/s)", stats.speed, (120 * 1000 * SPEED_SCALE) / (5700 / 50), 1e-9);
-  check("design fuel capacity (litres)", stats.fuelCapacity, 200_000, 0);
+  check("design speed (km/s)", stats.speed, (25 * 2 * 1000) / (5700 / 50), 1e-9);
+  check("design fuel capacity (litres): 20 HS of tank at 50,000 each", stats.fuelCapacity, 1_000_000, 0);
   check("design cargo capacity (tons)", stats.cargoCapacity, 100_000, 0);
-  check("design crew required", stats.crewRequired, 2 * 3 + 4 * 2, 0);
+  check("design crew required", stats.crewRequired, 2 * 4 + 4 * 2, 0);
   assert("a complete design has no problems", stats.problems.length === 0);
 
   // --- standard classes use the standard parts, even after custom ones exist
   {
     const std = new Game("standard");
-    std.empire.research("solid-motor");
-    const customEngine = std.empire.addComponentDesign("engine", { type: "solid-motor", size: 8, modifier: 0.6 }, 0);
+    std.empire.research("nuclear-thermal");
+    const customEngine = std.empire.addComponentDesign("engine", { type: "nuclear-thermal", size: 8, modifier: 0.6 }, 0);
     const standardHauler = std.empire.addStandardClasses(0).find((d) => d.name === "Hauler")!;
     assert(
       "standard classes ignore a custom engine designed earlier",
@@ -663,10 +662,10 @@ console.log("");
   }
 
   // --- the component designer's arithmetic
-  const thermalStats = componentStats("engine", { type: "solid-motor", size: 5, modifier: 1 }, empire.researched);
-  check("engine power is size x type power x modifier", thermalStats.power ?? 0, 5 * 12, 1e-9);
-  const eco = componentStats("engine", { type: "solid-motor", size: 5, modifier: 0.5 }, empire.researched);
-  check("an eco-tuned engine makes half the power", eco.power ?? 0, 30, 1e-9);
+  const thermalStats = componentStats("engine", { type: "nuclear-thermal", size: 5, modifier: 1 }, empire.researched);
+  check("engine power is size x type power x modifier", thermalStats.power ?? 0, 5 * 5, 1e-9);
+  const eco = componentStats("engine", { type: "nuclear-thermal", size: 5, modifier: 0.5 }, empire.researched);
+  check("an eco-tuned engine makes half the power", eco.power ?? 0, 12.5, 1e-9);
   assert(
     "and burns far less fuel per unit of power",
     (eco.fuelPerHour! / eco.power!) < (thermalStats.fuelPerHour! / thermalStats.power!) / 3,
@@ -680,20 +679,20 @@ console.log("");
   assert("a tuned-down engine is cheaper to build", eco.cost < thermalStats.cost);
   check(
     "an overdriven modifier is clamped without the technology",
-    Number(normaliseParams("engine", { type: "solid-motor", size: 5, modifier: 1.25 }, empire.researched).modifier),
+    Number(normaliseParams("engine", { type: "nuclear-thermal", size: 5, modifier: 1.25 }, empire.researched).modifier),
     1.0,
     1e-9,
   );
   const withTuning = new Set([...empire.researched, "engine-power-125"]);
   check(
     "and allowed once engine power tuning is researched",
-    Number(normaliseParams("engine", { type: "solid-motor", size: 5, modifier: 1.25 }, withTuning).modifier),
+    Number(normaliseParams("engine", { type: "nuclear-thermal", size: 5, modifier: 1.25 }, withTuning).modifier),
     1.25,
     1e-9,
   );
   check(
     "a stepped parameter carries no float noise",
-    Number(normaliseParams("engine", { type: "solid-motor", size: 8, modifier: 0.6 }, empire.researched).modifier),
+    Number(normaliseParams("engine", { type: "nuclear-thermal", size: 8, modifier: 0.6 }, empire.researched).modifier),
     0.6,
     0,
   );
@@ -708,7 +707,7 @@ console.log("");
   assert("or deleted", !empire.removeComponentDesign(usedTank.id));
   const spare = empire.addComponentDesign("fuel-tank", { size: 7 }, 0);
   assert("an unused one can be edited", empire.updateComponentDesign(spare.id, "Big Tank", { size: 9 }));
-  check("and the edit is reflected in its figures", empire.resolveComponent(spare.id)!.stats.fuel ?? 0, 90_000, 0);
+  check("and the edit is reflected in its figures", empire.resolveComponent(spare.id)!.stats.fuel ?? 0, 450_000, 0);
   assert("and removed", empire.removeComponentDesign(spare.id));
 
   const unpowered = empire.addDesign("Hulk", [{ componentId: p.cargo().id, count: 1 }], 0);
@@ -716,7 +715,7 @@ console.log("");
     "a design with no engine is rejected",
     empire.statsOf(unpowered.id)!.problems.some((m) => m.includes("No engine")),
   );
-  const ion = p.engine("gridded-ion");
+  const ion = p.engine("ion-engine");
   const unresearched = empire.addDesign("Dreamer", [
     { componentId: ion.id, count: 1 },
     { componentId: p.quarters().id, count: 1 },
@@ -1016,11 +1015,11 @@ console.log("");
 {
   const original = new Game("persist");
   const e = original.empire;
-  e.research("solid-motor");
+  e.research("nuclear-thermal");
   e.research("geo-survey-sensors");
   const pp = parts(e);
   const ship = e.addDesign("Scout", [
-    { componentId: pp.engine("solid-motor").id, count: 1 },
+    { componentId: pp.engine("nuclear-thermal").id, count: 1 },
     { componentId: pp.tank().id, count: 2 },
     { componentId: pp.sensor().id, count: 1 },
     { componentId: pp.quarters().id, count: 1 },
@@ -1076,17 +1075,17 @@ console.log("");
 {
   const game = new Game("programmes");
   const e = game.empire;
-  e.research("solid-motor");
+  e.research("nuclear-thermal");
   e.research("geo-survey-sensors");
   const pp = parts(e);
   const scout = e.addDesign("Scout", [
-    { componentId: pp.engine("solid-motor").id, count: 2 },
+    { componentId: pp.engine("nuclear-thermal").id, count: 2 },
     { componentId: pp.tank().id, count: 6 },
     { componentId: pp.sensor().id, count: 2 },
     { componentId: pp.quarters().id, count: 1 },
   ], 0);
   const freighter = e.addDesign("Freighter", [
-    { componentId: pp.engine("solid-motor").id, count: 2 },
+    { componentId: pp.engine("nuclear-thermal").id, count: 2 },
     { componentId: pp.tank().id, count: 4 },
     { componentId: pp.cargo().id, count: 4 },
     { componentId: pp.quarters().id, count: 2 },
@@ -1114,11 +1113,11 @@ console.log("");
   // --- two fleets share the work
   const game2 = new Game("programmes-2");
   const e2 = game2.empire;
-  e2.research("solid-motor");
+  e2.research("nuclear-thermal");
   e2.research("geo-survey-sensors");
   const pp2 = parts(e2);
   const scout2 = e2.addDesign("Scout", [
-    { componentId: pp2.engine("solid-motor").id, count: 2 },
+    { componentId: pp2.engine("nuclear-thermal").id, count: 2 },
     { componentId: pp2.tank().id, count: 6 },
     { componentId: pp2.sensor().id, count: 2 },
     { componentId: pp2.quarters().id, count: 1 },
@@ -1263,7 +1262,7 @@ console.log("");
   // --- exploring, end to end
   const game = new Game("explore");
   const e = game.empire;
-  for (const tech of ["solid-motor", "geo-survey-sensors", "grav-survey-sensors", "nuclear-pulse", "jump-point-theory", "jump-gate-construction"]) {
+  for (const tech of ["nuclear-thermal", "geo-survey-sensors", "grav-survey-sensors", "nuclear-pulse", "jump-point-theory", "jump-gate-construction"]) {
     e.research(tech);
   }
   const pp = parts(e);
@@ -1271,7 +1270,7 @@ console.log("");
   const gateModule = e.addComponentDesign("gate-module", { size: 40 }, 0);
   const gravSensor = e.addComponentDesign("survey-sensor", { type: "gravitational", size: 4 }, 0);
   const explorer = e.addDesign("Explorer", [
-    { componentId: pp.engine("solid-motor").id, count: 4 },
+    { componentId: pp.engine("nuclear-thermal").id, count: 4 },
     { componentId: pp.tank().id, count: 10 },
     { componentId: gravSensor.id, count: 1 },
     { componentId: jumpDrive.id, count: 1 },
@@ -1291,7 +1290,7 @@ console.log("");
   e.knownJumpPoints.add(jp0.id);
   const blind = e.createFleet("Driveless", { x: 0, y: 0, z: 0 }, "earth");
   const hauler = e.addDesign("Plain", [
-    { componentId: pp.engine("solid-motor").id, count: 2 },
+    { componentId: pp.engine("nuclear-thermal").id, count: 2 },
     { componentId: pp.tank().id, count: 6 },
     { componentId: pp.quarters().id, count: 1 },
   ], 0);
@@ -1322,7 +1321,7 @@ console.log("");
   const far = game.galaxy.otherEnd(crossed.id)!;
   const builder = e.createFleet("Gatewright", crossed.world, crossed.id, "sol");
   const buildShip = e.addDesign("Gate Layer", [
-    { componentId: pp.engine("solid-motor").id, count: 2 },
+    { componentId: pp.engine("nuclear-thermal").id, count: 2 },
     { componentId: pp.tank().id, count: 4 },
     { componentId: gateModule.id, count: 1 },
     { componentId: pp.quarters().id, count: 2 },
@@ -1380,9 +1379,9 @@ console.log("");
   e.surveyed.add("callisto");
   e.queueBuild("earth", "mine", 40);
   const pp = parts(e);
-  e.research("solid-motor");
+  e.research("nuclear-thermal");
   const probe = e.addDesign("Probe", [
-    { componentId: pp.engine("solid-motor").id, count: 1 },
+    { componentId: pp.engine("nuclear-thermal").id, count: 1 },
     { componentId: pp.tank().id, count: 2 },
     { componentId: pp.quarters().id, count: 1 },
   ], 0);
@@ -1589,15 +1588,15 @@ console.log("");
 console.log("");
 
 {
-  const researched = new Set(["trans-newtonian", "solid-motor"]);
+  const researched = new Set(["trans-newtonian", "nuclear-thermal"]);
   const withMilitary = new Set([...researched, "military-specification"]);
-  const base = { type: "solid-motor", size: 5, modifier: 1 };
+  const base = { type: "nuclear-thermal", size: 5, modifier: 1 };
   const com = componentStats("engine", { ...base, grade: "commercial" }, researched);
   const old = componentStats("engine", base, researched);
   const mil = componentStats("engine", { ...base, grade: "military" }, withMilitary);
 
   check("a part with no grade is commercial, so old designs do not change", old.power!, com.power!, 1e-9);
-  check("a 5 HS nuclear thermal engine still makes 60 power", com.power!, 60, 1e-9);
+  check("a 5 HS nuclear thermal engine still makes 25 power", com.power!, 25, 1e-9);
   check("military engines push 30% harder", mil.power! / com.power!, 1.3, 1e-9);
   check("and cost 70% more", mil.cost / com.cost, 1.7, 0.03);
   check("and need half as many more crew", mil.crew / com.crew, 1.5, 0.35);
@@ -1606,7 +1605,7 @@ console.log("");
   assert("the military specification needs research", componentStats("engine", { ...base, grade: "military" }, researched).problems.length > 0);
   assert("and is fine once researched", mil.problems.length === 0);
   assert("military parts are named as such", suggestName("engine", { ...base, grade: "military" }, withMilitary).startsWith("Military "));
-  assert("commercial names are unchanged", suggestName("engine", base, researched) === "Chemical Rockets: Solid Motor 5HS");
+  assert("commercial names are unchanged", suggestName("engine", base, researched) === "Nuclear Thermal Engine 5HS");
   assert("tanks, holds and berths have no military pattern",
     componentStats("fuel-tank", { size: 5, grade: "military" }, researched).grade === "commercial" &&
     componentStats("fuel-tank", { size: 5 }, researched).wear === 0.4);
@@ -1617,7 +1616,7 @@ console.log("");
   // --- a class made of them
   const g = new Game("upkeep");
   const e = g.empire;
-  e.research("solid-motor");
+  e.research("nuclear-thermal");
   e.research("military-specification");
   const commercialEngine = e.addComponentDesign("engine", { ...base, grade: "commercial" }, 0);
   const militaryEngine = e.addComponentDesign("engine", { ...base, grade: "military" }, 0);
@@ -1701,11 +1700,11 @@ console.log("");
   // --- a programme fleet goes for service rather than carrying on worn out
   const sg = new Game("worn");
   const se = sg.empire;
-  se.research("solid-motor");
+  se.research("nuclear-thermal");
   se.research("geo-survey-sensors");
   const sp = parts(se);
   const scout = se.addDesign("Scout", [
-    { componentId: sp.engine("solid-motor").id, count: 2 }, { componentId: sp.tank().id, count: 6 },
+    { componentId: sp.engine("nuclear-thermal").id, count: 2 }, { componentId: sp.tank().id, count: 6 },
     { componentId: sp.sensor().id, count: 2 }, { componentId: sp.quarters().id, count: 1 },
   ], 0);
   const sf = se.createFleet("Wing", sg.galaxy.byId.get("earth")!.world, "earth");
@@ -1726,7 +1725,7 @@ console.log("");
   {
     const hg = new Game("hulls");
     const he = hg.empire;
-    he.research("solid-motor");
+    he.research("nuclear-thermal");
     he.research("geo-survey-sensors");
     for (const std of he.addStandardClasses(0)) {
       const hull = std.hullId;
@@ -1795,7 +1794,7 @@ console.log("");
   {
     const lg = new Game("links");
     const le = lg.empire;
-    le.research("solid-motor");
+    le.research("nuclear-thermal");
     le.civilianShipping = false;
     const lmars = le.foundColony("mars", 0);
     lmars.population = 10;
@@ -1974,7 +1973,7 @@ console.log("");
     assert("it is commercial", yEarth.yards[0].kind === "commercial");
     check("hulls up to 10,000 t", hullCapacity(yEarth), 10_000, 0);
     assert("but no military hull", hullCapacity(yEarth, true) === 0);
-    ye.research("solid-motor");
+    ye.research("nuclear-thermal");
     ye.addStandardComponents(0);
     const yHauler = ye.addStandardClasses(0).find((d) => d.name === "Hauler")!;
     const warship = ye.addDesign("Warlike", yHauler.components, 0, "destroyer");
@@ -2030,7 +2029,7 @@ console.log("");
     const og = new Game("orders");
     const oe = og.empire;
     const oEarth = oe.colony("earth")!;
-    oe.research("solid-motor");
+    oe.research("nuclear-thermal");
     oe.addStandardComponents(0);
     const oHauler = oe.addStandardClasses(0).find((d) => d.name === "Hauler")!;
     assert("queueing a buildable class succeeds", oe.queueShip("earth", oHauler.id, 2) === null);
@@ -2102,7 +2101,7 @@ console.log("");
     // part ladders reach existing designs
     const tg = new Game("techs");
     const te = tg.empire;
-    te.research("solid-motor");
+    te.research("nuclear-thermal");
     te.addStandardComponents(0);
     const hauler = te.addStandardClasses(0).find((d) => d.name === "Hauler")!;
     const before = te.statsOf(hauler.id)!;
@@ -2115,74 +2114,72 @@ console.log("");
     assert("fuel efficiency lengthens range", after.rangeAu > before.rangeAu * 1.5);
     te.research("fuel-efficiency-6");
     check("the best fuel efficiency burns 60% less", te.statsOf(hauler.id)!.fuelPerHour / before.fuelPerHour, 0.4, 1e-9);
-    for (const id of ["gridded-ion", "fusion-magnetic", "am-pure"]) te.research(id);
-    assert("new engine types can be designed", te.addComponentDesign("engine", { type: "am-pure", size: 5, modifier: 1 }, 0) !== undefined
-      && componentStats("engine", { type: "am-pure", size: 5, modifier: 1 }, te.researched).problems.length === 0);
+    for (const id of ["ion-engine", "magnetic-fusion", "photonic-drive"]) te.research(id);
+    assert("new engine types can be designed", te.addComponentDesign("engine", { type: "photonic-drive", size: 5, modifier: 1 }, 0) !== undefined
+      && componentStats("engine", { type: "photonic-drive", size: 5, modifier: 1 }, te.researched).problems.length === 0);
     te.research("engine-power-200");
-    check("modifier ceiling reaches 2", normaliseParams("engine", { type: "am-pure", size: 5, modifier: 5 }, te.researched).modifier as number, 2, 0);
+    check("modifier ceiling reaches 2", normaliseParams("engine", { type: "photonic-drive", size: 5, modifier: 5 }, te.researched).modifier as number, 2, 0);
   }
 
   // --- the propulsion and power tree
   {
     const cost = (id: string) => TECH_BY_ID.get(id)?.cost;
-    check("Solid Motor costs 2,000 RP", cost("solid-motor") ?? -1, 2000, 0);
-    check("Full-flow staged combustion costs 32,000", cost("full-flow") ?? -1, 32000, 0);
-    check("Direct Fusion Drive costs 256,000", cost("fusion-direct") ?? -1, 256000, 0);
-    check("Pure Antimatter Drive costs 2,048,000", cost("am-pure") ?? -1, 2048000, 0);
+    check("the Conventional Engine costs 1,000 RP", cost("conventional-engine") ?? -1, 1000, 0);
+    check("fifteen engine technologies", ENGINE_TYPES.length, 15, 0);
+    const byId = (id: string) => ENGINE_TYPES.find((e) => e.id === id)!;
+    const expected: [string, number][] = [
+      ["conventional-engine", 0.2], ["nuclear-thermal", 5], ["improved-nuclear-thermal", 6.4], ["nuclear-pulse", 8],
+      ["improved-nuclear-pulse", 10], ["ion-engine", 12.5], ["magneto-plasma", 16], ["internal-fusion", 20],
+      ["magnetic-fusion", 25], ["inertial-fusion", 32], ["solid-antimatter", 40], ["gas-antimatter", 50],
+      ["plasma-antimatter", 60], ["beam-antimatter", 80], ["photonic-drive", 100],
+    ];
+    for (const [id, power] of expected) check(`${id} makes ${power} power per hull space`, byId(id).powerPerHS, power, 1e-9);
+    assert("the engines are one line, each needing the one before", ENGINE_TYPES.every((e, i) => i === 0 || TECH_BY_ID.get(e.tech)!.prereqs.includes(ENGINE_TYPES[i - 1].tech)));
+    assert("better engines burn less per power-hour", ENGINE_TYPES.every((e, i) => i === 0 || e.fuelPerPower < ENGINE_TYPES[i - 1].fuelPerPower));
+    check("13 power systems", REACTOR_TYPES.length, 13, 0);
     check("Solid Fuel Cell costs 600", cost("fuel-cell-1") ?? -1, 600, 0);
     check("the antimatter reactor costs 2,457,600", cost("reactor-am-1") ?? -1, 2457600, 0);
     check("Fuel Efficiency tier 12 costs 2,048,000", cost("fuel-efficiency-12") ?? -1, 2048000, 0);
     check("Miniaturisation tier 6 costs 32,000", cost("miniaturization-6") ?? -1, 32000, 0);
-    check("six engine families make 27 engine types", ENGINE_TYPES.length, 27, 0);
-    check("and 13 power systems", REACTOR_TYPES.length, 13, 0);
-    assert("the old nuclear thermal line is gone", !TECH_BY_ID.has("nuclear-thermal") && !TECH_BY_ID.has("photonic-drive") && !TECH_BY_ID.has("fuel-consumption-08"));
-    assert("fusion engines need all of nuclear electric", TECH_BY_ID.get("fusion-magnetic")!.prereqs.includes("ne-adv-electric"));
-    assert("antimatter needs all of fusion", TECH_BY_ID.get("am-catalyst")!.prereqs.includes("fusion-direct"));
-    assert("electric drives need a fuel cell", TECH_BY_ID.get("resistojet")!.prereqs.includes("fuel-cell-1"));
-    assert("nuclear power follows chemical power", TECH_BY_ID.get("reactor-nuclear-1")!.prereqs.includes("fuel-cell-4"));
-    assert("jump point theory still has a path", TECH_BY_ID.get("jump-point-theory")!.prereqs.every((q) => TECH_BY_ID.has(q)));
+    assert("the old six families are gone", !TECH_BY_ID.has("solid-motor") && !TECH_BY_ID.has("resistojet") && !TECH_BY_ID.has("fusion-direct"));
 
-    const byId = (id: string) => ENGINE_TYPES.find((e) => e.id === id)!;
-    check("chemical rockets make 12 power per hull space", byId("solid-motor").powerPerHS, 12, 1e-9);
-    check("electric drives make half that density", byId("hall-thruster").powerPerHS, 6, 1e-9);
-    check("nuclear thermal doubles chemical", byId("liquid-core").powerPerHS, 24, 1e-9);
-    check("fusion is four times chemical", byId("fusion-direct").powerPerHS, 48, 1e-9);
-    check("antimatter is eight times", byId("am-pure").powerPerHS, 96, 1e-9);
-    check("a chemical rocket's fuel economy is the baseline", 5 / byId("full-flow").fuelPerPower, 1, 1e-9);
-    check("the first electric drive is 3x", 5 / byId("resistojet").fuelPerPower, 3, 1e-9);
-    check("the last electric drive is 10x", 5 / byId("advanced-plasma").fuelPerPower, 10, 1e-9);
-    check("pure antimatter is 50x", 5 / byId("am-pure").fuelPerPower, 50, 1e-9);
-
-    // electric drives need reactors
+    // Aurora's speed formula, on a hand-built ship
     const pg = new Game("propulsion");
     const pe = pg.empire;
-    for (const id of ["solid-motor", "resistojet", "fuel-cell-1"]) pe.research(id);
+    for (const id of ["conventional-engine", "nuclear-thermal"]) pe.research(id);
     pe.addStandardComponents(0);
-    const electric = pe.addComponentDesign("engine", { type: "resistojet", size: 5, modifier: 1 }, 0);
-    const reactor = pe.addComponentDesign("reactor", { type: "fuel-cell-1", size: 3 }, 0);
+    const eng = pe.addComponentDesign("engine", { type: "nuclear-thermal", size: 10, modifier: 1 }, 0);
     const tank = pe.componentDesigns.find((c) => c.kind === "fuel-tank")!;
     const quarters = pe.componentDesigns.find((c) => c.kind === "crew-quarters")!;
-    const bare = pe.addDesign("Bare", [{ componentId: electric.id, count: 1 }, { componentId: tank.id, count: 2 }, { componentId: quarters.id, count: 1 }], 0);
-    assert("an electric ship with no reactor is refused", pe.statsOf(bare.id)!.problems.some((m) => /reactor/i.test(m)));
-    const powered = pe.addDesign("Powered", [{ componentId: electric.id, count: 1 }, { componentId: reactor.id, count: 1 }, { componentId: tank.id, count: 2 }, { componentId: quarters.id, count: 1 }], 0);
-    assert("with enough reactor it is sound", pe.statsOf(powered.id)!.problems.length === 0);
-    check("a 3 HS fuel cell makes 6 power", pe.statsOf(powered.id)!.reactorOutput, 6, 1e-9);
-    check("and the 5 HS electric engine draws 5", pe.statsOf(powered.id)!.powerDraw, 5, 1e-9);
-    assert("standard parts never use a drive that needs a reactor", pe.componentDesigns.filter((c) => c.kind === "engine").every((c) => c === electric || c.params.type === "solid-motor"));
+    // 10 HS of engine at 5/HS = 50 power; plus 5 HS tank, 2 HS quarters: 17 HS in all
+    const ship = pe.addDesign("Formula", [{ componentId: eng.id, count: 1 }, { componentId: tank.id, count: 1 }, { componentId: quarters.id, count: 1 }], 0);
+    const st = pe.statsOf(ship.id)!;
+    check("the ship is 17 hull spaces (850 t)", st.hullSpaces, 17, 1e-9);
+    check("speed = engine power / hull spaces x 1000", st.speed, (50 / 17) * 1000, 1e-6);
+    check("a hull space of tank holds 50,000 litres", st.fuelCapacity, 5 * 50_000, 0);
+    // a fuel-efficiency tier makes the same ship go further
+    const before = st.rangeAu;
+    pe.research("fuel-efficiency-1");
+    check("0.9x fuel burn lengthens range by 1/0.9", pe.statsOf(ship.id)!.rangeAu / before, 1 / 0.9, 1e-9);
 
     // engine size, miniaturisation and modifier ceilings
-    check("a single engine is capped at 20 HS at first", normaliseParams("engine", { type: "solid-motor", size: 300 }, pe.researched).size as number, 20, 0);
+    check("a single engine is capped at 20 HS at first", normaliseParams("engine", { type: "nuclear-thermal", size: 300 }, pe.researched).size as number, 20, 0);
     pe.research("engine-size-3");
-    check("and 100 HS with Engine Size 100", normaliseParams("engine", { type: "solid-motor", size: 300 }, pe.researched).size as number, 100, 0);
-    const solid = pe.addComponentDesign("engine", { type: "solid-motor", size: 10, modifier: 1 }, 0);
-    const bigHull = pe.statsOf(pe.addDesign("Mini", [{ componentId: solid.id, count: 1 }, { componentId: tank.id, count: 1 }, { componentId: quarters.id, count: 1 }], 0).id)!;
+    check("and 100 HS with Engine Size 100", normaliseParams("engine", { type: "nuclear-thermal", size: 300 }, pe.researched).size as number, 100, 0);
     pe.research("miniaturization-2");
-    const smallHull = pe.statsOf(pe.designs[pe.designs.length - 1].id)!;
-    check("miniaturisation shrinks the engine, not the thrust", smallHull.power / bigHull.power, 1, 1e-9);
-    check("and the ship is lighter by the saving", bigHull.tons - smallHull.tons, 10 * 50 * 0.7, 1e-6);
+    const small = pe.statsOf(ship.id)!;
+    check("miniaturisation 0.3x leaves thrust alone", small.power, 50, 1e-9);
+    check("and shrinks the engine to 3 HS: 10 HS of ship fewer 7", small.hullSpaces, 17 - 7, 1e-9);
+    check("so the ship is faster by the same formula", small.speed, (50 / 10) * 1000, 1e-6);
     pe.research("engine-power-300");
-    check("the modifier ceiling reaches 3.0", normaliseParams("engine", { type: "solid-motor", size: 5, modifier: 9 }, pe.researched).modifier as number, 3, 0);
+    check("the modifier ceiling reaches 3.0", normaliseParams("engine", { type: "nuclear-thermal", size: 5, modifier: 9 }, pe.researched).modifier as number, 3, 0);
+
+    // reactors still design, and nothing needs them
+    pe.research("fuel-cell-1");
+    const reactor = pe.addComponentDesign("reactor", { type: "fuel-cell-1", size: 3 }, 0);
+    check("a 3 HS fuel cell makes 6 power", pe.resolveComponent(reactor.id)!.stats.output ?? 0, 6, 1e-9);
   }
+
 
   // --- research sub-fields
   {
@@ -2192,8 +2189,8 @@ console.log("");
     if (stray.length) console.log("  unassigned:", stray.map((t) => t.id).join(", "));
     const unlisted = TECHS.filter((t) => !FIELD_BRANCHES[t.field].includes(t.branch!));
     check("and every sub-field is listed for its field", unlisted.length, 0, 0);
-    const gone = branchesInField("power").find((b) => b.name === "Chemical Rockets")!;
-    check("chemical rockets are five techs in a line of five columns", gone.columns.length * 10 + gone.count, 55, 0);
+    const gone = branchesInField("power").find((b) => b.name === "Conventional & Nuclear")!;
+    check("the conventional and nuclear engines are five techs in a line of five columns", gone.columns.length * 10 + gone.count, 55, 0);
     assert("a tech's name does not repeat its sub-field", !TECHS.some((t) => t.branch && t.name.startsWith(`${t.branch}:`)));
   }
 }

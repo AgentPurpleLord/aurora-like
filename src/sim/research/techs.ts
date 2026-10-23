@@ -96,10 +96,7 @@ const unlock = (installation: string): TechEffect => ({ kind: "unlock", installa
  * and what they hang from now.
  */
 const RENAMED_PREREQS: Record<string, string> = {
-  "nuclear-thermal": "solid-motor",
-  "nuclear-pulse": "pump-fed",
-  "ion-drive": "pump-fed",
-  "magneto-plasma": "pump-fed",
+  "ion-drive": "ion-engine",
 };
 
 /** Everything that is not engines or power systems, with the old engine line dropped. */
