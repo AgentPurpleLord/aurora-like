@@ -7,6 +7,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -46,6 +50,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -85,6 +93,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -124,6 +136,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -163,6 +179,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -202,6 +222,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -241,6 +265,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -280,6 +308,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -319,6 +351,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -358,6 +394,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -397,6 +437,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -436,6 +480,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -475,6 +523,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -514,6 +566,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -553,6 +609,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -592,6 +652,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -631,6 +695,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -670,6 +738,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -709,6 +781,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -748,6 +824,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -787,6 +867,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -826,6 +910,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -865,6 +953,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -904,6 +996,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -943,6 +1039,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -982,6 +1082,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -1021,6 +1125,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -1060,6 +1168,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -1099,6 +1211,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
@@ -1138,6 +1254,10 @@ node:
         type: file
         data: nodes/Tech.flyde.ts
       inputConfig: {}
+      visibleInputs:
+        - requires
+      visibleOutputs:
+        - unlocks
       config:
         techId:
           type: string
