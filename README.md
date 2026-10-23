@@ -454,6 +454,29 @@ refineries spacers). Open a colony's **People** tab to see them.
   production cycle runs, fewest labs first, up to what each scientist can direct. Untick the
   box to assign by hand, or use *Assign idle labs now*.
 
+## The System screen
+
+The **System** tab (key `S`) lists every planet, moon, asteroid and comet in a system in one
+table - orbit, mass, gravity, temperature, atmosphere, colony cost and (once surveyed) the
+minerals in the ground - with the full detail panel for whichever body you select. Pick any
+system you know of, filter to planets, moons, small bodies, colonies or surveyed worlds,
+search by name, and sort by any column to compare worlds side by side.
+
+## Shipyards
+
+Open a colony's **Shipyards** tab. Like Aurora, a colony has named yards, each **commercial** or
+**military**, each with its own slipways (a slipway is a Shipyard installation; a yard lays
+down hulls up to 5,000 t per slipway, so splitting slipways between yards makes each smaller).
+
+- Commercial yards build commercial classes only. Military yards build anything, but need
+  the Military Specification and cost 1,500 wealth per slipway to found, extend or convert to.
+- *Found a new shipyard* takes a name, a type and a number of slipways, and queues the
+  installations; the slipways appear in the yard as they are finished. *Add slipways*,
+  *Convert* and *Abandon* (unbuilt yards only) work from each yard's card.
+- A class made of military parts, or on a military hull, is only laid down at a military
+  yard large enough for it; the tab and the Fleets screen say what is missing. Earth starts with
+  a two-slipway commercial yard, and old saves get one yard holding their shipyards.
+
 ## Politics
 
 The **Politics** screen (key `P`) is the part of the game that is never finished with.

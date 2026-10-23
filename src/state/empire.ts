@@ -42,7 +42,7 @@ export type LogCategory = "research" | "construction" | "people" | "colony" | "e
 
 /** Where an event can take you, so a notification is a doorway, not a dead end. */
 export interface LogLink {
-  view: "empire" | "map" | "galaxy" | "events" | "politics" | "colonies" | "fleets" | "design" | "research" | "officers";
+  view: "empire" | "map" | "galaxy" | "system" | "events" | "politics" | "colonies" | "fleets" | "design" | "research" | "officers";
   bodyId?: string;
   fleetId?: string;
   techId?: string;

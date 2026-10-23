@@ -16,6 +16,7 @@ import { ResearchView } from "./views/researchView";
 import { invalidateMarket } from "../sim/economy/goods";
 import { invalidateTrade } from "../sim/economy/trade";
 import { OfficersView } from "./views/officersView";
+import { SystemView } from "./views/systemView";
 import { PoliticsView } from "./views/politicsView";
 import { FleetsView } from "./views/fleetsView";
 import { DesignView } from "./views/designView";
@@ -54,11 +55,12 @@ const ZOOM_PRESETS: ZoomPreset[] = [
   { label: "Kuiper", spanAu: 75 },
 ];
 
-export type ViewId = "empire" | "map" | "galaxy" | "events" | "colonies" | "fleets" | "design" | "research" | "officers" | "politics";
+export type ViewId = "empire" | "map" | "galaxy" | "system" | "events" | "colonies" | "fleets" | "design" | "research" | "officers" | "politics";
 
 const VIEW_TABS: { id: ViewId; label: string; key: string }[] = [
   { id: "empire", label: "Empire", key: "e" },
   { id: "map", label: "Map", key: "m" },
+  { id: "system", label: "System", key: "s" },
   { id: "galaxy", label: "Galaxy", key: "x" },
   { id: "colonies", label: "Colonies", key: "c" },
   { id: "fleets", label: "Fleets", key: "f" },
@@ -73,6 +75,7 @@ const VIEW_TABS: { id: ViewId; label: string; key: string }[] = [
 const RAIL_COLLAPSED_BY_DEFAULT: Record<ViewId, boolean> = {
   empire: false,
   galaxy: true,
+  system: true,
   events: false,
   map: true,
   colonies: false,
@@ -111,6 +114,7 @@ export class App {
   private research: ResearchView;
   private officers: OfficersView;
   private politicsView: PoliticsView;
+  private systemView: SystemView;
   private fleetsView: FleetsView;
   private designView: DesignView;
   private galaxyView: GalaxyView;
@@ -186,6 +190,11 @@ export class App {
     this.research = new ResearchView(roots.views.research, this.game);
     this.officers = new OfficersView(roots.views.officers, this.game);
     this.politicsView = new PoliticsView(roots.views.politics, this.game);
+    this.systemView = new SystemView(roots.views.system, this.game, {
+      zoomTo: (body) => this.zoomTo(body),
+      openEconomy: () => this.setView("colonies"),
+      openFleets: () => this.setView("fleets"),
+    });
     this.empireView = new EmpireView(
       roots.views.empire,
       this.game,
@@ -705,6 +714,7 @@ export class App {
       case "research": this.research.render(); break;
       case "officers": this.officers.render(); break;
       case "politics": this.politicsView.render(); break;
+      case "system": this.systemView.render(); break;
       case "galaxy": this.galaxyView.render(); break;
       case "events": this.eventsView.render(); break;
       case "map": break;

@@ -1244,7 +1244,7 @@ async function mobileSuite(browser) {
   await page.evaluate(() => { document.documentElement.dataset.theme = "terminal"; });
   await page.waitForTimeout(200);
   await check("the terminal theme does not make a phone scroll sideways", async () => (await overflow()) <= 1);
-  for (const name of ["Empire", "Map", "Colonies", "Fleets", "Design", "Research", "Officers", "Politics", "Events", "Galaxy"]) {
+  for (const name of ["Empire", "Map", "Colonies", "Fleets", "Design", "Research", "Officers", "Politics", "System", "Events", "Galaxy"]) {
     await mobileGo(page, name);
     await page.waitForTimeout(250);
     await check(`and neither does the ${name} screen`, async () => (await overflow()) <= 1);
@@ -1409,6 +1409,41 @@ async function yardSuite(browser) {
   await page.close();
 }
 
+async function systemSuite(browser) {
+  console.log("\nSystem screen");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.goto(`${BASE}?debug&new&seed=sol-1&events=off`);
+  await page.waitForSelector("#view-tabs");
+  await nav(page, "System").click();
+  await page.waitForTimeout(300);
+  const view = page.locator("#view-system");
+  await check("the System screen lists the bodies of Sol", async () => (await view.locator(".system-row").count()) > 20);
+  await check("with Earth marked as a colony", async () => /colony/i.test(await view.locator('.system-row[data-id="earth"]').innerText()));
+  await check("and its columns of detail", async () => {
+    const t = await view.locator('.system-row[data-id="earth"]').innerText();
+    return /terrestrial/i.test(t) && /1\.00 g/.test(t) && /breathable/i.test(t);
+  });
+  await view.locator('.system-row[data-id="mars"]').click();
+  await page.waitForTimeout(250);
+  await check("selecting a body shows its detail panel", async () => /mars/i.test(await view.locator(".panel-right").innerText()));
+  await page.getByLabel("Show bodies").selectOption("planets");
+  await page.waitForTimeout(200);
+  await check("filtering to planets drops the moons", async () => (await view.locator('.system-row[data-id="luna"]').count()) === 0 && (await view.locator('.system-row[data-id="mars"]').count()) === 1);
+  await view.locator(".data-row.header .sortable", { hasText: "Gravity" }).click();
+  await page.waitForTimeout(200);
+  const first = await view.locator(".system-row").first().getAttribute("data-id");
+  await check("sorting by gravity puts the lightest first", async () => first !== "earth" && first !== "jupiter");
+  await page.getByLabel("Find a body").fill("jupiter");
+  await page.waitForTimeout(200);
+  await check("searching narrows the list", async () => (await view.locator(".system-row").count()) === 1);
+  await check("no console errors", () => errors.length === 0);
+  if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
+  await page.close();
+}
+
 const browser = await chromium.launch(launch);
 try {
   await desktopSuite(browser);
@@ -1423,6 +1458,7 @@ try {
   await politicsSuite(browser);
   await turnSuite(browser);
   await yardSuite(browser);
+  await systemSuite(browser);
   await mobileSuite(browser);
 } finally {
   await browser.close();
