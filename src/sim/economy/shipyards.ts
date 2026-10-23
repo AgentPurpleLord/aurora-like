@@ -14,6 +14,7 @@ import { installationCount } from "../../state/colony";
 import { MILITARY_TECH } from "../ships/components";
 import { hullOf } from "../ships/hulls";
 import { SHIPYARD_TONS } from "./installations";
+import type { MineralName } from "../minerals";
 
 export type YardKind = "commercial" | "military";
 
@@ -178,5 +179,54 @@ export function abandonYard(empire: Empire, bodyId: string, yardId: string): str
   if (yard.slipways > 0) return "A yard with slipways cannot be abandoned.";
   colony.buildQueue = colony.buildQueue.filter((o) => o.yardId !== yardId);
   colony.yards = colony.yards.filter((y) => y.id !== yardId);
+  return null;
+}
+
+// ----------------------------------------------------------- build orders
+
+/** Share of the minerals spent on a unit in progress that a cancelled order gives back. */
+export const SALVAGE_SHARE = 0.5;
+
+/** Minerals a cancelled order would hand back: half of what the unit in progress has used. */
+export function orderRefund(empire: Empire, order: { installationId: string; designId: string | null; progress: number }): Partial<Record<MineralName, number>> {
+  const buildable = empire.buildableOf(order);
+  if (!buildable || buildable.cost <= 0 || order.progress <= 0) return {};
+  const out: Partial<Record<MineralName, number>> = {};
+  const done = Math.min(1, order.progress / buildable.cost);
+  for (const [mineral, tons] of Object.entries(buildable.minerals) as [MineralName, number][]) {
+    const back = tons * done * SALVAGE_SHARE;
+    if (back > 0) out[mineral] = back;
+  }
+  return out;
+}
+
+/**
+ * Why a class cannot be laid down at a colony (or at one yard of it), or null
+ * when it can. The same test the build loop applies, run before queueing so
+ * the player hears about it immediately.
+ */
+export function shipBuildProblem(empire: Empire, bodyId: string, designId: string, yardId: string | null = null): string | null {
+  const colony = empire.colony(bodyId);
+  const design = empire.design(designId);
+  const stats = empire.statsOf(designId);
+  if (!colony || !design || !stats) return "That class is not available.";
+  if (stats.problems.length) return `${design.name} has design problems: ${stats.problems[0]}`;
+  if (!colony.yards.length && installationCount(colony, "shipyard") <= 0) return "This colony has no shipyard.";
+  if (!colony.yards.length) return null;
+  const military = isMilitaryDesign(empire, designId);
+  if (yardId) {
+    const yard = colony.yards.find((y) => y.id === yardId);
+    if (!yard) return "No such yard.";
+    if (yard.slipways <= 0) return `${yard.name} has no finished slipways.`;
+    if (military && yard.kind !== "military") return `${yard.name} is a commercial yard; ${design.name} is a military class.`;
+    if (stats.tons > yardLimit(yard)) return `${yard.name} lays down hulls up to ${Math.round(yardLimit(yard)).toLocaleString()} t; ${design.name} is ${Math.round(stats.tons).toLocaleString()} t.`;
+    return null;
+  }
+  if (military && !colony.yards.some((y) => y.kind === "military" && y.slipways > 0)) {
+    return `${design.name} is a military class and needs a military shipyard. Found one on the Shipyards tab.`;
+  }
+  if (!yardFor(colony, stats.tons, military)) {
+    return `No yard here can lay down ${Math.round(stats.tons).toLocaleString()} t${military ? " as a military hull" : ""}; the largest takes ${Math.round(hullCapacity(colony, military)).toLocaleString()} t. Add slipways on the Shipyards tab.`;
+  }
   return null;
 }

@@ -34,7 +34,7 @@ import {
 } from "../src/sim/economy/goods";
 import { labReport, projectRoom } from "../src/sim/research/labs";
 import {
-  abandonYard, addSlipways, convertYard, createYard, hullCapacity, isMilitaryDesign, pendingSlipways, renameYard, yardFor,
+  abandonYard, addSlipways, orderRefund as orderRefundOf, convertYard, createYard, hullCapacity, isMilitaryDesign, pendingSlipways, renameYard, yardFor,
 } from "../src/sim/economy/shipyards";
 import { invalidateTrade, tradeConnections } from "../src/sim/economy/trade";
 import { budgetOf } from "../src/sim/economy/budget";
@@ -729,7 +729,10 @@ console.log("");
     { componentId: p.quarters().id, count: 5 },
     { componentId: p.tank().id, count: 2 },
   ], 0);
-  empire.queueShip("earth", leviathan.id, 1);
+  const tooBig = empire.queueShip("earth", leviathan.id, 1);
+  assert("queueing a hull beyond the slipways is refused with a reason", tooBig !== null && /t/.test(tooBig));
+  // An order made before a yard shrank (or set up by hand) still stalls rather than building.
+  empire.queueBuild("earth", "ship", 1, null, false, leviathan.id);
   navy.step(CYCLE_DAYS * SECONDS_PER_DAY);
   const blocked = earth.buildQueue.find((o) => o.designId === leviathan.id);
   assert(
@@ -2006,7 +2009,8 @@ console.log("");
     yEarth.yards[0].kind = "commercial";
     naval.kind = "commercial";
     yEarth.buildQueue = [];
-    ye.queueShip("earth", warship.id, 1);
+    assert("queueing it is refused while no yard is military", ye.queueShip("earth", warship.id, 1) !== null);
+    ye.queueBuild("earth", "ship", 1, null, false, warship.id);
     const queued = yEarth.buildQueue.find((o) => o.designId === warship.id)!;
     yg.step(CYCLE_DAYS * SECONDS_PER_DAY);
     assert("a warship with only commercial yards does not start", queued.starved && queued.progress === 0);
@@ -2015,6 +2019,50 @@ console.log("");
     assert("with a military yard it does", queued.progress > 0 || !yEarth.buildQueue.includes(queued) || ye.ships.size > 0);
     const rt = gameFromSave(parseSave(JSON.stringify(makeSave(yg, "y", "y", "manual"))));
     assert("yards survive a save", rt.empire.colony("earth")!.yards.length === yEarth.yards.length);
+  }
+
+  // --- shipbuilding orders
+  {
+    const og = new Game("orders");
+    const oe = og.empire;
+    const oEarth = oe.colony("earth")!;
+    oe.research("nuclear-thermal");
+    oe.addStandardComponents(0);
+    const oHauler = oe.addStandardClasses(0).find((d) => d.name === "Hauler")!;
+    assert("queueing a buildable class succeeds", oe.queueShip("earth", oHauler.id, 2) === null);
+    const order = oEarth.buildQueue.find((o) => o.designId === oHauler.id)!;
+    check("for two hulls", order.quantity, 2, 0);
+    assert("an unknown colony is refused", oe.queueShip("mars", oHauler.id, 1) !== null);
+    const warship = oe.addDesign("Gunboat", oHauler.components, 0, "destroyer");
+    const refused = oe.queueShip("earth", warship.id, 1);
+    assert("a warship class that cannot be built is refused with a reason", refused !== null && refused.length > 10);
+    assert("so is a bad yard", oe.queueShip("earth", oHauler.id, 1, "earth:yard:9") !== null);
+    assert("a named yard is accepted", oe.queueShip("earth", oHauler.id, 9, "earth:yard:1") === null);
+    assert("pinned and free orders stay separate", oEarth.buildQueue.filter((o) => o.designId === oHauler.id).length === 2);
+    const pinned = oEarth.buildQueue.find((o) => o.yardId === "earth:yard:1")!;
+    oe.setOrderQuantity("earth", order.id, 5);
+    check("quantity can be changed", order.quantity, 5, 0);
+    oe.setOrderQuantity("earth", order.id, 0);
+    check("but never below one", order.quantity, 1, 0);
+    oe.pauseOrder("earth", order.id, true);
+    for (let i = 0; i < 3; i++) og.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    check("a paused order makes no progress", order.progress, 0, 0);
+    assert("while others carry on", pinned.progress > 0 || !oEarth.buildQueue.includes(pinned));
+    oe.pauseOrder("earth", order.id, false);
+    oe.setOrderQuantity("earth", order.id, 3);
+    for (let i = 0; i < 2; i++) og.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    const spent = order.progress;
+    assert("a resumed order builds", spent > 0 || !oEarth.buildQueue.includes(order));
+    if (oEarth.buildQueue.includes(order) && order.progress > 0) {
+      const before = oEarth.stockpile.Duranium;
+      const refund = orderRefundOf(oe, order);
+      const back = oe.cancelBuild("earth", order.id);
+      assert("cancelling takes the order away", !oEarth.buildQueue.includes(order));
+      assert("and salvages half the minerals used", Object.keys(refund).length > 0 && Math.abs((oEarth.stockpile.Duranium - before) - (back.Duranium ?? 0)) < 1e-6 && (back.Duranium ?? 0) > 0);
+    }
+    assert("a pinned order can be released", oe.setOrderYard("earth", pinned.id, null) === null && !pinned.yardId);
+    const hold = oe.queueShip("earth", oHauler.id, 1);
+    assert("queueing again still works", hold === null);
   }
 }
 

@@ -9,6 +9,7 @@
  */
 
 import { settings } from "../settings";
+import { renderSchematic, type CellMemory, type SchematicPart } from "../shipSchematic";
 import { HULLS, HULL_BY_ID, classTitle, hullAdvice, hullOf, suggestClassName, suggestHull } from "../../sim/ships/hulls";
 import { SERVICE_COST_SHARE, WEAR_PER_YEAR } from "../../sim/ships/maintenance";
 import type { Game } from "../../state/game";
@@ -64,6 +65,8 @@ export class DesignView {
   private classDraft: ClassDraft | null = null;
   /** Rebuilt in place on every edit so inputs keep their focus. */
   private derivedHost = el("div", "derived-host");
+  /** Cells drawn in the hull schematic last time, so only new parts animate in. */
+  private cellMemory: CellMemory = new Map();
 
   constructor(
     private root: HTMLElement,
@@ -673,6 +676,15 @@ export class DesignView {
     const { empire } = this.game;
     this.derivedHost.textContent = "";
     const stats = this.draftStats(draft);
+
+    const parts: SchematicPart[] = [];
+    for (const entry of draft.components) {
+      if (entry.count <= 0) continue;
+      const resolved = empire.resolveComponent(entry.componentId);
+      if (resolved) parts.push({ kind: resolved.design.kind, name: resolved.design.name, count: entry.count });
+    }
+    const hullSec = section(this.derivedHost, "Hull");
+    hullSec.append(renderSchematic(parts, stats.tons, HULL_BY_ID.get(draft.hullId)?.name, this.cellMemory));
 
     const sec = section(this.derivedHost, "Derived");
     sec.classList.add("two-col");

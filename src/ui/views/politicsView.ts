@@ -15,7 +15,7 @@ import { POP_BY_ID, summarisePops } from "../../sim/economy/goods";
 import { programmeCost } from "../../sim/economy/finance";
 import { formatShortDate } from "../../sim/clock";
 import { el, num, population, themed } from "../format";
-import { button, emptyNote, progressBar, section, stat } from "../widgets";
+import { button, emptyNote, levelTone, progressBar, section, stat } from "../widgets";
 
 const YEAR = 365.25 * 86_400;
 
@@ -80,7 +80,7 @@ export class PoliticsView {
       const sat = Math.round(g.satisfaction);
       row.append(el("span", `chip ${sat >= 60 ? "good" : sat >= 40 ? "warn" : "bad"}`, `Content ${sat}`));
       if (g.radicalism >= 20) row.append(el("span", `chip ${g.radicalism >= 50 ? "bad" : "warn"}`, `Radical ${Math.round(g.radicalism)}`));
-      row.append(progressBar(g.satisfaction / 100));
+      row.append(progressBar(g.satisfaction / 100, levelTone(g.satisfaction / 100)));
       row.append(el("span", "muted small", `${def.blurb} Their politics: ${FACTIONS.filter((f) => def.leaning[f.id] >= 0.2).map((f) => `${f.name} ${Math.round(def.leaning[f.id] * 100)}%`).join(", ")}.`));
       peopleSec.append(row);
     }
@@ -96,7 +96,7 @@ export class PoliticsView {
       title.append(el("span", `chip ${state.support >= 50 ? "good" : state.support >= 35 ? "warn" : "bad"}`, `${moodLabel(state.support)} ${Math.round(state.support)}`));
       card.append(title);
       card.append(el("div", "muted small", `${def.creed} Influence ${Math.round(state.influence * 100)}%.`));
-      card.append(progressBar(state.support / 100));
+      card.append(progressBar(state.support / 100, levelTone(state.support / 100)));
       const mood = moodEffect(state.support) * Math.min(2, state.influence * FACTIONS.length);
       if (Math.abs(mood) > 0.001) {
         card.append(el("div", `small ${mood > 0 ? "good" : "bad"}`,

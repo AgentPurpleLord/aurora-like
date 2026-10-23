@@ -24,6 +24,8 @@ export interface BuildOrder {
   designId: string | null;
   /** The yard a Shipyard order adds its slipways to. */
   yardId?: string | null;
+  /** Held: skipped by the build loop until resumed. */
+  paused?: boolean;
   /** Queued by a standing order rather than by hand. */
   auto: boolean;
 }

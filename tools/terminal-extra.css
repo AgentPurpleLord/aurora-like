@@ -122,9 +122,35 @@ html[data-theme="terminal"] select:focus,
 html[data-theme="terminal"] button:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
 html[data-theme="terminal"] input[type="range"] { accent-color: #5fe08a; }
 
-/* Segmented bars rather than smooth ones. */
+/*
+ * Segmented bars in colour. The gaps between segments are a darker shade of
+ * the bar's own colour rather than black, so a bar reads as lit cells: cyan
+ * for progress, green / amber / red where the bar is a judgement (contentment,
+ * support, staffing).
+ */
+html[data-theme="terminal"] .progress {
+  background:
+    repeating-linear-gradient(90deg, rgba(60, 200, 150, 0.10) 0 6px, rgba(60, 200, 150, 0.03) 6px 8px),
+    #07120d;
+  border: 1px solid #14301f;
+}
 html[data-theme="terminal"] .progress-fill {
-  background-image: repeating-linear-gradient(90deg, transparent 0 6px, rgba(0, 10, 4, 0.7) 6px 8px);
+  background-color: transparent;
+  background-image: repeating-linear-gradient(90deg, #43d6d0 0 6px, #1d7f86 6px 8px);
+  box-shadow: 0 0 6px rgba(67, 214, 208, 0.45);
+}
+html[data-theme="terminal"] .progress.good .progress-fill {
+  background-image: repeating-linear-gradient(90deg, #5fe08a 0 6px, #2a8a4b 6px 8px);
+  box-shadow: 0 0 6px rgba(95, 224, 138, 0.45);
+}
+html[data-theme="terminal"] .progress.warn .progress-fill {
+  background-image: repeating-linear-gradient(90deg, #ffc75a 0 6px, #9a7424 6px 8px);
+  box-shadow: 0 0 6px rgba(255, 199, 90, 0.4);
+}
+html[data-theme="terminal"] .progress.bad .progress-fill,
+html[data-theme="terminal"] .progress.low .progress-fill {
+  background-image: repeating-linear-gradient(90deg, #ff6b57 0 6px, #96362b 6px 8px);
+  box-shadow: 0 0 6px rgba(255, 107, 87, 0.45);
 }
 
 /* --------------------------------------------------------------- panels */
@@ -458,7 +484,6 @@ html[data-theme="terminal"] .fleet-gauge { display: grid; grid-template-columns:
 html[data-theme="terminal"] .fleet-gauge-label { font-size: 10px; letter-spacing: 0.2em; color: var(--accent); }
 html[data-theme="terminal"] .fleet-gauge-value { font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
 html[data-theme="terminal"] .fleet-gauge .progress { height: 9px; margin: 0; }
-html[data-theme="terminal"] .fleet-gauge .progress.low .progress-fill { background-color: #e2725b; }
 html[data-theme="terminal"] .panel-left .tree-row .dot { box-shadow: 0 0 6px currentColor; }
 html[data-theme="terminal"] .program-chip { letter-spacing: 0.12em; }
 html[data-theme="terminal"] .program-card { background: rgba(90, 255, 150, 0.05); }
@@ -576,3 +601,9 @@ html[data-theme="terminal"] .map-status { border-top: 1px solid var(--line); }
   html[data-theme="terminal"] .stat-label::after { min-width: 6px; }
   html[data-theme="terminal"] .guide-row { padding-left: 28px; }
 }
+
+/* Ship schematic: a green wireframe hull. */
+html[data-theme="terminal"] .schematic-hull { fill: #06130c; stroke: #3fae6b; }
+html[data-theme="terminal"] .schematic-bell { fill: #0c2415; stroke: #3fae6b; }
+html[data-theme="terminal"] .schematic-hint { fill: #4f8a68; }
+html[data-theme="terminal"] .schematic-cell { stroke: rgba(0, 20, 8, 0.7); filter: drop-shadow(0 0 3px currentColor); }

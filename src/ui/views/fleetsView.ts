@@ -9,7 +9,8 @@
 import type { Game } from "../../state/game";
 import { INSTALLATIONS, INSTALLATION_BY_ID, SHIPYARD_TONS } from "../../sim/economy/installations";
 import { shipyardCapacity } from "../../sim/economy/production";
-import { YARD_KIND_NAMES, isMilitaryDesign, yardLimit } from "../../sim/economy/shipyards";
+import { renderShipOrders, shipOrderCount } from "./shipOrders";
+import { YARD_KIND_NAMES, yardFor, isMilitaryDesign, yardLimit } from "../../sim/economy/shipyards";
 import { previewOrder } from "../../sim/economy/ledger";
 import { MINERALS, type MineralName } from "../../sim/minerals";
 import { SURVEY_POINTS_NEEDED } from "../../sim/ships/components";
@@ -61,12 +62,14 @@ export class FleetsView {
   private orderAmount = 1;
   private buildColony = "";
   private buildQuantity = 1;
+  /** What the last press of Build did, shown on that class's card until the next. */
+  private buildNotice: { designId: string; text: string; ok: boolean } | null = null;
   private automation: FleetAutomation;
 
   constructor(
     private root: HTMLElement,
     private game: Game,
-    private actions: { openDesigner: (classId: string | null) => void },
+    private actions: { openDesigner: (classId: string | null) => void; notify?: (text: string) => void },
   ) {
     this.root.classList.add("view-fleets");
     this.automation = new FleetAutomation(game, () => this.render());
@@ -526,6 +529,11 @@ export class FleetsView {
       return;
     }
 
+    // What is already on the slipways, wherever it is being built.
+    const building = section(body, `Under construction (${shipOrderCount(this.game)})`);
+    building.classList.add("under-construction");
+    renderShipOrders(building, this.game, { onChange: () => { this.game.emit(); this.render(); } });
+
     const yards = [...empire.colonies.values()].filter((c) => shipyardCapacity(c) > 0);
     if (!yards.some((c) => c.bodyId === this.buildColony)) {
       this.buildColony = yards[0]?.bodyId ?? "";
@@ -565,12 +573,28 @@ export class FleetsView {
         row.append(numberInput(this.buildQuantity, (value) => (this.buildQuantity = value), 1, 99));
         row.append(
           button("Build", () => {
-            empire.queueShip(this.buildColony, design.id, this.buildQuantity);
+            const problem = empire.queueShip(this.buildColony, design.id, this.buildQuantity);
+            const where = this.game.galaxy.byId.get(this.buildColony)?.name ?? this.buildColony;
+            if (problem) {
+              this.buildNotice = { designId: design.id, text: problem, ok: false };
+            } else {
+              const colony = empire.colony(this.buildColony)!;
+              const military = isMilitaryDesign(empire, design.id);
+              const yard = yardFor(colony, stats.tons, military);
+              const text = `Queued ${this.buildQuantity} x ${design.name} at ${where}${yard ? ` (${yard.name})` : ""}: ${num(stats.buildCost * this.buildQuantity)} BP. It is listed under Under construction above.`;
+              this.buildNotice = { designId: design.id, text, ok: true };
+              this.actions.notify?.(`Laying down ${this.buildQuantity} x ${design.name} at ${where}.`);
+            }
             this.game.emit();
+            this.render();
+            this.sidePane.querySelector(".under-construction")?.scrollIntoView({ block: "nearest" });
           }, "primary-btn"),
         );
       }
       card.append(row);
+      if (this.buildNotice?.designId === design.id) {
+        card.append(el("div", this.buildNotice.ok ? "build-notice good" : "project-warning build-notice", this.buildNotice.text));
+      }
 
       // A hull that will not fit the slipways never starts.
       const colony = empire.colony(this.buildColony);

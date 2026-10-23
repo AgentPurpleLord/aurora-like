@@ -1444,6 +1444,75 @@ async function systemSuite(browser) {
   await page.close();
 }
 
+async function buildSuite(browser) {
+  console.log("\nShipbuilding");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.goto(`${BASE}?debug&new&seed=sol-1&events=off`);
+  await page.waitForSelector("#view-tabs");
+  await page.evaluate(() => { const e = window.__game.empire; e.research("nuclear-thermal"); e.addStandardComponents(0); e.addStandardClasses(0); window.__game.emit(); });
+
+  // --- the designer draws the hull filling up
+  await nav(page, "Design").click();
+  await page.locator("#view-design .tab", { hasText: "Ship Classes" }).click();
+  await page.locator("#view-design .design-row", { hasText: "Hauler" }).click();
+  await page.waitForTimeout(300);
+  await check("the designer shows a hull schematic", async () => (await page.locator("#view-design .schematic-svg").count()) === 1);
+  const cells = () => page.locator("#view-design .schematic-cell").count();
+  const before = await cells();
+  await check("with a cell for each part", async () => before === 12);
+  await page.locator("#view-design .component-row .step-btn", { hasText: "+" }).first().click();
+  await page.waitForTimeout(300);
+  await check("adding a part adds a cell, and it pops in", async () =>
+    (await cells()) > before && (await page.locator("#view-design .schematic-cell.new").count()) >= 1);
+
+  // --- building from the Fleets tab says so
+  await nav(page, "Fleets").click();
+  await page.waitForTimeout(300);
+  const card = page.locator("#view-fleets .project-card", { hasText: "Hauler" });
+  await card.getByRole("button", { name: "Build", exact: true }).click();
+  await page.waitForTimeout(300);
+  await check("pressing Build confirms it on the class card", async () => /queued 1 x hauler/i.test(await page.locator("#view-fleets .build-notice").innerText()));
+  await check("lists it under construction", async () => (await page.locator("#view-fleets .under-construction .order-card").count()) === 1);
+  await check("and raises a toast", async () => /laying down/i.test(await page.locator(".toasts").innerText()));
+
+  // --- the order can be held, resized and cancelled from there
+  await page.getByRole("button", { name: "Pause Hauler" }).click();
+  await page.waitForTimeout(200);
+  await check("an order can be paused", async () => /paused/i.test(await page.locator("#view-fleets .order-card").innerText()));
+  await page.getByRole("button", { name: "One more Hauler" }).click();
+  await page.waitForTimeout(200);
+  await check("and made larger", async () => /2 x hauler/i.test(await page.locator("#view-fleets .order-card").innerText()));
+  await page.getByRole("button", { name: "Cancel order for Hauler" }).click();
+  await page.waitForTimeout(200);
+  await check("and cancelled", async () => (await page.locator("#view-fleets .order-card").count()) === 0);
+
+  // --- and from the colony's Shipyards tab
+  await nav(page, "Fleets").click();
+  await card.getByRole("button", { name: "Build", exact: true }).click();
+  await page.waitForTimeout(200);
+  await nav(page, "Colonies").click();
+  await page.locator("#view-colonies .colony-tab", { hasText: "Shipyards" }).click();
+  await page.waitForTimeout(200);
+  await check("the Shipyards tab lists hulls on order", async () => (await page.locator("#view-colonies .order-card").count()) === 1);
+  await page.getByRole("button", { name: "Cancel order for Hauler" }).click();
+  await page.waitForTimeout(200);
+  await check("and can cancel them", async () => (await page.locator("#view-colonies .order-card").count()) === 0);
+
+  // --- the terminal theme colours its bars
+  await page.evaluate(() => { document.documentElement.dataset.theme = "terminal"; });
+  await nav(page, "Colonies").click();
+  await page.locator("#view-colonies .colony-tab", { hasText: "People" }).click();
+  await page.waitForTimeout(200);
+  await check("terminal bars are tinted by how well things are going", async () =>
+    (await page.locator("#view-colonies .progress.good, #view-colonies .progress.warn, #view-colonies .progress.bad").count()) >= 1);
+  await check("no console errors", () => errors.length === 0);
+  if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
+  await page.close();
+}
+
 const browser = await chromium.launch(launch);
 try {
   await desktopSuite(browser);
@@ -1459,6 +1528,7 @@ try {
   await turnSuite(browser);
   await yardSuite(browser);
   await systemSuite(browser);
+  await buildSuite(browser);
   await mobileSuite(browser);
 } finally {
   await browser.close();

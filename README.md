@@ -506,6 +506,22 @@ The **Politics** screen (key `P`) is the part of the game that is never finished
 
 An empire left alone drifts to roughly 50% approval, so neglect makes elections a coin flip.
 
+## Building ships
+
+- **Hull schematic.** The class designer draws a hull outline that fills with one coloured cell per
+  part (engines at the stern, then tanks, quarters, holds, sensors, drives toward the bow); each
+  part you add pops in, and a legend counts them. Heavier ships get a longer hull.
+- **Hulls on order.** Every hull order - on the colony's **Shipyards** tab and under *Under
+  construction* on the Fleets screen - shows its progress, minerals status and which yard has it,
+  and can be **paused**, moved **up or down** the queue, resized (**-1 / +1**), **pinned** to a
+  particular yard, or **cancelled**. Cancelling a hull already under way salvages half the minerals
+  used on it; the build points are lost.
+- **Build feedback.** *Build* on the Fleets screen checks the class can actually be laid down (a
+  yard of the right kind and size, a sound design) and either says what is wrong or confirms with a
+  note on the class card, a toast and a new entry under construction.
+- **Terminal bars.** In the Terminal theme, bars are coloured segments - cyan for progress, green,
+  amber or red where a bar is a judgement (contentment, support, staffing).
+
 ## Terraforming
 
 ![a terraforming programme](docs/terraforming.png)
