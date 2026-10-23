@@ -24,9 +24,9 @@ import {
   type ShipDesign,
 } from "../sim/ships/design";
 import {
-  ENGINE_TYPES,
   MILITARY_TECH,
   SENSOR_TYPES,
+  bestSelfPoweredEngine,
   componentStats,
   defaultParams,
   suggestName,
@@ -620,7 +620,7 @@ export class Empire {
   addStandardComponents(now: number): ComponentDesign[] {
     const made: ComponentDesign[] = [];
     const want: [ComponentKind, ParamSet][] = [];
-    const engine = [...ENGINE_TYPES].reverse().find((e) => this.researched.has(e.tech));
+    const engine = bestSelfPoweredEngine(this.researched);
     if (engine) want.push(["engine", { type: engine.id, size: 5, modifier: 1 }]);
     if (this.researched.has("trans-newtonian")) {
       want.push(
@@ -650,7 +650,7 @@ export class Empire {
       const name = suggestName(kind, params, this.researched);
       return this.componentDesigns.find((c) => c.kind === kind && c.name === name);
     };
-    const engineType = [...ENGINE_TYPES].reverse().find((e) => this.researched.has(e.tech));
+    const engineType = bestSelfPoweredEngine(this.researched);
     const sensorType = SENSOR_TYPES.find((s) => this.researched.has(s.tech));
     const engine = engineType && standard("engine", { type: engineType.id, size: 5, modifier: 1 });
     const tank = standard("fuel-tank", { size: 5 });
