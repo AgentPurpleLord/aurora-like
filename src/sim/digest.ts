@@ -43,6 +43,7 @@ const GROUPS: [LogCategory, string][] = [
   ["fleet", "Fleets"],
   ["construction", "Construction"],
   ["economy", "Economy"],
+  ["event", "Events"],
   ["people", "People"],
 ];
 

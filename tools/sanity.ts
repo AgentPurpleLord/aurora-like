@@ -24,6 +24,7 @@ import { effectiveColonyCost, shipyardCapacity } from "../src/sim/economy/produc
 import { componentStats, normaliseParams, SURVEY_POINTS_NEEDED } from "../src/sim/ships/components";
 import type { Empire } from "../src/state/empire";
 import { Galaxy } from "../src/sim/galaxy";
+import { optionsFor, resolveEvent, rollEvent } from "../src/sim/events/engine";
 import { STARS } from "../src/data/stars";
 import { sharesShipping } from "../src/sim/economy/production";
 import { surveyScope } from "../src/sim/ships/programs";
@@ -1322,6 +1323,154 @@ console.log("");
   assert("and across a gated connection", sharesShipping(e, game.galaxy, "earth", target.id));
   const other = [...game.galaxy.systems].find((s) => s.id !== "sol" && s.id !== far.systemId)!;
   assert("but not to a system without gates", !sharesShipping(e, game.galaxy, "earth", other.root.id));
+}
+
+// ==========================================================================
+// Random events
+// ==========================================================================
+
+console.log("");
+
+{
+  // --- off means off, and costs nothing
+  const quiet = new Game("quiet");
+  for (let i = 0; i < 400; i++) quiet.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  assert("with events off, none happen", quiet.empire.events.length === 0);
+
+  // --- a long run at a high rate
+  const make = () => {
+    const g = new Game("eventful");
+    g.empire.eventFrequency = 2.5;
+    return g;
+  };
+  const game = make();
+  const e = game.empire;
+  e.research("geo-survey-sensors");
+  e.research("grav-survey-sensors");
+  const mars = e.foundColony("mars", game.clock.seconds);
+  mars.population = 5;
+  mars.installations = { "construction-factory": 80, mine: 40 };
+  mars.fuel = 400_000;
+  const governor = [...e.officers.byBranch("civilian")][1];
+  e.assignOfficer(governor.id, { kind: "governor", targetId: "mars", since: 0 });
+  e.surveyed.add("callisto");
+  e.queueBuild("earth", "mine", 40);
+  const pp = parts(e);
+  e.research("nuclear-thermal");
+  const probe = e.addDesign("Probe", [
+    { componentId: pp.engine("nuclear-thermal").id, count: 1 },
+    { componentId: pp.tank().id, count: 2 },
+    { componentId: pp.quarters().id, count: 1 },
+  ], 0);
+  const wing = e.createFleet("Wing", { x: 0, y: 0, z: 0 }, "earth");
+  e.commissionShip(probe.id, wing, "Probe 1", 0).fuel = 50_000;
+
+  const seen = new Set<string>();
+  let maxPending = 0;
+  for (let i = 0; i < 1500; i++) {
+    game.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    for (const ev of e.events) seen.add(ev.defId);
+    maxPending = Math.max(maxPending, e.pendingEvents.length);
+    // Someone is playing: answer every decision with its first affordable option.
+    for (const ev of e.pendingEvents) {
+      if (i % 3 !== 0) continue;
+      const options = optionsFor(e, game.galaxy, ev, game.clock.seconds);
+      const pick = options.find((o) => !o.disabled);
+      if (pick) resolveEvent(e, game.galaxy, ev.id, pick.id, game.clock.seconds);
+    }
+  }
+  assert(`a long run produces a spread of events (${e.events.length} events, ${seen.size} kinds)`, e.events.length > 30 && seen.size >= 8);
+  assert("decisions never pile up past three", maxPending <= 3);
+  assert("nothing went non-finite", Number.isFinite(e.treasury) && [...e.colonies.values()].every((c) => Number.isFinite(c.population) && Number.isFinite(c.fuel)));
+  assert("populations and stores never go negative",
+    [...e.colonies.values()].every((c) => c.population >= 0 && c.fuel >= -1e-6));
+  assert("every event is in the log with its outcome",
+    e.events.filter((x) => x.status !== "pending").every((x) => typeof x.outcome === "string" && x.outcome.length > 0));
+  assert("decisions are logged as decisions", e.log.some((l) => l.decision === true && l.category === "event"));
+  assert("news is not logged as needing a decision",
+    e.events.filter((x) => !x.decision).every((x) => x.status === "resolved"));
+
+  // --- same seed, same events
+  const twinA = make();
+  const twinB = make();
+  for (let i = 0; i < 300; i++) { twinA.step(CYCLE_DAYS * SECONDS_PER_DAY); twinB.step(CYCLE_DAYS * SECONDS_PER_DAY); }
+  const story = (g: Game) => JSON.stringify(g.empire.events.map((x) => [x.defId, x.time, x.outcome]));
+  assert(`events replay identically from the same seed (${twinA.empire.events.length} events)`,
+    twinA.empire.events.length > 5 && story(twinA) === story(twinB));
+  const other = new Game("different");
+  other.empire.eventFrequency = 2.5;
+  for (let i = 0; i < 300; i++) other.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  assert("and a different seed tells a different story", story(other) !== story(twinA));
+
+  // --- expiry: an unanswered decision settles itself
+  const slow = new Game("slow");
+  const se = slow.empire;
+  se.treasury = 100_000;
+  const sc = se.colony("earth")!;
+  const raised = rollEvent({ empire: se, galaxy: slow.galaxy, now: slow.clock.seconds, rng: se.eventRng }, "epidemic");
+  assert("an epidemic raises a decision", raised !== null && raised.status === "pending" && raised.decision);
+  const popBefore = sc.population;
+  for (let i = 0; i < 30; i++) slow.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  assert("left alone, it lapses into its fallback", raised!.status === "expired" && /no decision/i.test(se.log.find((l) => /Outbreak/.test(l.text))?.text ?? ""));
+  assert("and the fallback has its cost", sc.population < popBefore);
+
+  // --- each decision's options do what they say
+  const lab = new Game("lab");
+  const le = lab.empire;
+  le.treasury = 200_000;
+  const lc = le.colony("earth")!;
+  le.assignOfficer(le.officers.byBranch("civilian")[0].id, { kind: "governor", targetId: "earth", since: 0 });
+  const ctx = () => ({ empire: le, galaxy: lab.galaxy, now: lab.clock.seconds, rng: le.eventRng });
+  const take = (defId: string, option: string) => {
+    const ev = rollEvent(ctx(), defId);
+    if (!ev) return null;
+    const options = optionsFor(le, lab.galaxy, ev, lab.clock.seconds);
+    resolveEvent(le, lab.galaxy, ev.id, option, lab.clock.seconds);
+    return { ev, options };
+  };
+
+  let factories = lc.installations["construction-factory"];
+  let treasury = le.treasury;
+  const reviewed = take("accident", "review");
+  assert("a paid safety review costs money and loses little",
+    reviewed !== null && le.treasury < treasury && factories - lc.installations["construction-factory"] <= Math.ceil(factories * 0.011));
+  factories = lc.installations["construction-factory"];
+  take("accident", "carry-on");
+  assert("carrying on is free but loses more", lc.installations["construction-factory"] < factories);
+
+  treasury = le.treasury;
+  const funded = take("epidemic", "quarantine");
+  assert("a quarantine is paid for", funded !== null && le.treasury < treasury);
+
+  const fuelBefore = lc.fuel;
+  take("refinery-fire", "burn");
+  assert("a fuel fire burns fuel", lc.fuel < fuelBefore);
+
+  treasury = le.treasury;
+  take("scandal", "hush");
+  assert("hushing a scandal costs the treasury", le.treasury < treasury);
+  take("scandal", "prosecute");
+  assert("prosecuting removes the governor", le.governorOf("earth") === undefined);
+
+  le.queueBuild("earth", "mine", 5);
+  const queue = lc.buildQueue[0];
+  queue.progress = 1000;
+  take("strike", "hold");
+  assert("holding firm through a strike spoils half the current build", queue.progress === 500);
+
+  const poor = new Game("poor");
+  poor.empire.treasury = 10;
+  const pev = rollEvent({ empire: poor.empire, galaxy: poor.galaxy, now: 0, rng: poor.empire.eventRng }, "epidemic");
+  const popts = optionsFor(poor.empire, poor.galaxy, pev!, 0);
+  assert("an option you cannot afford is disabled, with the reason",
+    popts.find((o) => o.id === "quarantine")?.disabled !== undefined && resolveEvent(poor.empire, poor.galaxy, pev!.id, "quarantine", 0) === null);
+
+  // --- pending decisions survive a save
+  const saved = gameFromSave(parseSave(JSON.stringify(makeSave(lab, "ev", "ev", "manual"))));
+  assert("events survive a save, pending ones included",
+    saved.empire.events.length === le.events.length &&
+    saved.empire.pendingEvents.length === le.pendingEvents.length);
+  assert("the event stream carries on from the same point", saved.empire.eventRng.state === le.eventRng.state);
 }
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);

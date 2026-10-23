@@ -208,8 +208,10 @@ export class Game {
     const fresh = this.empire.logSince(this.pauseSeq);
     if (!fresh.length) return false;
     this.pauseSeq = this.empire.logSeq;
-    if (this.clock.paused || !this.autoPauseFilter) return false;
-    const trigger = fresh.find((entry) => !entry.quiet && this.autoPauseFilter!(entry));
+    if (this.clock.paused) return false;
+    // A decision waiting on the player stops the clock whatever the settings.
+    if (!this.autoPauseFilter && !fresh.some((e) => e.decision)) return false;
+    const trigger = fresh.find((entry) => entry.decision || (!entry.quiet && this.autoPauseFilter?.(entry) === true));
     if (!trigger) return false;
     this.clock.setRate(0);
     this.pausedBy = trigger;

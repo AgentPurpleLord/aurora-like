@@ -21,7 +21,16 @@ export interface Settings {
   colonyTab: string;
   /** The map's last-used lens. */
   lens: string;
+  /** How often random events happen. */
+  events: EventRate;
+  /** Show every event as a popup, not only the ones that need a decision. */
+  eventPopups: boolean;
 }
+
+export type EventRate = "off" | "rare" | "normal" | "often";
+
+/** Events per game year, roughly, for each setting. */
+export const EVENT_FREQUENCY: Record<EventRate, number> = { off: 0, rare: 0.4, normal: 1, often: 2.5 };
 
 const KEY = "aurora-like.settings";
 
@@ -34,11 +43,15 @@ const DEFAULTS: Settings = {
     colony: true,
     economy: true,
     fleet: true,
+    // Events decide for themselves: decisions always stop the clock.
+    event: false,
   },
+  events: "normal",
   guide: true,
   collapsed: [],
   colonyTab: "overview",
   lens: "default",
+  eventPopups: false,
 };
 
 function load(): Settings {

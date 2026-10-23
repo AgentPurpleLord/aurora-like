@@ -15,6 +15,7 @@ import type { ResearchProject } from "../../state/empire";
 import type { Body } from "../system";
 import type { Galaxy } from "../galaxy";
 import { gatedConnected } from "../ships/routing";
+import { runEvents } from "../events/engine";
 import type { EmpireStats } from "../research/techs";
 import { TECH_BY_ID } from "../research/techs";
 import { MINERALS, type MineralName } from "../minerals";
@@ -297,6 +298,8 @@ export function runCycle(empire: Empire, system: Galaxy, now: number, days: numb
   for (const event of empire.officers.advance(year, now, academyRate(empire))) {
     empire.addLog(now, "people", event.text);
   }
+
+  runEvents(empire, system, now, days);
 }
 
 /**

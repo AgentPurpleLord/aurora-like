@@ -1,7 +1,8 @@
 /** The settings popover: density, what stops the clock, and housekeeping. */
 
 import type { LogCategory } from "../state/empire";
-import { applyDensity, saveSettings, settings, type Density } from "./settings";
+import { EVENT_FREQUENCY, applyDensity, saveSettings, settings, type Density, type EventRate } from "./settings";
+import type { Game } from "../state/game";
 import { el } from "./format";
 
 const CATEGORY_LABELS: [LogCategory, string, string][] = [
@@ -20,6 +21,7 @@ export class SettingsMenu {
   constructor(
     host: HTMLElement,
     private onChange: () => void,
+    private game?: Game,
   ) {
     this.button.setAttribute("aria-label", "Settings");
     this.button.title = "Settings";
@@ -67,6 +69,38 @@ export class SettingsMenu {
     this.panel.append(
       el("p", "muted small", "Compact fits more rows on screen; nothing is hidden."),
     );
+
+    // --- random events
+    this.panel.append(el("h4", undefined, "Random events"));
+    const rate = el("div", "segmented");
+    for (const [value, label] of [["off", "Off"], ["rare", "Rare"], ["normal", "Normal"], ["often", "Often"]] as [EventRate, string][]) {
+      const btn = el("button", "seg-btn", label);
+      btn.classList.toggle("active", settings.events === value);
+      btn.addEventListener("click", () => {
+        settings.events = value;
+        if (this.game) this.game.empire.eventFrequency = EVENT_FREQUENCY[value];
+        saveSettings();
+        this.build();
+        this.onChange();
+      });
+      rate.append(btn);
+    }
+    this.panel.append(rate);
+    const popups = el("label", "check-row");
+    const popupBox = el("input");
+    popupBox.type = "checkbox";
+    popupBox.checked = settings.eventPopups;
+    popupBox.addEventListener("change", () => {
+      settings.eventPopups = popupBox.checked;
+      saveSettings();
+    });
+    const popupText = el("span");
+    popupText.append(
+      el("span", "check-label", "Popup for every event"),
+      el("span", "muted small", "Decisions always open a popup and stop the clock. This adds one for good and bad news too."),
+    );
+    popups.append(popupBox, popupText);
+    this.panel.append(popups);
 
     // --- what stops the clock
     this.panel.append(el("h4", undefined, "Pause the clock when..."));

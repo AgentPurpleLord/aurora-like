@@ -30,6 +30,8 @@ export interface PaletteActions {
   quickSave(): void;
   quickLoad(): void;
   showDigest(): void;
+  pendingEvents(): { id: string; title: string }[];
+  openEvent(eventId: string): void;
   startSurvey(fleetId: string): void;
   toggleDensity(): void;
   toggleShipping(): void;
@@ -46,6 +48,7 @@ const VIEWS: [ViewId, string, string][] = [
   ["empire", "Empire", "Dashboard: every colony, the mineral ledger, research"],
   ["map", "System Map", "The system to scale, with fleets and lenses"],
   ["galaxy", "Galaxy", "The neighbouring stars and the jump network"],
+  ["events", "Events", "Random events: decisions waiting, and the log"],
   ["colonies", "Colonies", "Industry, mining, terraforming and automation"],
   ["fleets", "Fleets", "Orders, cargo and building ships"],
   ["design", "Design", "Component designer and ship designer"],
@@ -137,6 +140,9 @@ export class CommandPalette {
       },
     );
 
+    for (const pending of actions.pendingEvents()) {
+      e.push({ label: `Decide: ${pending.title}`, hint: "An event is waiting on you", kind: "Command", run: () => actions.openEvent(pending.id) });
+    }
     for (const star of game.galaxy.systems) {
       const visited = empire.knownSystems.has(star.id);
       e.push({

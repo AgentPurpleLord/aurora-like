@@ -4,6 +4,7 @@ import { applyDensity } from "./ui/settings";
 applyDensity();
 import { App, type ViewId } from "./ui/app";
 import { startingGame } from "./state/save";
+import { rollEvent } from "./sim/events/engine";
 
 function need<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id) as T | null;
@@ -15,6 +16,7 @@ const views: Record<ViewId, HTMLElement> = {
   empire: need("view-empire"),
   map: need("view-map"),
   galaxy: need("view-galaxy"),
+  events: need("view-events"),
   colonies: need("view-colonies"),
   fleets: need("view-fleets"),
   design: need("view-design"),
@@ -27,6 +29,13 @@ const start = startingGame();
 // `?debug` exposes the game to the console and to the browser tests.
 if (new URLSearchParams(window.location.search).has("debug")) {
   (window as unknown as { __game: unknown }).__game = start.game;
+  // Raise a particular event now, for the browser tests.
+  (window as unknown as { __rollEvent: unknown }).__rollEvent = (id: string) => {
+    const g = start.game;
+    const event = rollEvent({ empire: g.empire, galaxy: g.galaxy, now: g.clock.seconds, rng: g.empire.eventRng }, id);
+    g.emit();
+    return event;
+  };
 }
 
 new App(need<HTMLCanvasElement>("map"), {

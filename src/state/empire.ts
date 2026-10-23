@@ -31,13 +31,14 @@ import {
   type ParamSet,
 } from "../sim/ships/components";
 import { emptyCargo, type Fleet, type Ship } from "../sim/ships/fleet";
+import type { GameEvent } from "../sim/events/types";
 import { BUILT_IN_TEMPLATES, type BuildTemplate } from "../sim/economy/templates";
 
-export type LogCategory = "research" | "construction" | "people" | "colony" | "economy" | "fleet";
+export type LogCategory = "research" | "construction" | "people" | "colony" | "economy" | "fleet" | "event";
 
 /** Where an event can take you, so a notification is a doorway, not a dead end. */
 export interface LogLink {
-  view: "empire" | "map" | "galaxy" | "colonies" | "fleets" | "design" | "research" | "officers";
+  view: "empire" | "map" | "galaxy" | "events" | "colonies" | "fleets" | "design" | "research" | "officers";
   bodyId?: string;
   fleetId?: string;
   techId?: string;
@@ -55,6 +56,8 @@ export interface LogEntry {
    * stops the clock nor raises a toast, or a freight line would never let go.
    */
   quiet?: boolean;
+  /** Something is waiting on the player: always stops the clock. */
+  decision?: boolean;
 }
 
 /** Categories worth interrupting the player for. */
@@ -141,6 +144,11 @@ export interface EmpireState {
   gravProgress?: Record<string, number>;
   civilianShipping: boolean;
   lastTick: number;
+  events?: GameEvent[];
+  eventFrequency?: number;
+  eventRng?: number;
+  lastEventTime?: number;
+  nextEventId?: number;
   customTemplates: BuildTemplate[];
   reviewMark: ReviewMark;
   colonies: Colony[];
@@ -194,6 +202,15 @@ export class Empire {
    * own. Turn it off to run logistics entirely on ships you have built.
    */
   civilianShipping = true;
+  /** Random events so far, newest first. */
+  events: GameEvent[] = [];
+  /** How often events happen: 0 is off, 1 is normal, 0.4 rare, 2.5 often. */
+  eventFrequency = 0;
+  /** Events draw from their own stream so they never disturb anything else. */
+  readonly eventRng = new Random("events");
+  /** Simulation time of the last event, to keep them from clustering. */
+  lastEventTime = 0;
+  private nextEventId = 1;
   /** Current simulation time, so sim code can timestamp its own log lines. */
   lastTick = 0;
   /** Templates the player has saved, on top of the built-in ones. */
@@ -669,8 +686,12 @@ export class Empire {
 
   // ------------------------------------------------------------------- log
 
-  addLog(time: number, category: LogCategory, text: string, link?: LogLink, quiet = false): void {
-    this.log.unshift({ seq: ++this.logSeq, time, category, text, link, ...(quiet ? { quiet } : {}) });
+  addLog(time: number, category: LogCategory, text: string, link?: LogLink, quiet = false, decision = false): void {
+    this.log.unshift({
+      seq: ++this.logSeq, time, category, text, link,
+      ...(quiet ? { quiet } : {}),
+      ...(decision ? { decision } : {}),
+    });
     if (this.log.length > 400) this.log.length = 400;
   }
 
@@ -699,6 +720,14 @@ export class Empire {
       buildPoints: this.snapshot.buildPoints,
     });
     if (this.history.length > 240) this.history.shift();
+  }
+
+  newEventId(): string {
+    return `event-${this.nextEventId++}`;
+  }
+
+  get pendingEvents(): GameEvent[] {
+    return this.events.filter((e) => e.status === "pending");
   }
 
   /** Hide an issue for a while; it returns if the condition persists. */
@@ -750,6 +779,11 @@ export class Empire {
       gravProgress: this.gravProgress,
       civilianShipping: this.civilianShipping,
       lastTick: this.lastTick,
+      events: this.events,
+      eventFrequency: this.eventFrequency,
+      eventRng: this.eventRng.state,
+      lastEventTime: this.lastEventTime,
+      nextEventId: this.nextEventId,
       customTemplates: this.customTemplates,
       reviewMark: this.reviewMark,
       colonies: [...this.colonies.values()],
@@ -790,6 +824,11 @@ export class Empire {
     this.designs = data.designs;
     this.civilianShipping = data.civilianShipping;
     this.lastTick = data.lastTick;
+    this.events = data.events ?? [];
+    this.eventFrequency = data.eventFrequency ?? 0;
+    if (data.eventRng !== undefined) this.eventRng.state = data.eventRng;
+    this.lastEventTime = data.lastEventTime ?? 0;
+    this.nextEventId = data.nextEventId ?? this.events.length + 1;
     this.customTemplates = data.customTemplates;
     this.reviewMark = Object.assign({ time: 0, seq: 0, treasury: 0, population: 0, techs: 0, colonies: 0, ships: 0 }, data.reviewMark);
 

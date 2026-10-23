@@ -20,7 +20,7 @@ import { chromium, devices } from "playwright";
 
 const BASE = process.env.UI_TEST_URL ?? "http://localhost:5173/";
 // A fixed galaxy seed keeps officers, deposits and worlds the same every run.
-const URL = `${BASE}?seed=sol-1`;
+const URL = `${BASE}?seed=sol-1&events=off`;
 /** Screenshots land here rather than in the working tree. */
 const SHOTS = ".screenshots";
 const launch = process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {};
@@ -559,7 +559,7 @@ async function programSuite(browser) {
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-  await page.goto(`${BASE}?debug&new&seed=sol-1`);
+  await page.goto(`${BASE}?debug&new&seed=sol-1&events=off`);
   await page.waitForSelector("#view-tabs");
 
   // A survey ship and a hauler, and a second colony to run between.
@@ -680,7 +680,7 @@ async function explorationSuite(browser) {
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-  await page.goto(`${BASE}?debug&new&seed=demo`);
+  await page.goto(`${BASE}?debug&new&seed=demo&events=off`);
   await page.waitForSelector("#view-tabs");
 
   await nav(page, "Galaxy").click();
@@ -810,6 +810,97 @@ async function explorationSuite(browser) {
   await page.close();
 }
 
+async function eventSuite(browser) {
+  console.log("\nRandom events");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.goto(`${BASE}?debug&new&seed=sol-1&events=normal`);
+  await page.waitForSelector("#view-tabs");
+
+  await nav(page, "Events").click();
+  await check("the events log starts empty and says so", async () =>
+    /Nothing has happened yet/.test(await page.locator("#view-events").innerText()));
+
+  // Raise a decision directly, as the dice eventually would.
+  await page.evaluate(() => {
+    const g = window.__game;
+    g.empire.treasury = 100000;
+    window.__rollEvent("epidemic");
+  });
+  await check("a decision opens a popup", async () => (await page.locator(".dialog").count()) === 1);
+  await check("the popup says what happened and offers the choices", async () => {
+    const text = await page.locator(".dialog").innerText();
+    return /Outbreak/.test(text) && /Fund a quarantine/.test(text) && /Let it run its course/.test(text);
+  });
+  await check("the clock is stopped for it", async () => await page.evaluate(() => window.__game.clock.paused));
+  await check("each choice states its price", async () =>
+    /Costs [\d,]+/.test(await page.locator(".dialog .event-option").first().innerText()));
+  await check("Events carries a badge while a decision waits", async () =>
+    /1/.test(await page.locator('#view-tabs button[data-view="events"] .tab-badge-dot').first().innerText()));
+
+  // Decide later, then decide from the log.
+  await page.getByRole("button", { name: "Decide later", exact: true }).click();
+  await check("deciding later leaves it pending", async () =>
+    (await page.evaluate(() => window.__game.empire.pendingEvents.length)) === 1);
+  await check("the log lists it as awaiting a decision", async () =>
+    (await page.locator("#view-events .event-card").count()) === 1);
+  await page.locator("#view-events .event-card .event-option", { hasText: "Fund a quarantine" }).click();
+  await check("choosing from the log resolves it", async () =>
+    (await page.evaluate(() => window.__game.empire.pendingEvents.length)) === 0);
+  await check("and the outcome is recorded in the history", async () => {
+    const text = await page.locator("#view-events .events-list").innerText();
+    return /Outbreak/.test(text) && /Chosen: Fund a quarantine/.test(text);
+  });
+
+  // The popup shows the outcome after a choice.
+  await page.evaluate(() => { window.__game.empire.queueBuild("earth", "mine", 5); window.__rollEvent("strike"); });
+  await page.locator(".dialog .event-option", { hasText: "Hold firm" }).click();
+  await check("the popup then shows the outcome", async () =>
+    /You chose: Hold firm/.test(await page.locator(".dialog").innerText()));
+  await page.getByRole("button", { name: "OK", exact: true }).click();
+
+  // News is a toast and a log line, not a popup.
+  await page.evaluate(() => { window.__rollEvent("grant"); });
+  await check("good news is a toast, not a popup", async () =>
+    (await page.locator(".toast", { hasText: "endowment" }).count()) === 1 && (await page.locator(".dialog").count()) === 0);
+
+  // Filters.
+  await nav(page, "Events").click();
+  await page.locator("#view-events .events-filters button", { hasText: "Good" }).click();
+  await check("the log filters by tone", async () => {
+    const rows = await page.locator("#view-events .event-row").count();
+    return rows >= 1 && (await page.locator("#view-events .event-row.bad").count()) === 0;
+  });
+  await page.locator("#view-events .events-filters button", { hasText: "All" }).click();
+  await page.locator('#view-events input[type="search"]').fill("outbreak");
+  await check("and searches", async () => (await page.locator("#view-events .event-row").count()) === 1);
+
+  // Settings.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.locator(".settings-panel .seg-btn", { hasText: "Off" }).click();
+  await check("events can be switched off", async () =>
+    (await page.evaluate(() => window.__game.empire.eventFrequency)) === 0);
+  await page.locator(".settings-panel .seg-btn", { hasText: "Often" }).click();
+  await check("or turned up", async () =>
+    (await page.evaluate(() => window.__game.empire.eventFrequency)) > 1);
+
+  // Saved decisions come back.
+  await page.evaluate(() => { window.__rollEvent("accident"); });
+  await page.getByRole("button", { name: "Decide later", exact: true }).click();
+  await page.keyboard.press("F5");
+  await page.keyboard.press("F9");
+  await page.waitForLoadState("load");
+  await page.waitForSelector("#view-tabs");
+  await check("a decision still pending is offered again after loading", async () =>
+    (await page.locator(".dialog", { hasText: "Industrial accident" }).count()) === 1);
+
+  await check("no console errors", () => errors.length === 0);
+  if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
+  await page.close();
+}
+
 async function mobileSuite(browser) {
   console.log("\nMobile (Pixel 7)");
   const context = await browser.newContext({ ...devices["Pixel 7"], hasTouch: true, isMobile: true });
@@ -916,6 +1007,7 @@ try {
   await refreshSuite(browser);
   await programSuite(browser);
   await explorationSuite(browser);
+  await eventSuite(browser);
   await mobileSuite(browser);
 } finally {
   await browser.close();

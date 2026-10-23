@@ -17,6 +17,9 @@ import { OfficersView } from "./views/officersView";
 import { FleetsView } from "./views/fleetsView";
 import { DesignView } from "./views/designView";
 import { GalaxyView } from "./views/galaxyView";
+import { EventsView } from "./views/eventsView";
+import { openEventDialog } from "./eventDialog";
+import { EVENT_FREQUENCY } from "./settings";
 import { distance, el, lightTime, num } from "./format";
 import { CommandPalette } from "./palette";
 import { SettingsMenu } from "./settingsMenu";
@@ -48,7 +51,7 @@ const ZOOM_PRESETS: ZoomPreset[] = [
   { label: "Kuiper", spanAu: 75 },
 ];
 
-export type ViewId = "empire" | "map" | "galaxy" | "colonies" | "fleets" | "design" | "research" | "officers";
+export type ViewId = "empire" | "map" | "galaxy" | "events" | "colonies" | "fleets" | "design" | "research" | "officers";
 
 const VIEW_TABS: { id: ViewId; label: string; key: string }[] = [
   { id: "empire", label: "Empire", key: "e" },
@@ -59,12 +62,14 @@ const VIEW_TABS: { id: ViewId; label: string; key: string }[] = [
   { id: "design", label: "Design", key: "d" },
   { id: "research", label: "Research", key: "r" },
   { id: "officers", label: "Officers", key: "o" },
+  { id: "events", label: "Events", key: "v" },
 ];
 
 /** The rail costs real estate the map wants, so it starts folded there. */
 const RAIL_COLLAPSED_BY_DEFAULT: Record<ViewId, boolean> = {
   empire: false,
   galaxy: true,
+  events: false,
   map: true,
   colonies: false,
   fleets: false,
@@ -103,6 +108,9 @@ export class App {
   private fleetsView: FleetsView;
   private designView: DesignView;
   private galaxyView: GalaxyView;
+  private eventsView: EventsView;
+  /** Random events already shown to the player this session. */
+  private announcedEvents = new Set<string>();
   /** The map-tools controls that depend on which system is showing. */
   private zoomGroup = el("div", "tool-group");
   private systemSelect = el("select", "tool-select");
@@ -197,6 +205,20 @@ export class App {
       openFleet: (fleetId) => this.navigate({ view: "fleets", fleetId }),
       showView: () => this.setView("galaxy"),
     });
+    this.eventsView = new EventsView(roots.views.events, this.game, {
+      open: (id) => this.showEvent(id),
+      navigate: (event) => {
+        if (event.link) this.navigate(event.link);
+      },
+    });
+    // Events are the player's preference, not part of the saved campaign.
+    // `?events=off|rare|normal|often` overrides the saved preference for one visit.
+    const asked = new URLSearchParams(window.location.search).get("events") as keyof typeof EVENT_FREQUENCY | null;
+    if (asked && asked in EVENT_FREQUENCY) settings.events = asked;
+    this.game.empire.eventFrequency = EVENT_FREQUENCY[settings.events];
+    for (const event of this.game.empire.events) {
+      if (event.status !== "pending") this.announcedEvents.add(event.id);
+    }
     this.rail = new TriageRail(
       roots.rail,
       this.game,
@@ -225,6 +247,8 @@ export class App {
       quickSave: () => this.quickSave(),
       quickLoad: () => this.quickLoad(),
       showDigest: () => this.openDigest(),
+      pendingEvents: () => this.game.empire.pendingEvents.map((e) => ({ id: e.id, title: e.title })),
+      openEvent: (id) => this.showEvent(id),
       startSurvey: (fleetId) => {
         const fleet = this.game.empire.fleets.get(fleetId);
         if (fleet) {
@@ -245,7 +269,7 @@ export class App {
       },
     });
     // The menu owns its own button and panel; it only needs to tell us when to redraw.
-    new SettingsMenu(roots.settingsHost, () => this.renderActiveView());
+    new SettingsMenu(roots.settingsHost, () => this.renderActiveView(), this.game);
     roots.paletteButton.addEventListener("click", () => this.palette.open());
     roots.saveButton.addEventListener("click", () => this.openSaves());
 
@@ -263,6 +287,7 @@ export class App {
       this.rail.render();
       this.updateBadges();
       this.announceEvents();
+      this.announceRandomEvents();
       this.dirty = true;
       this.offerDigest();
     });
@@ -290,6 +315,8 @@ export class App {
     this.toastSeq = this.game.empire.logSeq;
     this.startAutosave();
     this.announceStartup(startup);
+    // A decision still pending in a loaded game is put to the player again.
+    this.announceRandomEvents();
     this.frame();
   }
 
@@ -430,6 +457,8 @@ export class App {
   /** A dot on each screen that has something wrong, coloured by how wrong. */
   private updateBadges(): void {
     const worst = new Map<string, { count: number; severity: string }>();
+    const waiting = this.game.empire.pendingEvents.length;
+    if (waiting) worst.set("events", { count: waiting, severity: "warning" });
     for (const issue of this.rail.current) {
       if (issue.severity === "info") continue;
       const entry = worst.get(issue.action.view) ?? { count: 0, severity: "warning" };
@@ -460,6 +489,36 @@ export class App {
   }
 
   // ------------------------------------------------- events and navigation
+
+  private showEvent(eventId: string): void {
+    openEventDialog(this.game, eventId, (link) => this.navigate(link), () => this.game.emit());
+  }
+
+  /**
+   * Random events: decisions open a popup, news gets a toast (or a popup too,
+   * if the player asked for that). One popup at a time, and never over
+   * another dialog; what cannot be shown yet is shown on a later change.
+   */
+  private announceRandomEvents(): void {
+    const { empire } = this.game;
+    const fresh = [...empire.events].reverse().filter((e) => !this.announcedEvents.has(e.id));
+    for (const event of fresh) {
+      const popup = event.status === "pending" || settings.eventPopups;
+      if (popup) {
+        if (dialogOpen()) continue;
+        this.announcedEvents.add(event.id);
+        this.showEvent(event.id);
+        continue;
+      }
+      this.announcedEvents.add(event.id);
+      this.toasts.push({
+        title: event.title,
+        text: event.outcome ?? event.text,
+        category: "event",
+        link: { view: "events" },
+      });
+    }
+  }
 
   /** Turn fresh events into toasts, and explain a pause. */
   private announceEvents(): void {
@@ -496,7 +555,7 @@ export class App {
   private nextEvent(): void {
     this.toasts.clear();
     const found = this.game.runUntilEvent(
-      (entry: LogEntry) => !entry.quiet && IMPORTANT_CATEGORIES.includes(entry.category),
+      (entry: LogEntry) => entry.decision === true || (!entry.quiet && IMPORTANT_CATEGORIES.includes(entry.category)),
       365,
     );
     this.game.pausedBy = null;
@@ -613,6 +672,7 @@ export class App {
       case "research": this.research.render(); break;
       case "officers": this.officers.render(); break;
       case "galaxy": this.galaxyView.render(); break;
+      case "events": this.eventsView.render(); break;
       case "map": break;
     }
     this.renderEmpireBar();

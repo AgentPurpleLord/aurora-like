@@ -230,6 +230,41 @@ system, and shows jump points as diamonds (hollow until crossed, ringed once
 gated). Not yet modelled: companion stars, the jump network changing, and
 anything hostile on the other side.
 
+## Random events
+
+Things happen that you did not plan. Once per production cycle the event
+engine rolls the dice - on average about one event a year at the *normal*
+setting (Off, Rare, Normal and Often are in Settings; `?events=off` overrides it
+for a visit), never within 18 days of the last, and never raising a fourth
+decision while three are waiting. What happens is a weighted draw over the
+events whose conditions the empire currently meets, so a fuel depot fire needs a
+depot with fuel in it and a scandal needs a governor.
+
+Fourteen events are written, each concrete and each using only things the game
+already has:
+
+- **Good news** (applied at once, reported by a toast): a richer mineral seam,
+  a research breakthrough, an endowment, a scientist's career-best work, a baby
+  boom, a wave of recruits, a gravitational ripple that reveals a jump point.
+- **Bad news**: a market slump, a solar flare that leaks fuel from a fleet.
+- **Decisions** (a popup, which stops the clock): an industrial accident, a
+  work stoppage, an epidemic, a fuel depot fire, a governor's scandal, and a
+  derelict found in old survey data. Each option states its cost or risk before
+  you choose it, options you cannot afford are disabled with the reason, and a
+  decision nobody makes lapses into its stated fallback after 90 days.
+
+Pending decisions are saved with the game and offered again after a load.
+Events draw from their own random stream, so the rest of the simulation is
+unaffected by whether they are on.
+
+**The Events tab** is the log: decisions waiting at the top, answerable
+inline or as a popup, and below them every event that has happened - date,
+tone, what occurred, what you chose and what it did - with filters for good,
+bad and decisions and a text search. The tab carries a badge while a decision
+waits, the command palette lists each one, and the return digest groups events
+with the rest of what happened. "Popup for every event" in Settings gives good
+and bad news the popup treatment too.
+
 ## Terraforming
 
 ![a terraforming programme](docs/terraforming.png)
