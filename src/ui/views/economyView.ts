@@ -314,6 +314,7 @@ export class EconomyView {
         expenses: this.game.empire.snapshot.expenses, effect: this.game.empire.effectFactor("stability", colony.bodyId),
         administration: governor ? governor.skills.administration ?? 0 : null,
         pops: popStability(colony),
+        bonus: this.game.empire.stats.stabilityBonus,
       });
       const sign = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(0)}`;
       const note = el("p", "muted small",

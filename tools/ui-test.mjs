@@ -341,7 +341,7 @@ async function shipSuite(browser) {
   await page.waitForTimeout(150);
   await check("halving the modifier halves the power", async () => /Power\s+30\.0/.test(await derived()));
   await check("and cuts fuel per unit of power to a quarter", async () =>
-    /Fuel per power-hour\s+1\.25/.test(await derived()));
+    /Fuel per power-hour\s+0\.5[23]/.test(await derived()));
   await check("the name follows the parameters", async () =>
     (await page.locator("#view-design .name-input").inputValue()).includes("x0.50"));
   await page.getByRole("button", { name: "Create component", exact: true }).click();
@@ -393,7 +393,7 @@ async function shipSuite(browser) {
   // 120 power over 5,600 t (112 hull spaces): the one-click fix adds a single
   // 100 t quarters, not the two the standard Hauler carries.
   await check("the class reports its speed from its parts", async () =>
-    /Speed\s+1,071 km\/s/.test(await classDerived()));
+    /Speed\s+161 km\/s/.test(await classDerived()));
   await page.getByRole("button", { name: "Create class", exact: true }).click();
   await page.waitForTimeout(200);
   await check("the class is saved", async () =>

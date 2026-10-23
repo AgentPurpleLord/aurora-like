@@ -23,7 +23,8 @@ import { deriveProposals } from "../src/sim/governors";
 import { effectiveColonyCost, shipyardCapacity } from "../src/sim/economy/production";
 import { componentStats, normaliseParams, suggestName, SURVEY_POINTS_NEEDED } from "../src/sim/ships/components";
 import { maintainShips, servicingCapacity } from "../src/sim/ships/maintenance";
-import { statsFor } from "../src/sim/research/techs";
+import { statsFor, TECHS } from "../src/sim/research/techs";
+import { SPEED_SCALE } from "../src/sim/ships/design";
 import { classTitle } from "../src/sim/ships/hulls";
 import { buyProgramme, programmeCost, moraleFactor, reserveErosion, stabilityTarget } from "../src/sim/economy/finance";
 import {
@@ -639,7 +640,7 @@ console.log("");
   const stats = empire.statsOf(hauler.id)!;
   check("design tonnage", stats.tons, 2 * 250 + 4 * 250 + 4 * 1000 + 2 * 100, 0);
   // Speed is engine power per hull space: 120 power, 5700 t = 114 HS.
-  check("design speed (km/s)", stats.speed, (120 * 1000) / (5700 / 50), 1e-9);
+  check("design speed (km/s)", stats.speed, (120 * 1000 * SPEED_SCALE) / (5700 / 50), 1e-9);
   check("design fuel capacity (litres)", stats.fuelCapacity, 200_000, 0);
   check("design cargo capacity (tons)", stats.cargoCapacity, 100_000, 0);
   check("design crew required", stats.crewRequired, 2 * 3 + 4 * 2, 0);
@@ -2063,6 +2064,59 @@ console.log("");
     assert("a pinned order can be released", oe.setOrderYard("earth", pinned.id, null) === null && !pinned.yardId);
     const hold = oe.queueShip("earth", oHauler.id, 1);
     assert("queueing again still works", hold === null);
+  }
+
+  // --- the technology tree is sound, and its new effects work
+  {
+    const ids = new Set<string>();
+    let dup = 0, orphan = 0;
+    for (const t of TECHS) { if (ids.has(t.id)) dup++; ids.add(t.id); }
+    for (const t of TECHS) for (const p of t.prereqs) if (!ids.has(p)) { orphan++; console.log("  missing prereq", t.id, "<-", p); }
+    check("no technology id is used twice", dup, 0, 0);
+    check("every prerequisite exists", orphan, 0, 0);
+    // no cycles: every tech must be reachable from nothing by repeatedly taking available techs
+    const done = new Set<string>();
+    let progress = true;
+    while (progress) {
+      progress = false;
+      for (const t of TECHS) if (!done.has(t.id) && t.prereqs.every((p) => done.has(p))) { done.add(t.id); progress = true; }
+    }
+    check("the whole tree can be researched (no cycles)", done.size, TECHS.length, 0);
+    assert(`the tree is broad (${TECHS.length} technologies)`, TECHS.length >= 250);
+    assert("it has working technologies in every field but the combat ones",
+      ["construction", "power", "sensors", "biology", "logistics"].every((f) => TECHS.some((t) => t.field === f && !t.future && (t.effects?.length || t.id.length))));
+
+    const all = TECHS.map((t) => t.id);
+    const maxed = statsFor(all);
+    check("mining reaches 36 tons", maxed.miningRate, 36, 0);
+    check("laboratories reach 1,100 RP", maxed.researchRate, 1100, 0);
+    check("administration adds laws", maxed.policySlots, 5, 0);
+    assert("and political capital", maxed.capitalBonus >= 2);
+    assert("and stability", maxed.stabilityBonus >= 9);
+    check("freight triples", maxed.freightFlow, 3, 0);
+    check("hydroponic farms reach 250", maxed.farmOutput, 250, 0);
+
+    // part ladders reach existing designs
+    const tg = new Game("techs");
+    const te = tg.empire;
+    te.research("nuclear-thermal");
+    te.addStandardComponents(0);
+    const hauler = te.addStandardClasses(0).find((d) => d.name === "Hauler")!;
+    const before = te.statsOf(hauler.id)!;
+    te.research("tank-efficiency-1");
+    te.research("cargo-handling");
+    te.research("fuel-consumption-08");
+    const after = te.statsOf(hauler.id)!;
+    check("fuel tank linings add a quarter to existing ships", after.fuelCapacity / before.fuelCapacity, 1.25, 1e-9);
+    check("cargo handling adds a quarter of cargo", after.cargoCapacity / before.cargoCapacity, 1.25, 1e-9);
+    assert("fuel efficiency lengthens range", after.rangeAu > before.rangeAu * 1.5);
+    te.research("fuel-consumption-04");
+    check("the best fuel efficiency burns 60% less", te.statsOf(hauler.id)!.fuelPerHour / before.fuelPerHour, 0.4, 1e-9);
+    for (const id of ["magneto-plasma", "fusion-magnetic", "photonic-drive"]) te.research(id);
+    assert("new engine types can be designed", te.addComponentDesign("engine", { type: "photonic", size: 5, modifier: 1 }, 0) !== undefined
+      && componentStats("engine", { type: "photonic", size: 5, modifier: 1 }, te.researched).problems.length === 0);
+    te.research("engine-power-200");
+    check("modifier ceiling reaches 2", normaliseParams("engine", { type: "photonic", size: 5, modifier: 5 }, te.researched).modifier as number, 2, 0);
   }
 }
 

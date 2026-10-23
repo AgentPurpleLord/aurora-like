@@ -90,6 +90,8 @@ export interface StabilityInputs {
   administration: number | null;
   /** What the mood of the colony's people adds or takes away. */
   pops: number;
+  /** Points from technology (public broadcasting and the like). */
+  bonus?: number;
 }
 
 export interface StabilityBreakdown {
@@ -107,7 +109,7 @@ export function stabilityTarget(i: StabilityInputs): StabilityBreakdown {
   const welfare = i.welfare * 100;
   const treasury = i.treasury < 0 ? -15 : i.treasury >= i.expenses && i.expenses > 0 ? 5 : 0;
   const governor = governorStability(i.administration);
-  const target = clamp((BASE_STABILITY + tax + welfare + treasury + governor + i.pops) * i.effect, 0, 100);
+  const target = clamp((BASE_STABILITY + tax + welfare + treasury + governor + i.pops + (i.bonus ?? 0)) * i.effect, 0, 100);
   return { target, tax, welfare, treasury, governor, pops: i.pops };
 }
 

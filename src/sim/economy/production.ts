@@ -169,7 +169,7 @@ export function colonyOutput(
   const taxes = colony.population * GDP_PER_MILLION * empire.taxRate * wealthFactor;
   const trade =
     colony.population * TRADE_PER_MILLION * connectionFactor(links) *
-    tradeFactor(empire.taxRate, colony.stability) * wealthFactor;
+    tradeFactor(empire.taxRate, colony.stability) * wealthFactor * (1 + stats.tradeBonus);
   const centres =
     installationCount(colony, "financial-centre") * WEALTH_PER_FINANCIAL_CENTRE *
     empire.effectFactor("wealth", colony.bodyId);
@@ -310,6 +310,7 @@ export function runCycle(empire: Empire, system: Galaxy, now: number, days: numb
       effect: empire.effectFactor("stability", colony.bodyId),
       administration: empire.governorOf(colony.bodyId)?.skills.administration ?? (empire.governorOf(colony.bodyId) ? 0 : null),
       pops: popStability(colony),
+      bonus: stats.stabilityBonus,
     });
     colony.stability = before + (target - before) * Math.min(1, STABILITY_DRIFT * year);
     announceMood(empire, body.name, colony.bodyId, before, colony.stability, now);
@@ -586,7 +587,7 @@ function academyRate(empire: Empire): number {
   for (const colony of empire.colonies.values()) {
     academies += installationCount(colony, "military-academy");
   }
-  return academies * 2;
+  return academies * empire.stats.academyOutput;
 }
 
 /**

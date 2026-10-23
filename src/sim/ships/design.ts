@@ -79,6 +79,13 @@ export interface DesignStats {
 
 const AU_KM = 149_597_870.7;
 
+/**
+ * Engine power per hull space gives speed through this factor. Deliberately
+ * small: a ship should take days to cross to a neighbouring world and most of
+ * a year to cross the system, so distance is something to plan around.
+ */
+export const SPEED_SCALE = 0.15;
+
 export function designStats(design: ShipDesign, resolve: ComponentResolver): DesignStats {
   let tons = 0;
   let power = 0;
@@ -133,7 +140,7 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
   }
 
   const hullSpaces = tons / TONS_PER_HS;
-  const speed = hullSpaces > 0 ? (power * 1000) / hullSpaces : 0;
+  const speed = hullSpaces > 0 ? (power * 1000 * SPEED_SCALE) / hullSpaces : 0;
   const enduranceHours = fuelPerHour > 0 ? fuelCapacity / fuelPerHour : 0;
   const rangeAu = (speed * 3600 * enduranceHours) / AU_KM;
 

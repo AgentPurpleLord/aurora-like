@@ -54,17 +54,17 @@ export const INSTALLATIONS: InstallationType[] = [
   },
   {
     id: "hydroponic-farm", name: "Hydroponic Farm", category: "production",
-    blurb: "Grows 100 units of food a year under glass. Worlds with poor land cannot feed themselves without it.",
+    blurb: "Grows 100 units of food a year under glass (more with research). Worlds with poor land cannot feed themselves without it.",
     cost: 120, minerals: { Duranium: 60, Boronide: 60 }, workers: 0.05, tons: 25_000,
   },
   {
     id: "consumer-plant", name: "Consumer Plant", category: "production",
-    blurb: "Makes 100 units of consumer goods a year, using 20 tons of Corundium. Idle without it.",
+    blurb: "Makes 100 units of consumer goods a year (more with research), using 0.2 tons of Corundium per unit. Idle without it.",
     cost: 150, minerals: { Duranium: 75, Tritanium: 75 }, workers: 0.05, tons: 25_000,
   },
   {
     id: "luxury-workshop", name: "Luxury Workshop", category: "production",
-    blurb: "Makes 40 units of luxuries a year, using 20 tons of Gallicite. Specialists and merchants want them.",
+    blurb: "Makes 40 units of luxuries a year (more with research), using 0.5 tons of Gallicite per unit. Specialists and merchants want them.",
     cost: 240, minerals: { Duranium: 120, Corbomite: 120 }, workers: 0.05, tons: 25_000,
   },
   {

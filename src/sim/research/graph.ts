@@ -10,7 +10,7 @@ import type { Empire } from "../../state/empire";
 import { installationCount } from "../../state/colony";
 import { INSTALLATION_BY_ID } from "../economy/installations";
 import { employmentRatio } from "../economy/production";
-import { ENGINE_TYPES, KINDS, SENSOR_TYPES } from "../ships/components";
+import { ENGINE_TYPES, KINDS, SENSOR_TYPES, partTechNote } from "../ships/components";
 import { bonus, labCapacity, type Officer } from "../people/officers";
 import { RESEARCH_FIELDS, type ResearchField } from "./fields";
 import { TECHS, TECH_BY_ID, type Tech } from "./techs";
@@ -86,6 +86,15 @@ const STAT_LABELS: Record<string, string> = {
   infrastructureEfficiency: "Infrastructure efficiency",
   wealthBonus: "Tax revenue",
   serviceTonsPerFacility: "Servicing capacity",
+  tradeBonus: "Commerce income",
+  stabilityBonus: "Stability",
+  capitalBonus: "Political capital",
+  policySlots: "Laws in force at once",
+  academyOutput: "Academy output",
+  farmOutput: "Hydroponic farm output",
+  consumerOutput: "Consumer plant output",
+  luxuryOutput: "Luxury workshop output",
+  freightFlow: "Freight capacity",
 };
 
 const STAT_UNITS: Record<string, string> = {
@@ -96,6 +105,10 @@ const STAT_UNITS: Record<string, string> = {
   massDriverThroughput: "t/year per driver",
   terraformRate: "atm/year per installation",
   serviceTonsPerFacility: "t of ship per facility",
+  academyOutput: "officers/year per academy",
+  farmOutput: "units/year per farm",
+  consumerOutput: "units/year per plant",
+  luxuryOutput: "units/year per workshop",
 };
 
 export interface Unlocks {
@@ -122,10 +135,13 @@ export function unlocksOf(tech: Tech): Unlocks {
     } else {
       const label = STAT_LABELS[effect.stat] ?? effect.stat;
       const sign = effect.value >= 0 ? "+" : "";
+      const points = effect.stat === "stabilityBonus" || effect.stat === "capitalBonus" || effect.stat === "policySlots";
       improves.push(
         effect.stat === "colonyCostReduction"
           ? `${label} -${effect.value.toFixed(2)} everywhere`
-          : `${label} ${sign}${Math.round(effect.value * 100)}%`,
+          : points
+            ? `${label} ${sign}${effect.value}${effect.stat === "capitalBonus" ? " a year" : ""}`
+            : `${label} ${sign}${Math.round(effect.value * 100)}%`,
       );
     }
   }
@@ -138,8 +154,8 @@ export function unlocksOf(tech: Tech): Unlocks {
     if (sensor.tech === tech.id) gains.push(`${sensor.name} sensors in the component designer`);
   }
   if (tech.id === "military-specification") gains.push("The military specification for engines, sensors, jump drives and gate modules in the component designer");
-  if (tech.id === "engine-power-125") improves.push("Engine power modifier up to 1.25");
-  if (tech.id === "fuel-consumption-08") improves.push("Every engine burns 20% less fuel");
+  const partNote = partTechNote(tech.id);
+  if (partNote) improves.push(partNote);
   if (tech.id === "trans-newtonian") {
     const kinds = KINDS.filter((k) => !["engine", "survey-sensor", "jump-drive", "gate-module"].includes(k.kind)).map((k) => k.name);
     gains.push(`${kinds.join(", ")} in the component designer`);

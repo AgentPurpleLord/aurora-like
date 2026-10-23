@@ -7,7 +7,7 @@
 
 import type { Game } from "../../state/game";
 import {
-  COURT_COST, COURT_GAIN, FACTIONS, FUND_GAIN, POLICIES, POLICY_BY_ID, POLICY_SLOTS, REJECT_COST, REJECT_PENALTY, REPEAL_COST,
+  COURT_COST, COURT_GAIN, FACTIONS, FUND_GAIN, POLICIES, POLICY_BY_ID, policySlots, REJECT_COST, REJECT_PENALTY, REPEAL_COST,
   WIN_APPROVAL, approval, capitalIncome, capitalUpkeep, courtFaction, demandProgress, enactPolicy, fundFaction, judge,
   moodEffect, moodLabel, rejectDemand, repealPolicy,
 } from "../../sim/politics";
@@ -139,7 +139,7 @@ export class PoliticsView {
     }
 
     // --- laws
-    const laws = section(page, `Laws (${p.policies.length} of ${POLICY_SLOTS})`);
+    const laws = section(page, `Laws (${p.policies.length} of ${policySlots(empire)})`);
     for (const entry of p.policies) {
       const def = POLICY_BY_ID.get(entry.id)!;
       const row = el("div", "event-card good");
@@ -164,7 +164,7 @@ export class PoliticsView {
       row.append(el("div", "muted small", def.blurb));
       row.append(el("div", "muted small", reaction(def.likes)));
       const enact = button(`Enact (${def.cost} capital)`, act(() => enactPolicy(empire, def.id, now)));
-      enact.disabled = p.policies.length >= POLICY_SLOTS || p.capital < def.cost;
+      enact.disabled = p.policies.length >= policySlots(empire) || p.capital < def.cost;
       enact.setAttribute("aria-label", `Enact ${def.name}`);
       row.append(enact);
       laws.append(row);

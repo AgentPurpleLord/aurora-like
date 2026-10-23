@@ -522,6 +522,38 @@ An empire left alone drifts to roughly 50% approval, so neglect makes elections 
 - **Terminal bars.** In the Terminal theme, bars are coloured segments - cyan for progress, green,
   amber or red where a bar is a judgement (contentment, support, staffing).
 
+## The technology tree
+
+The tree now has 260 technologies across the eight fields. Most are working: they raise a
+stat, add an engine, or improve a part on every ship already built.
+
+- **Construction & production** - ladders for mining (to 36 t), factories (to 36 BP), laboratories (to 1,100 RP), refineries,
+  mass drivers, maintenance bays and terraforming; banking, stock exchanges and trade networks
+  (wealth and commerce); **administration** techs that raise stability, political capital and the
+  number of laws in force; and consumer-goods and luxury production lines.
+- **Power & propulsion** - five new engines (magnetic and inertial fusion, solid- and gas-core
+  anti-matter, photonic), engine power modifier ceilings to x2, fuel-consumption ladders to 0.4,
+  better fuel tank linings, jump drive efficiency and faster gate construction.
+- **Sensors** - survey strength ladders (geological and gravitational, up to 3x); detection, fire
+  control and ECM/ECCM lines.
+- **Biology** - more growth and colony-cost techs, infrastructure efficiency to 2x, hydroponic yield,
+  cryogenic berths (colonists per colony module).
+- **Logistics** - cargo handling (holds carry up to 2x), compact crew quarters, container and dock
+  techs that raise freight capacity, and officer-training techs for academies.
+- **Defence, energy, missiles and ground forces** - full armour, shield, laser, railgun, plasma,
+  meson, missile, warhead and ground-force lines. They are marked *future*: there is no combat for
+  them to act in yet.
+
+Part-improving techs apply to ships already built, because a class's figures are always derived
+from what is researched.
+
+## Ship speed and fuel
+
+Ships are much slower than they were: engine power now gives 15% of the old speed, and fuel burn
+is tuned so a plain hauler on a nuclear thermal drive manages about 160 km/s and a range of about
+3 AU - days to a neighbouring world, most of a year to cross the system. Better engines (and
+fuel-consumption and tank techs) are what extend the reach.
+
 ## Terraforming
 
 ![a terraforming programme](docs/terraforming.png)
