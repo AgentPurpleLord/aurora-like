@@ -578,6 +578,35 @@ async function refreshSuite(browser) {
   await check("density is applied from settings", async () =>
     (await page.evaluate(() => document.documentElement.dataset.density)) === "compact");
 
+  // --- themes
+  await check("the classic theme is the default", async () =>
+    (await page.evaluate(() => document.documentElement.dataset.theme)) === "classic");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.locator(".settings-panel .seg-btn", { hasText: "Terminal" }).click();
+  await check("the terminal theme can be chosen", async () =>
+    (await page.evaluate(() => document.documentElement.dataset.theme)) === "terminal");
+  await check("and really changes the look (monospace type, phosphor colours)", async () => {
+    const style = await page.evaluate(() => {
+      const cs = getComputedStyle(document.body);
+      return { font: cs.fontFamily, bg: getComputedStyle(document.querySelector(".topbar")).backgroundImage };
+    });
+    return /mono|Consolas|Menlo/i.test(style.font) && /rgb\(\d+, \d+, \d+\)/.test(style.bg);
+  });
+  await page.reload();
+  await page.waitForSelector("#view-tabs");
+  await check("the chosen theme is remembered", async () =>
+    (await page.evaluate(() => document.documentElement.dataset.theme)) === "terminal");
+  await nav(page, "Map").click();
+  await page.waitForTimeout(300);
+  await check("the map still draws in the terminal theme", async () =>
+    (await page.evaluate(() => document.getElementById("map").width)) > 100);
+  await nav(page, "Empire").click();
+  await page.keyboard.press("Control+k");
+  await page.locator(".palette-input").fill("switch theme");
+  await page.keyboard.press("Enter");
+  await check("the palette switches the theme back", async () =>
+    (await page.evaluate(() => document.documentElement.dataset.theme)) === "classic");
+
   // --- the settings popover and the guide
   await check("the status bar offers Next event", async () =>
     (await page.getByRole("button", { name: "Skip to next event" }).count()) === 1);
@@ -1080,6 +1109,10 @@ async function mobileSuite(browser) {
   await check("the designer does not scroll sideways", async () => (await overflow()) <= 1);
   await page.screenshot({ path: `${SHOTS}/mobile-design.png` });
 
+  await page.evaluate(() => { document.documentElement.dataset.theme = "terminal"; });
+  await page.waitForTimeout(200);
+  await check("the terminal theme does not make a phone scroll sideways", async () => (await overflow()) <= 1);
+  await page.evaluate(() => { document.documentElement.dataset.theme = "classic"; });
   await check("controls are big enough to tap", async () =>
     (await page.evaluate(() =>
       [...document.querySelectorAll("button:not(.step-btn)")]

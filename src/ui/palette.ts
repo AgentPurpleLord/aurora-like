@@ -34,6 +34,7 @@ export interface PaletteActions {
   pendingEvents(): { id: string; title: string }[];
   openEvent(eventId: string): void;
   startSurvey(fleetId: string): void;
+  toggleTheme(): void;
   toggleDensity(): void;
   toggleShipping(): void;
 }
@@ -132,6 +133,7 @@ export class CommandPalette {
       { label: "Quicksave", hint: "Overwrite the quick slot  (F5)", kind: "Command", run: actions.quickSave },
       { label: "Quickload", hint: "Return to the quick slot  (F9)", kind: "Command", run: actions.quickLoad },
       { label: "Show the digest", hint: "What happened since you last looked", kind: "Command", run: actions.showDigest },
+      { label: "Switch theme: classic / terminal", hint: "Phosphor-green console look", kind: "Command", run: actions.toggleTheme },
       { label: "Toggle compact density", hint: "Fit more on screen", kind: "Command", run: actions.toggleDensity },
       {
         label: `${empire.civilianShipping ? "Turn off" : "Turn on"} civilian shipping`,

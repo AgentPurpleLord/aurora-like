@@ -10,6 +10,7 @@
 import { AU_KM, DEG, type Vec3 } from "../sim/orbit";
 import type { Body, StarSystem } from "../sim/system";
 import { Camera } from "./camera";
+import { toPhosphor } from "../ui/phosphor";
 
 export interface RenderOptions {
   showOrbits: boolean;
@@ -82,6 +83,8 @@ export class SystemMapRenderer {
   private lensColor: ((body: Body) => string | null) | null = null;
   private labelBoxes: { x: number; y: number; w: number; h: number }[] = [];
   private dpr = 1;
+  private terminal = false;
+  private tones = new Map<string, string>();
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -98,6 +101,22 @@ export class SystemMapRenderer {
     this.system = system;
     this.screenBodies = [];
     this.screenFleets = [];
+  }
+
+  /** The terminal theme redraws the map's own ink (not the worlds) in phosphor. */
+  setTheme(theme: "classic" | "terminal"): void {
+    this.terminal = theme === "terminal";
+  }
+
+  /** A map colour, in the current theme. */
+  private c(color: string): string {
+    if (!this.terminal) return color;
+    let tone = this.tones.get(color);
+    if (tone === undefined) {
+      tone = toPhosphor(color);
+      this.tones.set(color, tone);
+    }
+    return tone;
   }
 
   setKnowledge(
@@ -170,7 +189,7 @@ export class SystemMapRenderer {
     this.lensColor = lensColor;
     const { ctx, camera } = this;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    ctx.fillStyle = "#05070d";
+    ctx.fillStyle = this.c("#05070d");
     ctx.fillRect(0, 0, camera.width, camera.height);
 
     this.drawStarfield();
@@ -185,7 +204,7 @@ export class SystemMapRenderer {
 
   private drawStarfield(): void {
     const { ctx } = this;
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = this.terminal ? "#9dffbd" : "#ffffff";
     for (const s of this.stars) {
       ctx.globalAlpha = s.a;
       ctx.fillRect(s.x, s.y, s.r, s.r);
@@ -200,8 +219,8 @@ export class SystemMapRenderer {
     const step = Math.pow(10, Math.floor(Math.log10(span / 4)));
     const cx = camera.worldToScreenX(0);
     const cy = camera.worldToScreenY(0);
-    ctx.strokeStyle = "rgba(80, 120, 160, 0.13)";
-    ctx.fillStyle = "rgba(120, 160, 200, 0.35)";
+    ctx.strokeStyle = this.c("rgba(80, 120, 160, 0.13)");
+    ctx.fillStyle = this.c("rgba(120, 160, 200, 0.35)");
     ctx.font = "10px ui-monospace, monospace";
     ctx.lineWidth = 1;
     for (let i = 1; i <= 12; i++) {
@@ -231,8 +250,8 @@ export class SystemMapRenderer {
 
       const isSelected = selected === body || selected?.parent === body;
       ctx.strokeStyle = isSelected
-        ? "rgba(255, 214, 120, 0.85)"
-        : ORBIT_COLOR[body.cls] ?? "rgba(255,255,255,0.2)";
+        ? this.c("rgba(255, 214, 120, 0.85)")
+        : this.c(ORBIT_COLOR[body.cls] ?? "rgba(255,255,255,0.2)");
       ctx.beginPath();
       for (let i = 0; i < path.length; i++) {
         const sx = camera.worldToScreenX(px + path[i].x);
@@ -308,8 +327,8 @@ export class SystemMapRenderer {
 
       if (body.def.rings) this.drawRings(body, sx, sy);
 
-      if (body === selected) this.drawSelection(sx, sy, radius, "#ffd678");
-      else if (body === hovered) this.drawSelection(sx, sy, radius, "rgba(255,255,255,0.55)");
+      if (body === selected) this.drawSelection(sx, sy, radius, this.c("#ffd678"));
+      else if (body === hovered) this.drawSelection(sx, sy, radius, this.c("rgba(255,255,255,0.55)"));
 
       if (showLabels && this.shouldLabel(body, selected, hovered, radius)) {
         this.drawLabel(body, sx, sy, radius, body === selected);
@@ -322,8 +341,8 @@ export class SystemMapRenderer {
     const { ctx } = this;
     const r = 6;
     ctx.save();
-    ctx.strokeStyle = state === "gate" ? "#8fffd0" : "#7fe0ff";
-    ctx.fillStyle = state === "unexplored" ? "rgba(127, 224, 255, 0.08)" : "rgba(127, 224, 255, 0.35)";
+    ctx.strokeStyle = this.c(state === "gate" ? "#8fffd0" : "#7fe0ff");
+    ctx.fillStyle = this.c(state === "unexplored" ? "rgba(127, 224, 255, 0.08)" : "rgba(127, 224, 255, 0.35)");
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(sx, sy - r);
@@ -470,7 +489,7 @@ export class SystemMapRenderer {
     if (!priority && this.labelBoxes.some((b) => overlaps(b, box))) return;
     this.labelBoxes.push(box);
 
-    ctx.fillStyle = priority ? "#ffd678" : "rgba(198, 216, 238, 0.9)";
+    ctx.fillStyle = this.c(priority ? "#ffd678" : "rgba(198, 216, 238, 0.9)");
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.fillText(body.name, x, y);
@@ -491,14 +510,14 @@ export class SystemMapRenderer {
       this.screenFleets.push({ id: fleet.id, sx, sy });
 
       const selected = fleet.id === selectedId;
-      const colour = fleet.stranded ? "#e2725b" : selected ? "#ffd678" : "#7fe0d4";
+      const colour = this.c(fleet.stranded ? "#e2725b" : selected ? "#ffd678" : "#7fe0d4");
 
       if (fleet.destination) {
         const dx = camera.worldToScreenX(fleet.destination.x);
         const dy = camera.worldToScreenY(fleet.destination.y);
         ctx.save();
         ctx.setLineDash([4, 4]);
-        ctx.strokeStyle = selected ? "rgba(255, 214, 120, 0.75)" : "rgba(127, 224, 212, 0.35)";
+        ctx.strokeStyle = this.c(selected ? "rgba(255, 214, 120, 0.75)" : "rgba(127, 224, 212, 0.35)");
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(sx, sy);
@@ -530,7 +549,7 @@ export class SystemMapRenderer {
       ctx.restore();
 
       if (selected) {
-        ctx.strokeStyle = "#ffd678";
+        ctx.strokeStyle = this.c("#ffd678");
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.arc(sx, sy, 11, 0, Math.PI * 2);
@@ -541,7 +560,7 @@ export class SystemMapRenderer {
         ctx.font = selected
           ? "600 11px ui-sans-serif, system-ui, sans-serif"
           : "10px ui-sans-serif, system-ui, sans-serif";
-        ctx.fillStyle = selected ? "#ffd678" : "rgba(127, 224, 212, 0.85)";
+        ctx.fillStyle = this.c(selected ? "#ffd678" : "rgba(127, 224, 212, 0.85)");
         ctx.textAlign = "left";
         ctx.textBaseline = "middle";
         ctx.fillText(
@@ -561,7 +580,7 @@ export class SystemMapRenderer {
     const x = 16;
     const y = camera.height - 40;
 
-    ctx.strokeStyle = "rgba(190, 214, 240, 0.75)";
+    ctx.strokeStyle = this.c("rgba(190, 214, 240, 0.75)");
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(x, y - 4);
@@ -573,7 +592,7 @@ export class SystemMapRenderer {
     ctx.stroke();
 
     ctx.font = "11px ui-monospace, monospace";
-    ctx.fillStyle = "rgba(190, 214, 240, 0.85)";
+    ctx.fillStyle = this.c("rgba(190, 214, 240, 0.85)");
     ctx.textAlign = "left";
     ctx.textBaseline = "bottom";
     ctx.fillText(formatAu(au), x, y - 6);

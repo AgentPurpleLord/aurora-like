@@ -1,7 +1,9 @@
 import "./style.css";
-import { applyDensity } from "./ui/settings";
+import "./theme-terminal.css";
+import { applyDensity, applyTheme } from "./ui/settings";
 
 applyDensity();
+applyTheme();
 import { App, type ViewId } from "./ui/app";
 import { startingGame } from "./state/save";
 import { rollEvent } from "./sim/events/engine";

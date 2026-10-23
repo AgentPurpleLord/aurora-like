@@ -9,8 +9,12 @@ import type { LogCategory } from "../state/empire";
 
 export type Density = "comfortable" | "compact";
 
+export type Theme = "classic" | "terminal";
+
 export interface Settings {
   density: Density;
+  /** The look of the interface: the original, or a military-terminal skin. */
+  theme: Theme;
   /** Which kinds of event stop the clock when it is running. */
   autoPause: Record<LogCategory, boolean>;
   /** Show the "next steps" guide on the dashboard. */
@@ -38,6 +42,7 @@ const KEY = "aurora-like.settings";
 
 const DEFAULTS: Settings = {
   density: "comfortable",
+  theme: "classic",
   autoPause: {
     research: true,
     construction: false,
@@ -85,6 +90,13 @@ export function saveSettings(): void {
 
 export function applyDensity(): void {
   document.documentElement.dataset.density = settings.density;
+}
+
+const THEME_COLOR: Record<Theme, string> = { classic: "#0b1522", terminal: "#040e08" };
+
+export function applyTheme(): void {
+  document.documentElement.dataset.theme = settings.theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_COLOR[settings.theme]);
 }
 
 export function isCollapsed(title: string): boolean {

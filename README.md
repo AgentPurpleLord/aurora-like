@@ -308,6 +308,24 @@ tons, colonists, targets - has a slider, - and + buttons and the exact box. Wide
 ranges slide on a log scale and land on round numbers, so a slider is usable
 from ten to ten million with a thumb.
 
+## Themes
+
+Settings (or the command palette: *Switch theme*) chooses between two looks.
+**Classic** is the original navy and blue. **Terminal** is a military console:
+phosphor green on near-black, amber for emphasis, red for alarms, monospace
+type, square edges and chamfered cards, corner brackets, `[ BRIEFING ]`
+headers on popups, segmented progress bars, a faint scanline overlay with a
+slow refresh sweep (switched off under *reduce motion*), and a map drawn in the
+same ink. The choice is remembered.
+
+The terminal theme is derived rather than hand-maintained: `npm run theme`
+reads `src/style.css`, moves every colour in it into the phosphor palette
+(`src/ui/phosphor.ts`: blues and greys become green, golds become amber, reds
+stay red, lightness and transparency are kept), and writes
+`src/theme-terminal.css` together with the layout and flavour in
+`tools/terminal-extra.css`. After changing `style.css`, run it again so the two
+themes stay in step.
+
 ## Terraforming
 
 ![a terraforming programme](docs/terraforming.png)
