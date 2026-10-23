@@ -415,6 +415,35 @@ Wealth now has consequences, managed from the **Finance** panel on the Empire sc
   incentives, Settlement drive (each +25-40% for three years) and Public festival
   (stability, two years). They cost most of a year's takings and run as timed effects.
 
+## Politics
+
+The **Politics** screen (key `P`) is the part of the game that is never finished with.
+
+- **Five factions** - Industrial Combine, Academy of Sciences, Colonial League, Civic Union
+  and the Admiralty - each judge the empire by what they care about (taxes and factory
+  output; busy laboratories and research trend; new worlds, freight lines and governed
+  colonies; stability and welfare; a fleet that is large and in good repair). Their
+  support drifts towards that judgement; the screen lists every reason, term by term.
+- **Moods have teeth.** A loyal faction adds up to 4% to its corner of the economy
+  (industry and mining, research, growth, stability, fuel); a hostile one takes 8% and a
+  faction in revolt 15%, scaled by its influence. Influence itself drifts towards
+  whoever is doing best.
+- **Political capital** accrues from approval (about 4 a year at 50%) and is spent on
+  **laws** (three slots, each with benefits and costs, faction reactions and upkeep -
+  Emergency Powers lapses after four years), on **courting** a faction (+12 support, once
+  every half year) and on turning demands down. Money buys favour too: **Fund** a faction's
+  projects for +18.
+- **Demands** arrive every year or two from a faction weighted by influence - more
+  factories, labs, a new colony, higher stability, more ships - with a two-year
+  deadline. Meet one for +15 support and +5 capital; ignore it and lose 12.
+- **Elections** every four years. Approval is support weighted by influence; 50% wins. A
+  win earns capital (a landslide at 65% earns more). A defeat installs a one-year
+  caretaker government that scraps your laws, empties your capital, imposes the least
+  contented faction's favourite law and costs 5% stability. Issues warn when a faction
+  turns hostile or an election looks close.
+
+An empire left alone drifts to roughly 50% approval, so neglect makes elections a coin flip.
+
 ## Terraforming
 
 ![a terraforming programme](docs/terraforming.png)

@@ -56,6 +56,7 @@ const VIEWS: [ViewId, string, string][] = [
   ["design", "Design", "Component designer and ship designer"],
   ["research", "Research", "The technology tree"],
   ["officers", "Officers", "Scientists, governors and commanders"],
+  ["politics", "Politics", "Factions, laws, political capital and elections"],
 ];
 
 export class CommandPalette {

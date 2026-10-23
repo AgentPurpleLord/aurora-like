@@ -24,6 +24,7 @@ const views: Record<ViewId, HTMLElement> = {
   design: need("view-design"),
   research: need("view-research"),
   officers: need("view-officers"),
+  politics: need("view-politics"),
 };
 
 const start = startingGame();

@@ -37,6 +37,7 @@ import {
 } from "../atmosphere";
 import { bonus, fullName, labCapacity } from "../people/officers";
 import { evaluateStandingOrders } from "./standingOrders";
+import { runPolitics } from "../politics";
 import { invalidateTrade, tradeConnections } from "./trade";
 import {
   DEBT_INTEREST, reserveErosion, GDP_PER_MILLION, RIOTS_BELOW, STABILITY_DRIFT, TRADE_PER_MILLION, UNREST_BELOW,
@@ -345,6 +346,7 @@ export function runCycle(empire: Empire, system: Galaxy, now: number, days: numb
   };
 
   empire.recordHistory(now);
+  runPolitics(empire, system, now, days);
 
   for (const event of empire.officers.advance(year, now, academyRate(empire))) {
     empire.addLog(now, "people", event.text);

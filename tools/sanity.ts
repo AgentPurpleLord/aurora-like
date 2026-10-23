@@ -26,6 +26,9 @@ import { maintainShips, servicingCapacity } from "../src/sim/ships/maintenance";
 import { statsFor } from "../src/sim/research/techs";
 import { classTitle } from "../src/sim/ships/hulls";
 import { buyProgramme, programmeCost, moraleFactor, reserveErosion, stabilityTarget } from "../src/sim/economy/finance";
+import {
+  FACTIONS, approval, capitalUpkeep, courtFaction, enactPolicy, repealPolicy, rejectDemand, judge, moodEffect, runPolitics,
+} from "../src/sim/politics";
 import { invalidateTrade, tradeConnections } from "../src/sim/economy/trade";
 import { budgetOf } from "../src/sim/economy/budget";
 import type { Empire } from "../src/state/empire";
@@ -1807,6 +1810,63 @@ console.log("");
 
     assert("modest reserves are safe", reserveErosion(500, 100) === 0);
     check("a hoard loses 4% of the excess a year", reserveErosion(100_000, 100), 99_000 * 0.04, 1e-6);
+  }
+
+  // --- politics
+  {
+    const pg = new Game("politics");
+    const pe = pg.empire;
+    const t0 = pg.clock.seconds;
+    assert("five factions", pe.politics.factions.length === FACTIONS.length && FACTIONS.length === 5);
+    check("influence shares sum to one", pe.politics.factions.reduce((s, f) => s + f.influence, 0), 1, 1e-9);
+    // laws
+    pe.politics.capital = 100;
+    const baseIndustry = pe.effectFactor("industry", "earth");
+    assert("a law can be enacted", enactPolicy(pe, "industrial-mobilisation", t0) === null);
+    check("and changes output", pe.effectFactor("industry", "earth") / baseIndustry, 1.12, 1e-9);
+    assert("it cannot be enacted twice", enactPolicy(pe, "industrial-mobilisation", t0) !== null);
+    assert("it costs capital", pe.politics.capital === 75);
+    enactPolicy(pe, "research-charter", t0);
+    enactPolicy(pe, "free-trade", t0);
+    assert("only three laws fit", enactPolicy(pe, "welfare-state", t0) !== null && pe.politics.policies.length === 3);
+    assert("a law can be repealed", repealPolicy(pe, "free-trade", t0) === null && pe.politics.policies.length === 2);
+    check("repealing undoes it", pe.effectFactor("wealth", "earth"), 1, 0.2);
+    assert("laws shift faction judgement",
+      judge(pe, "industrialists", t0).terms.some((t) => /Mobilisation/.test(t.label) && t.value > 0));
+    assert("and laws cost upkeep", capitalUpkeep(pe.politics) >= 1);
+    // courting
+    const before = pe.politics.factions.find((f) => f.id === "civic")!.support;
+    assert("courting a faction raises support", courtFaction(pe, "civic", t0) === null
+      && pe.politics.factions.find((f) => f.id === "civic")!.support > before);
+    assert("but not twice in a row", courtFaction(pe, "civic", t0) !== null);
+    // mood effects
+    check("a loyal faction helps", moodEffect(80), 0.04, 1e-9);
+    assert("an angry one hurts", moodEffect(10) < moodEffect(40) && moodEffect(40) < 0);
+    // demands arrive and expire
+    pe.politics.capital = 50;
+    for (let i = 0; i < 400; i++) pg.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    assert("a demand has been made", pe.log.some((l) => /demands:/.test(l.text)));
+    const open = pe.politics.demands[0];
+    if (open) assert("a demand can be rejected", rejectDemand(pe, open.id, pg.clock.seconds) === null);
+    assert("capital stays within bounds", pe.politics.capital >= 0 && pe.politics.capital <= 100);
+    // elections
+    assert("an election was held", pe.politics.lastElection !== null);
+    // losing one
+    const pe2 = new Game("politics2").empire;
+    pe2.politics.capital = 60;
+    enactPolicy(pe2, "civil-liberties", 0);
+    for (const f of pe2.politics.factions) f.support = 5;
+    pe2.politics.nextElection = 1;
+    runPolitics(pe2, new Game("politics3").galaxy, 100, 5);
+    assert("a lost election brings a caretaker", pe2.politics.caretakerUntil > 100 && pe2.politics.lastElection?.won === false);
+    assert("which scraps the laws and the capital", pe2.politics.capital === 0 && !pe2.politics.policies.some((e) => e.id === "civil-liberties"));
+    assert("and an imposed law cannot be repealed", pe2.politics.policies.every((e) => (e.lockedUntil ?? 0) > 100));
+    // saves
+    pe.politics.capital = 33;
+    const back = gameFromSave(parseSave(JSON.stringify(makeSave(pg, "pol", "pol", "manual"))));
+    check("politics survives a save", back.empire.politics.capital, 33, 1e-9);
+    assert("with its laws in force", back.empire.effectFactor("industry", "earth") === pe.effectFactor("industry", "earth"));
+    assert("approval is a weighted mean", approval(pe.politics) > 0 && approval(pe.politics) <= 100);
   }
 }
 

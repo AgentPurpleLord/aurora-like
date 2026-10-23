@@ -1223,7 +1223,7 @@ async function mobileSuite(browser) {
   await page.evaluate(() => { document.documentElement.dataset.theme = "terminal"; });
   await page.waitForTimeout(200);
   await check("the terminal theme does not make a phone scroll sideways", async () => (await overflow()) <= 1);
-  for (const name of ["Empire", "Map", "Colonies", "Fleets", "Design", "Research", "Officers", "Events", "Galaxy"]) {
+  for (const name of ["Empire", "Map", "Colonies", "Fleets", "Design", "Research", "Officers", "Politics", "Events", "Galaxy"]) {
     await mobileGo(page, name);
     await page.waitForTimeout(250);
     await check(`and neither does the ${name} screen`, async () => (await overflow()) <= 1);
@@ -1266,6 +1266,37 @@ async function financeSuite(browser) {
   await page.close();
 }
 
+async function politicsSuite(browser) {
+  console.log("\nPolitics");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.goto(`${BASE}?debug&new&seed=sol-1&events=off`);
+  await page.waitForSelector("#view-tabs");
+  await nav(page, "Politics").click();
+  const view = page.locator("#view-politics");
+  await check("the Politics screen shows five factions", async () => (await view.locator(".politics-faction").count()) === 5);
+  await check("and the political capital", async () => /Political capital/i.test(await view.innerText()));
+  await page.getByRole("button", { name: "Enact Research Charter" }).click();
+  await page.waitForTimeout(150);
+  await check("a law can be enacted from the screen", async () =>
+    (await page.evaluate(() => window.__game.empire.politics.policies.some((p) => p.id === "research-charter"))));
+  await page.evaluate(() => { window.__game.empire.politics.capital = 50; window.__game.emit(); });
+  await page.waitForTimeout(150);
+  await page.getByRole("button", { name: "Court Civic Union" }).click();
+  await page.waitForTimeout(150);
+  await check("a faction can be courted", async () =>
+    (await page.evaluate(() => window.__game.empire.politics.courted.civic !== undefined)));
+  await page.getByRole("button", { name: "Repeal Research Charter" }).click();
+  await page.waitForTimeout(150);
+  await check("and a law repealed", async () =>
+    (await page.evaluate(() => window.__game.empire.politics.policies.length)) === 0);
+  await check("no console errors", () => errors.length === 0);
+  if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
+  await page.close();
+}
+
 const browser = await chromium.launch(launch);
 try {
   await desktopSuite(browser);
@@ -1277,6 +1308,7 @@ try {
   await eventSuite(browser);
   await maintenanceSuite(browser);
   await financeSuite(browser);
+  await politicsSuite(browser);
   await mobileSuite(browser);
 } finally {
   await browser.close();

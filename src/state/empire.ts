@@ -5,6 +5,7 @@
  * The per-cycle economic simulation itself lives in sim/economy/production.
  */
 
+import { defaultPolitics, politicalFactors, type PoliticsState } from "../sim/politics";
 import { OfficerPool, type Assignment, type Branch, type Officer } from "../sim/people/officers";
 import { Random } from "../sim/rng";
 import { TECH_BY_ID, statsFor, type EmpireStats } from "../sim/research/techs";
@@ -38,7 +39,7 @@ export type LogCategory = "research" | "construction" | "people" | "colony" | "e
 
 /** Where an event can take you, so a notification is a doorway, not a dead end. */
 export interface LogLink {
-  view: "empire" | "map" | "galaxy" | "events" | "colonies" | "fleets" | "design" | "research" | "officers";
+  view: "empire" | "map" | "galaxy" | "events" | "politics" | "colonies" | "fleets" | "design" | "research" | "officers";
   bodyId?: string;
   fleetId?: string;
   techId?: string;
@@ -163,6 +164,8 @@ export interface EmpireState {
   austerity: boolean;
   taxRate?: number;
   welfare?: number;
+  politics?: PoliticsState;
+  politicsRng?: number;
   dismissed: [string, number][];
   standingOrders: StandingOrder[];
   componentDesigns: ComponentDesign[];
@@ -213,6 +216,11 @@ export class Empire {
   taxRate = 0.3;
   /** Share of tax revenue spent on public welfare, which buys stability. */
   welfare = 0;
+  /** Factions, laws, capital and the election clock. */
+  politics: PoliticsState = defaultPolitics();
+  readonly politicsRng = new Random("politics");
+  /** What politics currently does to each kind of output; see refreshPolitics. */
+  private politicsFactors = politicalFactors(defaultPolitics(), 0);
   /** Issue id -> simulation time at which the dismissal lapses. */
   readonly dismissed = new Map<string, number>();
   /** Rules that top colonies up without being asked each time. */
@@ -786,9 +794,14 @@ export class Empire {
     return effect;
   }
 
+  /** Recompute what laws and faction moods do to output. Call after changing politics. */
+  refreshPolitics(now: number): void {
+    this.politicsFactors = politicalFactors(this.politics, now);
+  }
+
   /** The combined multiplier on one kind of output at a colony. 1 when nothing applies. */
   effectFactor(kind: EffectKind, colonyId: string): number {
-    let factor = 1;
+    let factor = this.politicsFactors[kind];
     for (const effect of this.effects) {
       if (effect.kind === kind && (effect.target === colonyId || effect.target === "empire")) {
         factor *= effect.factor;
@@ -859,6 +872,8 @@ export class Empire {
       austerity: this.austerity,
       taxRate: this.taxRate,
       welfare: this.welfare,
+      politics: this.politics,
+      politicsRng: this.politicsRng.state,
       dismissed: [...this.dismissed],
       standingOrders: this.standingOrders,
       componentDesigns: this.componentDesigns,
@@ -915,6 +930,9 @@ export class Empire {
     this.austerity = data.austerity;
     this.taxRate = data.taxRate ?? 0.3;
     this.welfare = data.welfare ?? 0;
+    this.politics = { ...defaultPolitics(), ...data.politics };
+    if (data.politicsRng !== undefined) this.politicsRng.state = data.politicsRng;
+    this.refreshPolitics(data.lastTick);
     this.dismissed.clear();
     for (const [id, until] of data.dismissed) this.dismissed.set(id, until);
     this.standingOrders = data.standingOrders;
