@@ -16,6 +16,7 @@ import { colonyOutput, populationCapacity } from "./economy/production";
 import { mineralLedger, queuedBuildPoints } from "./economy/ledger";
 import { TECH_BY_ID } from "./research/techs";
 import { labCapacity } from "./people/officers";
+import { GOODS, computeMarket } from "./economy/goods";
 import { FACTION_BY_ID, WIN_APPROVAL, approval } from "./politics";
 import { deriveProposals, proposalLabel } from "./governors";
 import { ENGINE_TYPES } from "./ships/components";
@@ -85,6 +86,27 @@ export function deriveIssues(empire: Empire, system: Galaxy): Issue[] {
       detail: `Stability ${Math.round(colony.stability)}. Output and growth are reduced. Lower taxes, fund welfare or hold a festival.`,
       action: { label: "Review economy", view: "empire" },
     });
+  }
+
+  // ---------------------------------------------------------- goods
+  {
+    const market = computeMarket(empire, system);
+    for (const [bodyId, m] of market.colonies) {
+      const name = system.byId.get(bodyId)?.name ?? bodyId;
+      for (const good of GOODS) {
+        const met = m.goods[good.id].met;
+        if (met >= 0.7) continue;
+        add({
+          id: `goods:${bodyId}:${good.id}`,
+          severity: good.id === "food" && met < 0.4 ? "critical" : "warning",
+          title: `${name} is short of ${good.name.toLowerCase()} (${Math.round(met * 100)}% met)`,
+          detail: good.id === "food"
+            ? "Build hydroponic farms, or open a freight line or civilian shipping from a colony with spare food. Hungry people starve and radicalise."
+            : `Build ${good.id === "consumer" ? "consumer plants" : "luxury workshops"} here (check the mineral stockpile feeds them), or ship it in. Unmet needs lower contentment and feed unrest.`,
+          action: { label: "Open colony", view: "colonies", bodyId },
+        });
+      }
+    }
   }
 
   // ---------------------------------------------------------- politics

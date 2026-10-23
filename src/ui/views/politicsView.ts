@@ -11,9 +11,10 @@ import {
   WIN_APPROVAL, approval, capitalIncome, capitalUpkeep, courtFaction, demandProgress, enactPolicy, fundFaction, judge,
   moodEffect, moodLabel, rejectDemand, repealPolicy,
 } from "../../sim/politics";
+import { POP_BY_ID, summarisePops } from "../../sim/economy/goods";
 import { programmeCost } from "../../sim/economy/finance";
 import { formatShortDate } from "../../sim/clock";
-import { el, num, themed } from "../format";
+import { el, num, population, themed } from "../format";
 import { button, emptyNote, progressBar, section, stat } from "../widgets";
 
 const YEAR = 365.25 * 86_400;
@@ -69,6 +70,21 @@ export class PoliticsView {
       cap.append(el("p", "muted small",
         `Last election ${formatShortDate(p.lastElection.time)}: ${Math.round(p.lastElection.approval)}% - ${p.lastElection.won ? "won" : "lost"}.`));
     }
+
+    // --- the people
+    const peopleSec = section(page, "The people");
+    for (const g of summarisePops(empire)) {
+      const def = POP_BY_ID.get(g.id)!;
+      const row = el("div", "queue-row pop-row");
+      row.append(el("span", undefined, `${def.name} - ${population(g.people)} (${Math.round(g.share * 100)}%)`));
+      const sat = Math.round(g.satisfaction);
+      row.append(el("span", `chip ${sat >= 60 ? "good" : sat >= 40 ? "warn" : "bad"}`, `Content ${sat}`));
+      if (g.radicalism >= 20) row.append(el("span", `chip ${g.radicalism >= 50 ? "bad" : "warn"}`, `Radical ${Math.round(g.radicalism)}`));
+      row.append(progressBar(g.satisfaction / 100));
+      row.append(el("span", "muted small", `${def.blurb} Their politics: ${FACTIONS.filter((f) => def.leaning[f.id] >= 0.2).map((f) => `${f.name} ${Math.round(def.leaning[f.id] * 100)}%`).join(", ")}.`));
+      peopleSec.append(row);
+    }
+    peopleSec.append(el("p", "muted small", "Contentment comes from food, consumer goods and luxuries reaching them, from taxes and welfare. Their mood sets how the factions they lean towards feel about you, and who has the political weight."));
 
     // --- factions
     const facSec = section(page, "Factions");

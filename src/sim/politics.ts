@@ -19,6 +19,7 @@ import { tradeLines } from "./economy/trade";
 import { activeProgramme, PROGRAMME_BY_ID } from "./economy/finance";
 import { freeLabs } from "./research/graph";
 import { DAYS_PER_YEAR } from "./orbit";
+import { baseMood, popInfluence } from "./economy/goods";
 
 export type FactionId = "industrialists" | "academy" | "colonists" | "civic" | "admiralty";
 
@@ -232,6 +233,12 @@ export function judge(empire: Empire, id: FactionId, now: number): Judgement {
       add("Military classes in service", Math.min(9, warships.size * 3));
       break;
     }
+  }
+  // The mood of the people who lean this way.
+  if (empire.colonies.size) {
+    const base = baseMood(empire, id);
+    add("Mood of their people", (base.mood - 70) * 0.5);
+    add("Radicalised followers", -base.radicalism * 0.1);
   }
   for (const entry of empire.politics.policies) {
     const like = POLICY_BY_ID.get(entry.id)?.likes[id];
@@ -454,6 +461,12 @@ export function runPolitics(empire: Empire, _system: Galaxy, now: number, days: 
   // --- influence follows success, a little
   const mean = p.factions.reduce((s, f) => s + f.support, 0) / p.factions.length;
   for (const state of p.factions) state.influence = Math.max(0.08, state.influence + ((state.support - mean) / 100) * 0.04 * year);
+  // ...and follows the people: whoever the population leans towards has the weight.
+  const weight = popInfluence(empire);
+  const weightSum = Object.values(weight).reduce((a, b) => a + b, 0) || 1;
+  for (const state of p.factions) {
+    state.influence += (Math.max(0.08, weight[state.id] / weightSum) - state.influence) * Math.min(1, 0.1 * year);
+  }
   const sum = p.factions.reduce((s, f) => s + f.influence, 0);
   for (const state of p.factions) state.influence /= sum;
 

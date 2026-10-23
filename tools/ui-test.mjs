@@ -1125,7 +1125,7 @@ async function mobileSuite(browser) {
   const context = await browser.newContext({ ...devices["Pixel 7"], hasTouch: true, isMobile: true });
   const page = await context.newPage();
   const errors = watchErrors(page);
-  await page.goto(URL, { waitUntil: "networkidle" });
+  await page.goto(`${URL}&debug`, { waitUntil: "networkidle" });
   await page.waitForTimeout(800);
   const viewport = page.viewportSize();
 
@@ -1218,6 +1218,20 @@ async function mobileSuite(browser) {
   await mobileGo(page, "Design");
   await page.waitForTimeout(400);
   await check("the designer does not scroll sideways", async () => (await overflow()) <= 1);
+  await page.evaluate(() => { window.__game.empire.research("nuclear-thermal"); window.__game.empire.addStandardComponents(0); window.__game.empire.addStandardClasses(0); window.__game.emit(); });
+  await page.waitForTimeout(300);
+  const visibleRow = async (sel) => page.evaluate((s) => {
+    const row = document.querySelector(s);
+    if (!row) return false;
+    const r = row.getBoundingClientRect();
+    const panel = row.closest(".panel-left").getBoundingClientRect();
+    // Inside the scrolling strip, not clipped below its edge.
+    return r.height > 10 && r.top >= panel.top && r.bottom <= panel.bottom;
+  }, sel);
+  await check("on a phone the existing parts are listed in view", async () => visibleRow("#view-design .panel-left .component-row, #view-design .panel-left .tree-row"));
+  await page.locator("#view-design .tab", { hasText: "Ship Classes" }).click();
+  await page.waitForTimeout(200);
+  await check("and so are the existing ship classes", async () => visibleRow("#view-design .panel-left .design-row"));
   await page.screenshot({ path: `${SHOTS}/mobile-design.png` });
 
   await page.evaluate(() => { document.documentElement.dataset.theme = "terminal"; });
@@ -1292,6 +1306,18 @@ async function politicsSuite(browser) {
   await page.waitForTimeout(150);
   await check("and a law repealed", async () =>
     (await page.evaluate(() => window.__game.empire.politics.policies.length)) === 0);
+  await check("the people are listed on the Politics screen", async () => /the people/i.test(await view.innerText()) && /labourers/i.test(await view.innerText()));
+  await nav(page, "Empire").click();
+  await check("the Empire screen has a Goods panel", async () =>
+    /food/i.test(await page.locator("#view-empire .section", { hasText: /goods/i }).first().innerText()));
+  await nav(page, "Colonies").click();
+  await page.locator("#view-colonies .colony-tab", { hasText: "People" }).click();
+  await page.waitForTimeout(150);
+  const people = page.locator("#view-colonies .detail-body");
+  await check("a colony's People tab shows its groups and goods", async () => {
+    const t = await people.innerText();
+    return /who lives here/i.test(t) && /consumer goods/i.test(t) && /met/i.test(t);
+  });
   await check("no console errors", () => errors.length === 0);
   if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
   await page.close();

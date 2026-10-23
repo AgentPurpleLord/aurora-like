@@ -6,6 +6,8 @@
  * event log.
  */
 
+import { FACTIONS } from "../../sim/politics";
+import { GOODS, POP_BY_ID, computeMarket, fertility, popStability } from "../../sim/economy/goods";
 import { stabilityLabel, stabilityTarget } from "../../sim/economy/finance";
 import { formatShortDate } from "../../sim/clock";
 import type { Game } from "../../state/game";
@@ -179,6 +181,7 @@ export class EconomyView {
     const tabs: { id: string; label: string; badge?: string }[] = [
       { id: "overview", label: "Overview", badge: alerts.length ? String(alerts.length) : undefined },
       { id: "production", label: "Production", badge: colony.buildQueue.length ? String(colony.buildQueue.length) : undefined },
+      { id: "people", label: "People", badge: colony.starving ? "!" : undefined },
       { id: "mining", label: "Mining & stores" },
       ...(terraformAvailable ? [{ id: "terraform", label: "Terraforming" }] : []),
       { id: "automation", label: "Automation", badge: colony.policy !== "none" || empire.standingOrdersFor(colony.bodyId).length ? "on" : undefined },
@@ -212,6 +215,9 @@ export class EconomyView {
         this.renderMining(scroll, body, colony, output.mining);
         this.renderStockpile(scroll, colony);
         this.renderStored(scroll, colony);
+        break;
+      case "people":
+        this.renderPeople(scroll, body, colony);
         break;
       case "terraform":
         this.renderTerraforming(scroll, body, colony);
@@ -297,10 +303,11 @@ export class EconomyView {
         taxRate: this.game.empire.taxRate, welfare: this.game.empire.welfare, treasury: this.game.empire.treasury,
         expenses: this.game.empire.snapshot.expenses, effect: this.game.empire.effectFactor("stability", colony.bodyId),
         administration: governor ? governor.skills.administration ?? 0 : null,
+        pops: popStability(colony),
       });
       const sign = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(0)}`;
       const note = el("p", "muted small",
-        `Heading for ${Math.round(why.target)}: taxes ${sign(why.tax)}, welfare ${sign(why.welfare)}, treasury ${sign(why.treasury)}, ${governor ? "governor" : "no governor"} ${sign(why.governor)}.`);
+        `Heading for ${Math.round(why.target)}: taxes ${sign(why.tax)}, welfare ${sign(why.welfare)}, treasury ${sign(why.treasury)}, ${governor ? "governor" : "no governor"} ${sign(why.governor)}, people ${sign(why.pops)}.`);
       summary.append(note);
     }
     const governor = game.empire.governorOf(colony.bodyId);
@@ -406,6 +413,50 @@ export class EconomyView {
       }
       sec.append(bonuses);
     }
+  }
+
+  private renderPeople(parent: HTMLElement, body: Body, colony: Colony): void {
+    const { empire } = this.game;
+    const market = computeMarket(empire, this.game.galaxy).colonies.get(colony.bodyId);
+
+    const groups = section(parent, "Who lives here");
+    for (const g of colony.pops) {
+      const def = POP_BY_ID.get(g.id)!;
+      const row = el("div", "queue-row pop-row");
+      row.append(el("span", undefined, `${def.name} - ${population(colony.population * g.share)} (${Math.round(g.share * 100)}%)`));
+      row.append(el("span", "muted small", def.blurb));
+      const sat = Math.round(g.satisfaction);
+      row.append(el("span", `chip ${sat >= 60 ? "good" : sat >= 40 ? "warn" : "bad"}`, `Content ${sat}`));
+      if (g.radicalism >= 20) row.append(el("span", `chip ${g.radicalism >= 50 ? "bad" : "warn"}`, `Radical ${Math.round(g.radicalism)}`));
+      row.append(progressBar(g.satisfaction / 100));
+      row.append(el("span", "muted small", `Lean towards ${leaningText(def.leaning)}. Content ${def.boosts}.`));
+      groups.append(row);
+    }
+
+    const goods = section(parent, "Goods");
+    if (!market) {
+      emptyNote(goods, "Nobody lives here yet.");
+      return;
+    }
+    for (const good of GOODS) {
+      const f = market.goods[good.id];
+      const row = el("div", "queue-row");
+      row.append(el("span", undefined, good.name));
+      const pct = Math.round(f.met * 100);
+      row.append(el("span", `chip ${pct >= 90 ? "good" : pct >= 60 ? "warn" : "bad"}`, `${pct}% met`));
+      row.append(el("span", "muted small",
+        `Made ${num(f.supply)}, needed ${num(f.demand)}` +
+        (f.imported > 0.5 ? `, imported ${num(f.imported)}` : "") +
+        (f.exported > 0.5 ? `, exported ${num(f.exported)}` : "") + " a year."));
+      goods.append(row);
+    }
+    const fertile = fertility(body.colonyCost);
+    goods.append(el("p", "muted small",
+      fertile > 0
+        ? `Good land: this world grows ${Math.round(fertile * 125)}% of its people's food without help.`
+        : "Poor land: food must come from hydroponic farms here or be shipped in."));
+    goods.append(el("p", "muted small",
+      "Surplus moves between colonies by civilian shipping (within a system) and along freight lines. Consumer plants and luxury workshops burn Corundium and Gallicite from this colony's stockpile."));
   }
 
   private renderIndustry(parent: HTMLElement, colony: Colony, buildPoints: number): void {
@@ -1091,3 +1142,11 @@ export function formatYears(years: number): string {
 }
 
 export { formatShortDate };
+
+/** "Civic Union and Colonial League", for the factions a group leans towards. */
+function leaningText(leaning: Record<string, number>): string {
+  return FACTIONS.filter((f) => (leaning[f.id] ?? 0) >= 0.2)
+    .sort((a, b) => leaning[b.id] - leaning[a.id])
+    .map((f) => f.name)
+    .join(" and ");
+}

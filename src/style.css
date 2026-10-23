@@ -967,6 +967,10 @@ h3.with-action { display: flex; justify-content: space-between; align-items: cen
    */
   .panel-left { max-height: 108px; overflow-y: auto; }
   .view-map .panel-left { max-height: 96px; }
+  /* The designer's tabs and buttons alone fill a strip that short: give the parts list room. */
+  .view-design .panel-left { max-height: 44vh; }
+  .view-design .template-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 10px; }
+  .view-design .template-actions button { flex: 1 1 auto; }
   .view-map .search { margin: 6px 10px; }
 
   /* Map: canvas on top, body details below. */

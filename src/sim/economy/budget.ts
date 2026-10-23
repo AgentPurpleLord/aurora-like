@@ -4,12 +4,15 @@ import type { Empire } from "../../state/empire";
 import type { Galaxy } from "../galaxy";
 import { colonyOutput } from "./production";
 import { DEBT_INTEREST, reserveErosion } from "./finance";
+import { computeMarket } from "./goods";
 import { tradeLines, type TradeLine } from "./trade";
 
 export interface Budget {
   taxes: number;
   trade: number;
   centres: number;
+  /** Levy on goods traded between colonies. */
+  goods: number;
   income: number;
   construction: number;
   research: number;
@@ -55,7 +58,8 @@ export function budgetOf(empire: Empire, system: Galaxy): Budget {
       if (!lowest || colony.stability < lowest.stability) lowest = { bodyId: colony.bodyId, stability: colony.stability };
     }
   }
-  const income = taxes + trade + centres;
+  const goods = computeMarket(empire, system).levy;
+  const income = taxes + trade + centres + goods;
   const construction = empire.snapshot.buildPoints;
   const research = empire.snapshot.researchPoints;
   const welfare = taxes * empire.welfare;
@@ -66,7 +70,7 @@ export function budgetOf(empire: Empire, system: Galaxy): Budget {
   const other = Math.max(0, expenses - known - erosion);
   const net = income - expenses;
   return {
-    taxes, trade, centres, income, construction, research, upkeep, welfare, interest, erosion, lines: tradeLines(empire), other, expenses, net,
+    taxes, trade, centres, goods, income, construction, research, upkeep, welfare, interest, erosion, lines: tradeLines(empire), other, expenses, net,
     runwayYears: net < 0 && empire.treasury > 0 ? empire.treasury / -net : null,
     meanStability: populated ? stabilitySum / populated : 70,
     lowest,

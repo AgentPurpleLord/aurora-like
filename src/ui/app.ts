@@ -13,6 +13,8 @@ import { EmpireView } from "./views/empireView";
 import { TriageRail } from "./triageRail";
 import type { Issue } from "../sim/issues";
 import { ResearchView } from "./views/researchView";
+import { invalidateMarket } from "../sim/economy/goods";
+import { invalidateTrade } from "../sim/economy/trade";
 import { OfficersView } from "./views/officersView";
 import { PoliticsView } from "./views/politicsView";
 import { FleetsView } from "./views/fleetsView";
@@ -679,6 +681,9 @@ export class App {
   }
 
   private renderActiveView(): void {
+    // Figures derived from state are cached per cycle; the player may have changed it since.
+    invalidateMarket(this.game.empire);
+    invalidateTrade(this.game.empire);
     switch (this.view) {
       case "empire": this.empireView.render(); break;
       case "colonies": this.economy.render(); break;
