@@ -539,7 +539,9 @@ An empire left alone drifts to roughly 50% approval, so neglect makes elections 
 
 ## The technology tree
 
-The tree now has 260 technologies across the eight fields. Most are working: they raise a
+The tree is data, authored visually as Flyde flows (`flows/*.flyde`) and built into `src/data/techs.json` by `npm run techs`. See [docs/flyde-tech-tree.md](docs/flyde-tech-tree.md).
+
+The tree has 300 technologies across the eight fields. Most are working: they raise a
 stat, add an engine, or improve a part on every ship already built.
 
 - **Construction & production** - ladders for mining (to 36 t), factories (to 36 BP), laboratories (to 1,100 RP), refineries,
@@ -596,7 +598,7 @@ better engine makes the same share faster. A hull space of fuel tank holds 50,00
   20 hull spaces at first, up to 400), *Power Modifier* (1.25x to 3.0x), *Miniaturisation* (engines take
   0.4x down to 0.1x the hull space for the same thrust, ships already built included, so ships get
   faster) and *Fuel Efficiency* (12 tiers, 0.9x down to 0.1x fuel burned).
-- **Power systems** (chemical, nuclear, fusion, antimatter; from `propusion-power-techs.ts`) give the
+- **Power systems** (chemical, nuclear, fusion, antimatter; tech ids in `flows/power.flyde`) give the
   **Reactor** component. Nothing aboard draws power yet, so reactors are there for weapons and shields.
 - Not modelled from Aurora's list: maintenance supply points (1 MSP = 2.5 tons, 20 per hull space).
 

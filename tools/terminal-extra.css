@@ -604,6 +604,13 @@ html[data-theme="terminal"] .map-status { border-top: 1px solid var(--line); }
 
 /* Ship schematic: a green wireframe hull. */
 html[data-theme="terminal"] .schematic-hull { fill: #06130c; stroke: #3fae6b; }
-html[data-theme="terminal"] .schematic-bell { fill: #0c2415; stroke: #3fae6b; }
+html[data-theme="terminal"] .schematic-fin { fill: #08180f; stroke: #3fae6b; }
+html[data-theme="terminal"] .schematic-fin-edge { fill: #123221; }
+html[data-theme="terminal"] .schematic-engine-block { fill: #0a1c11; stroke: #3fae6b; }
+html[data-theme="terminal"] .schematic-bell { fill: #04100a; stroke: #3fae6b; }
+html[data-theme="terminal"] .schematic-seam { stroke: #2c7a4b; }
+html[data-theme="terminal"] .schematic-window { fill: #7dffb0; }
+html[data-theme="terminal"] .schematic-bridge { fill: #124d30; stroke: #7dffb0; }
+html[data-theme="terminal"] .schematic-mast { stroke: #3fae6b; }
 html[data-theme="terminal"] .schematic-hint { fill: #4f8a68; }
 html[data-theme="terminal"] .schematic-cell { stroke: rgba(0, 20, 8, 0.7); filter: drop-shadow(0 0 3px currentColor); }

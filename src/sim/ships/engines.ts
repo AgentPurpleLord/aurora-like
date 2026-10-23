@@ -2,8 +2,8 @@
  * Engines and power systems.
  *
  * Engines follow Aurora: a single line of technologies, each more power per
- * hull space (research/propulsion.ts turns it into technologies). Power
- * systems (reactors) come from src/sim/research/propusion-power-techs.ts;
+ * hull space (the engine technologies themselves live in flows/power.flyde). Power
+ * systems (reactors) are defined here and tied to techs in flows/power.flyde;
  * nothing aboard draws on them yet, so they wait for weapons and shields.
  */
 

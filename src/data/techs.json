@@ -1,0 +1,4136 @@
+[
+  {
+    "id": "medical-1",
+    "name": "Medical Advances: Growth +10%",
+    "field": "biology",
+    "branch": "Medicine",
+    "cost": 3000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "popGrowthBonus",
+        "value": 0.1
+      }
+    ],
+    "description": "Population growth rises by 10%."
+  },
+  {
+    "id": "medical-2",
+    "name": "Medical Advances: Growth +20%",
+    "field": "biology",
+    "branch": "Medicine",
+    "cost": 7000,
+    "prereqs": [
+      "medical-1"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "popGrowthBonus",
+        "value": 0.1
+      }
+    ],
+    "description": "Population growth rises by a further 10%."
+  },
+  {
+    "id": "medical-3",
+    "name": "Medical Advances: Growth +30%",
+    "field": "biology",
+    "branch": "Medicine",
+    "cost": 14000,
+    "prereqs": [
+      "medical-2"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "popGrowthBonus",
+        "value": 0.1
+      }
+    ],
+    "description": "Population growth rises by a further 10%."
+  },
+  {
+    "id": "medical-4",
+    "name": "Medical Advances: Growth +40%",
+    "field": "biology",
+    "branch": "Medicine",
+    "cost": 28000,
+    "prereqs": [
+      "medical-3"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "popGrowthBonus",
+        "value": 0.1
+      }
+    ],
+    "description": "Population growth rises by a further 10%."
+  },
+  {
+    "id": "medical-5",
+    "name": "Medical Advances: Growth +50%",
+    "field": "biology",
+    "branch": "Medicine",
+    "cost": 60000,
+    "prereqs": [
+      "medical-4"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "popGrowthBonus",
+        "value": 0.1
+      }
+    ],
+    "description": "Population growth rises by a further 10%."
+  },
+  {
+    "id": "genome-1",
+    "name": "Genome Adjustment: Colony Cost -0.20",
+    "field": "biology",
+    "branch": "Genetics",
+    "cost": 5000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "colonyCostReduction",
+        "value": 0.2
+      }
+    ],
+    "description": "Tailored colonists tolerate a wider environment, cutting colony cost everywhere by 0.20."
+  },
+  {
+    "id": "genome-2",
+    "name": "Genome Adjustment: Colony Cost -0.40",
+    "field": "biology",
+    "branch": "Genetics",
+    "cost": 12000,
+    "prereqs": [
+      "genome-1"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "colonyCostReduction",
+        "value": 0.2
+      }
+    ],
+    "description": "A further 0.20 off colony cost on every world."
+  },
+  {
+    "id": "genome-3",
+    "name": "Genome Adjustment: Colony Cost -0.60",
+    "field": "biology",
+    "branch": "Genetics",
+    "cost": 28000,
+    "prereqs": [
+      "genome-2"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "colonyCostReduction",
+        "value": 0.2
+      }
+    ],
+    "description": "A further 0.20 off colony cost on every world."
+  },
+  {
+    "id": "genome-4",
+    "name": "Genome Adjustment: Colony Cost -0.80",
+    "field": "biology",
+    "branch": "Genetics",
+    "cost": 55000,
+    "prereqs": [
+      "genome-3"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "colonyCostReduction",
+        "value": 0.2
+      }
+    ],
+    "description": "A further 0.20 off colony cost."
+  },
+  {
+    "id": "genome-5",
+    "name": "Genome Adjustment: Colony Cost -1.00",
+    "field": "biology",
+    "branch": "Genetics",
+    "cost": 100000,
+    "prereqs": [
+      "genome-4"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "colonyCostReduction",
+        "value": 0.2
+      }
+    ],
+    "description": "A further 0.20 off colony cost: nearly anywhere is liveable."
+  },
+  {
+    "id": "modular-infrastructure",
+    "name": "Modular Infrastructure",
+    "field": "biology",
+    "branch": "Infrastructure",
+    "cost": 4000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "infrastructureEfficiency",
+        "value": 1.25
+      }
+    ],
+    "description": "Each unit of infrastructure supports 25% more colonists."
+  },
+  {
+    "id": "modular-infrastructure-2",
+    "name": "Modular Infrastructure II",
+    "field": "biology",
+    "branch": "Infrastructure",
+    "cost": 12000,
+    "prereqs": [
+      "modular-infrastructure"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "infrastructureEfficiency",
+        "value": 1.5
+      }
+    ],
+    "description": "Each unit of infrastructure supports 50% more colonists than the original."
+  },
+  {
+    "id": "modular-infrastructure-3",
+    "name": "Modular Infrastructure III",
+    "field": "biology",
+    "branch": "Infrastructure",
+    "cost": 30000,
+    "prereqs": [
+      "modular-infrastructure-2"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "infrastructureEfficiency",
+        "value": 1.75
+      }
+    ],
+    "description": "75% more colonists per unit."
+  },
+  {
+    "id": "orbital-habitats",
+    "name": "Orbital Habitats",
+    "field": "biology",
+    "branch": "Infrastructure",
+    "cost": 20000,
+    "prereqs": [
+      "modular-infrastructure-2"
+    ],
+    "future": true,
+    "description": "Homes in orbit, for worlds that cannot be lived on."
+  },
+  {
+    "id": "modular-infrastructure-4",
+    "name": "Modular Infrastructure IV",
+    "field": "biology",
+    "branch": "Infrastructure",
+    "cost": 70000,
+    "prereqs": [
+      "modular-infrastructure-3"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "infrastructureEfficiency",
+        "value": 2
+      }
+    ],
+    "description": "Twice the colonists per unit."
+  },
+  {
+    "id": "hydroponics-125",
+    "name": "Hydroponic Yield 125",
+    "field": "biology",
+    "branch": "Agriculture",
+    "cost": 4000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "farmOutput",
+        "value": 125
+      }
+    ],
+    "description": "Each hydroponic farm grows 125 units of food a year."
+  },
+  {
+    "id": "hydroponics-150",
+    "name": "Hydroponic Yield 150",
+    "field": "biology",
+    "branch": "Agriculture",
+    "cost": 9000,
+    "prereqs": [
+      "hydroponics-125"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "farmOutput",
+        "value": 150
+      }
+    ],
+    "description": "Each hydroponic farm grows 150 units of food a year."
+  },
+  {
+    "id": "hydroponics-200",
+    "name": "Hydroponic Yield 200",
+    "field": "biology",
+    "branch": "Agriculture",
+    "cost": 20000,
+    "prereqs": [
+      "hydroponics-150"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "farmOutput",
+        "value": 200
+      }
+    ],
+    "description": "Each hydroponic farm grows 200 units of food a year."
+  },
+  {
+    "id": "hydroponics-250",
+    "name": "Hydroponic Yield 250",
+    "field": "biology",
+    "branch": "Agriculture",
+    "cost": 50000,
+    "prereqs": [
+      "hydroponics-200"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "farmOutput",
+        "value": 250
+      }
+    ],
+    "description": "Each hydroponic farm grows 250 units of food a year."
+  },
+  {
+    "id": "cryogenic-berths-1",
+    "name": "Cryogenic Berths I",
+    "field": "biology",
+    "branch": "Colonisation",
+    "cost": 4000,
+    "prereqs": [
+      "medical-1"
+    ],
+    "description": "Denser stasis cradles: colony modules carry 25% more colonists."
+  },
+  {
+    "id": "cryogenic-berths-2",
+    "name": "Cryogenic Berths II",
+    "field": "biology",
+    "branch": "Colonisation",
+    "cost": 12000,
+    "prereqs": [
+      "cryogenic-berths-1"
+    ],
+    "description": "Colony modules carry 50% more than the original."
+  },
+  {
+    "id": "cryogenic-berths-3",
+    "name": "Cryogenic Berths III",
+    "field": "biology",
+    "branch": "Colonisation",
+    "cost": 35000,
+    "prereqs": [
+      "cryogenic-berths-2"
+    ],
+    "description": "Colony modules carry twice the original colonists."
+  },
+  {
+    "id": "xenobiology",
+    "name": "Xenobiology",
+    "field": "biology",
+    "branch": "Xenobiology",
+    "cost": 9000,
+    "prereqs": [
+      "genome-1"
+    ],
+    "future": true,
+    "description": "The study of alien life, should any be found."
+  },
+  {
+    "id": "trans-newtonian",
+    "name": "Trans-Newtonian Technology",
+    "field": "construction",
+    "branch": "Foundations",
+    "cost": 2500,
+    "prereqs": [],
+    "description": "The foundation of the age: trans-Newtonian elements can be refined and worked, and every installation and drive that follows depends on it."
+  },
+  {
+    "id": "mining-12",
+    "name": "Mining Production 12 Tons",
+    "field": "construction",
+    "branch": "Mining",
+    "cost": 1500,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "miningRate",
+        "value": 12
+      }
+    ],
+    "description": "Each mine extracts 12 tons per year from a deposit of accessibility 1.0."
+  },
+  {
+    "id": "mining-15",
+    "name": "Mining Production 15 Tons",
+    "field": "construction",
+    "branch": "Mining",
+    "cost": 3000,
+    "prereqs": [
+      "mining-12"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "miningRate",
+        "value": 15
+      }
+    ],
+    "description": "Each mine extracts 15 tons per year from a deposit of accessibility 1.0."
+  },
+  {
+    "id": "mining-18",
+    "name": "Mining Production 18 Tons",
+    "field": "construction",
+    "branch": "Mining",
+    "cost": 6000,
+    "prereqs": [
+      "mining-15"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "miningRate",
+        "value": 18
+      }
+    ],
+    "description": "Each mine extracts 18 tons per year from a deposit of accessibility 1.0."
+  },
+  {
+    "id": "mining-21",
+    "name": "Mining Production 21 Tons",
+    "field": "construction",
+    "branch": "Mining",
+    "cost": 12000,
+    "prereqs": [
+      "mining-18"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "miningRate",
+        "value": 21
+      }
+    ],
+    "description": "Each mine extracts 21 tons per year from a deposit of accessibility 1.0."
+  },
+  {
+    "id": "mining-24",
+    "name": "Mining Production 24 Tons",
+    "field": "construction",
+    "branch": "Mining",
+    "cost": 24000,
+    "prereqs": [
+      "mining-21"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "miningRate",
+        "value": 24
+      }
+    ],
+    "description": "Each mine extracts 24 tons per year from a deposit of accessibility 1.0."
+  },
+  {
+    "id": "mining-27",
+    "name": "Mining Production 27 Tons",
+    "field": "construction",
+    "branch": "Mining",
+    "cost": 48000,
+    "prereqs": [
+      "mining-24"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "miningRate",
+        "value": 27
+      }
+    ],
+    "description": "Each mine extracts 27 tons per year from a deposit of accessibility 1.0."
+  },
+  {
+    "id": "mining-30",
+    "name": "Mining Production 30 Tons",
+    "field": "construction",
+    "branch": "Mining",
+    "cost": 96000,
+    "prereqs": [
+      "mining-27"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "miningRate",
+        "value": 30
+      }
+    ],
+    "description": "Each mine extracts 30 tons per year from a deposit of accessibility 1.0."
+  },
+  {
+    "id": "mining-33",
+    "name": "Mining Production 33 Tons",
+    "field": "construction",
+    "branch": "Mining",
+    "cost": 160000,
+    "prereqs": [
+      "mining-30"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "miningRate",
+        "value": 33
+      }
+    ],
+    "description": "Each mine extracts 33 tons per year from a deposit of accessibility 1.0."
+  },
+  {
+    "id": "mining-36",
+    "name": "Mining Production 36 Tons",
+    "field": "construction",
+    "branch": "Mining",
+    "cost": 260000,
+    "prereqs": [
+      "mining-33"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "miningRate",
+        "value": 36
+      }
+    ],
+    "description": "Each mine extracts 36 tons per year from a deposit of accessibility 1.0."
+  },
+  {
+    "id": "construction-12",
+    "name": "Construction Rate 12 BP",
+    "field": "construction",
+    "branch": "Factories",
+    "cost": 1500,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "constructionRate",
+        "value": 12
+      }
+    ],
+    "description": "Each construction factory produces 12 build points per year."
+  },
+  {
+    "id": "construction-15",
+    "name": "Construction Rate 15 BP",
+    "field": "construction",
+    "branch": "Factories",
+    "cost": 3000,
+    "prereqs": [
+      "construction-12"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "constructionRate",
+        "value": 15
+      }
+    ],
+    "description": "Each construction factory produces 15 build points per year."
+  },
+  {
+    "id": "construction-18",
+    "name": "Construction Rate 18 BP",
+    "field": "construction",
+    "branch": "Factories",
+    "cost": 6000,
+    "prereqs": [
+      "construction-15"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "constructionRate",
+        "value": 18
+      }
+    ],
+    "description": "Each construction factory produces 18 build points per year."
+  },
+  {
+    "id": "construction-21",
+    "name": "Construction Rate 21 BP",
+    "field": "construction",
+    "branch": "Factories",
+    "cost": 12000,
+    "prereqs": [
+      "construction-18"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "constructionRate",
+        "value": 21
+      }
+    ],
+    "description": "Each construction factory produces 21 build points per year."
+  },
+  {
+    "id": "construction-24",
+    "name": "Construction Rate 24 BP",
+    "field": "construction",
+    "branch": "Factories",
+    "cost": 24000,
+    "prereqs": [
+      "construction-21"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "constructionRate",
+        "value": 24
+      }
+    ],
+    "description": "Each construction factory produces 24 build points per year."
+  },
+  {
+    "id": "construction-27",
+    "name": "Construction Rate 27 BP",
+    "field": "construction",
+    "branch": "Factories",
+    "cost": 48000,
+    "prereqs": [
+      "construction-24"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "constructionRate",
+        "value": 27
+      }
+    ],
+    "description": "Each construction factory produces 27 build points per year."
+  },
+  {
+    "id": "construction-30",
+    "name": "Construction Rate 30 BP",
+    "field": "construction",
+    "branch": "Factories",
+    "cost": 96000,
+    "prereqs": [
+      "construction-27"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "constructionRate",
+        "value": 30
+      }
+    ],
+    "description": "Each construction factory produces 30 build points per year."
+  },
+  {
+    "id": "construction-33",
+    "name": "Construction Rate 33 BP",
+    "field": "construction",
+    "branch": "Factories",
+    "cost": 160000,
+    "prereqs": [
+      "construction-30"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "constructionRate",
+        "value": 33
+      }
+    ],
+    "description": "Each construction factory produces 33 build points per year."
+  },
+  {
+    "id": "construction-36",
+    "name": "Construction Rate 36 BP",
+    "field": "construction",
+    "branch": "Factories",
+    "cost": 260000,
+    "prereqs": [
+      "construction-33"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "constructionRate",
+        "value": 36
+      }
+    ],
+    "description": "Each construction factory produces 36 build points per year."
+  },
+  {
+    "id": "research-250",
+    "name": "Research Rate 250 RP",
+    "field": "construction",
+    "branch": "Laboratories",
+    "cost": 2000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "researchRate",
+        "value": 250
+      }
+    ],
+    "description": "Each research laboratory generates 250 research points per year."
+  },
+  {
+    "id": "research-300",
+    "name": "Research Rate 300 RP",
+    "field": "construction",
+    "branch": "Laboratories",
+    "cost": 4000,
+    "prereqs": [
+      "research-250"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "researchRate",
+        "value": 300
+      }
+    ],
+    "description": "Each research laboratory generates 300 research points per year."
+  },
+  {
+    "id": "research-350",
+    "name": "Research Rate 350 RP",
+    "field": "construction",
+    "branch": "Laboratories",
+    "cost": 8000,
+    "prereqs": [
+      "research-300"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "researchRate",
+        "value": 350
+      }
+    ],
+    "description": "Each research laboratory generates 350 research points per year."
+  },
+  {
+    "id": "research-400",
+    "name": "Research Rate 400 RP",
+    "field": "construction",
+    "branch": "Laboratories",
+    "cost": 16000,
+    "prereqs": [
+      "research-350"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "researchRate",
+        "value": 400
+      }
+    ],
+    "description": "Each research laboratory generates 400 research points per year."
+  },
+  {
+    "id": "research-500",
+    "name": "Research Rate 500 RP",
+    "field": "construction",
+    "branch": "Laboratories",
+    "cost": 32000,
+    "prereqs": [
+      "research-400"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "researchRate",
+        "value": 500
+      }
+    ],
+    "description": "Each research laboratory generates 500 research points per year."
+  },
+  {
+    "id": "research-600",
+    "name": "Research Rate 600 RP",
+    "field": "construction",
+    "branch": "Laboratories",
+    "cost": 64000,
+    "prereqs": [
+      "research-500"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "researchRate",
+        "value": 600
+      }
+    ],
+    "description": "Each research laboratory generates 600 research points per year."
+  },
+  {
+    "id": "research-750",
+    "name": "Research Rate 750 RP",
+    "field": "construction",
+    "branch": "Laboratories",
+    "cost": 120000,
+    "prereqs": [
+      "research-600"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "researchRate",
+        "value": 750
+      }
+    ],
+    "description": "Each research laboratory generates 750 research points per year."
+  },
+  {
+    "id": "research-900",
+    "name": "Research Rate 900 RP",
+    "field": "construction",
+    "branch": "Laboratories",
+    "cost": 200000,
+    "prereqs": [
+      "research-750"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "researchRate",
+        "value": 900
+      }
+    ],
+    "description": "Each research laboratory generates 900 research points per year."
+  },
+  {
+    "id": "research-1100",
+    "name": "Research Rate 1100 RP",
+    "field": "construction",
+    "branch": "Laboratories",
+    "cost": 320000,
+    "prereqs": [
+      "research-900"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "researchRate",
+        "value": 1100
+      }
+    ],
+    "description": "Each research laboratory generates 1100 research points per year."
+  },
+  {
+    "id": "fuel-60k",
+    "name": "Fuel Production 60,000 Litres",
+    "field": "construction",
+    "branch": "Fuel Refining",
+    "cost": 2500,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "fuelPerRefinery",
+        "value": 60000
+      }
+    ],
+    "description": "Each refinery converts Sorium into 60,000 litres of fuel per year."
+  },
+  {
+    "id": "fuel-80k",
+    "name": "Fuel Production 80,000 Litres",
+    "field": "construction",
+    "branch": "Fuel Refining",
+    "cost": 5000,
+    "prereqs": [
+      "fuel-60k"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "fuelPerRefinery",
+        "value": 80000
+      }
+    ],
+    "description": "Each refinery converts Sorium into 80,000 litres of fuel per year."
+  },
+  {
+    "id": "fuel-100000",
+    "name": "Fuel Production 100000 Litres",
+    "field": "construction",
+    "branch": "Fuel Refining",
+    "cost": 10000,
+    "prereqs": [
+      "fuel-80k"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "fuelPerRefinery",
+        "value": 100000
+      }
+    ],
+    "description": "Each refinery converts Sorium into 100,000 litres of fuel per year."
+  },
+  {
+    "id": "fuel-125000",
+    "name": "Fuel Production 125000 Litres",
+    "field": "construction",
+    "branch": "Fuel Refining",
+    "cost": 20000,
+    "prereqs": [
+      "fuel-100000"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "fuelPerRefinery",
+        "value": 125000
+      }
+    ],
+    "description": "Each refinery converts Sorium into 125,000 litres of fuel per year."
+  },
+  {
+    "id": "fuel-160000",
+    "name": "Fuel Production 160000 Litres",
+    "field": "construction",
+    "branch": "Fuel Refining",
+    "cost": 40000,
+    "prereqs": [
+      "fuel-125000"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "fuelPerRefinery",
+        "value": 160000
+      }
+    ],
+    "description": "Each refinery converts Sorium into 160,000 litres of fuel per year."
+  },
+  {
+    "id": "fuel-200000",
+    "name": "Fuel Production 200000 Litres",
+    "field": "construction",
+    "branch": "Fuel Refining",
+    "cost": 80000,
+    "prereqs": [
+      "fuel-160000"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "fuelPerRefinery",
+        "value": 200000
+      }
+    ],
+    "description": "Each refinery converts Sorium into 200,000 litres of fuel per year."
+  },
+  {
+    "id": "mass-drivers",
+    "name": "Mass Driver Technology",
+    "field": "construction",
+    "branch": "Mass Drivers",
+    "cost": 3000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "unlock",
+        "installation": "mass-driver"
+      },
+      {
+        "kind": "set",
+        "stat": "massDriverThroughput",
+        "value": 1000
+      }
+    ],
+    "description": "Magnetic launchers throw mineral packets between colonies at 1,000 tons per driver per year - the only way to move minerals before freighters exist."
+  },
+  {
+    "id": "mass-drivers-2",
+    "name": "Improved Mass Drivers",
+    "field": "construction",
+    "branch": "Mass Drivers",
+    "cost": 7000,
+    "prereqs": [
+      "mass-drivers"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "massDriverThroughput",
+        "value": 2500
+      }
+    ],
+    "description": "Heavier launch packages: 2,500 tons per driver per year."
+  },
+  {
+    "id": "mass-drivers-3",
+    "name": "Mass Drivers III",
+    "field": "construction",
+    "branch": "Mass Drivers",
+    "cost": 15000,
+    "prereqs": [
+      "mass-drivers-2"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "massDriverThroughput",
+        "value": 5000
+      }
+    ],
+    "description": "Coil-gun staging: 5,000 tons per driver per year."
+  },
+  {
+    "id": "mass-drivers-4",
+    "name": "Mass Drivers IV",
+    "field": "construction",
+    "branch": "Mass Drivers",
+    "cost": 32000,
+    "prereqs": [
+      "mass-drivers-3"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "massDriverThroughput",
+        "value": 10000
+      }
+    ],
+    "description": "Superconducting rails: 10,000 tons per driver per year."
+  },
+  {
+    "id": "mass-drivers-5",
+    "name": "Mass Drivers V",
+    "field": "construction",
+    "branch": "Mass Drivers",
+    "cost": 70000,
+    "prereqs": [
+      "mass-drivers-4"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "massDriverThroughput",
+        "value": 20000
+      }
+    ],
+    "description": "Orbital catchers: 20,000 tons per driver per year."
+  },
+  {
+    "id": "maintenance-facilities",
+    "name": "Maintenance Facility Construction",
+    "field": "construction",
+    "branch": "Maintenance",
+    "cost": 1500,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "unlock",
+        "installation": "maintenance"
+      }
+    ],
+    "description": "Orbital maintenance bays that hold off the failure rate of ships stationed at a colony."
+  },
+  {
+    "id": "ordnance-factories",
+    "name": "Ordnance Factory Construction",
+    "field": "construction",
+    "branch": "Maintenance",
+    "cost": 2000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "unlock",
+        "installation": "ordnance-factory"
+      }
+    ],
+    "description": "Dedicated plant for missiles and other ordnance."
+  },
+  {
+    "id": "spaceports",
+    "name": "Spaceport Construction",
+    "field": "construction",
+    "branch": "Maintenance",
+    "cost": 4000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "unlock",
+        "installation": "spaceport"
+      }
+    ],
+    "description": "Ground facilities that speed cargo handling at a colony."
+  },
+  {
+    "id": "maintenance-bays-2",
+    "name": "Maintenance Bay Efficiency",
+    "field": "construction",
+    "branch": "Maintenance",
+    "cost": 3000,
+    "prereqs": [
+      "maintenance-facilities"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "serviceTonsPerFacility",
+        "value": 8000
+      }
+    ],
+    "description": "Better tooling and stores: each maintenance facility can service twice the tonnage of ship at once."
+  },
+  {
+    "id": "maintenance-bays-3",
+    "name": "Maintenance Bays III",
+    "field": "construction",
+    "branch": "Maintenance",
+    "cost": 7000,
+    "prereqs": [
+      "maintenance-bays-2"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "serviceTonsPerFacility",
+        "value": 12000
+      }
+    ],
+    "description": "Each maintenance facility can service 12,000 tons of ship at once."
+  },
+  {
+    "id": "maintenance-bays-4",
+    "name": "Maintenance Bays IV",
+    "field": "construction",
+    "branch": "Maintenance",
+    "cost": 15000,
+    "prereqs": [
+      "maintenance-bays-3"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "serviceTonsPerFacility",
+        "value": 16000
+      }
+    ],
+    "description": "Robotic overhaul: 16,000 tons per facility."
+  },
+  {
+    "id": "maintenance-bays-5",
+    "name": "Maintenance Bays V",
+    "field": "construction",
+    "branch": "Maintenance",
+    "cost": 32000,
+    "prereqs": [
+      "maintenance-bays-4"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "serviceTonsPerFacility",
+        "value": 24000
+      }
+    ],
+    "description": "Dry-dock automation: 24,000 tons per facility."
+  },
+  {
+    "id": "terraforming",
+    "name": "Terraforming Technology",
+    "field": "construction",
+    "branch": "Terraforming",
+    "cost": 5000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "unlock",
+        "installation": "terraforming"
+      },
+      {
+        "kind": "set",
+        "stat": "terraformRate",
+        "value": 0.0001
+      }
+    ],
+    "description": "Atmospheric processors that add or remove 0.0001 atmospheres of a chosen gas per installation per year."
+  },
+  {
+    "id": "terraforming-2",
+    "name": "Improved Terraforming",
+    "field": "construction",
+    "branch": "Terraforming",
+    "cost": 11000,
+    "prereqs": [
+      "terraforming"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "terraformRate",
+        "value": 0.00025
+      }
+    ],
+    "description": "Higher-throughput processors: 0.00025 atmospheres per installation per year."
+  },
+  {
+    "id": "terraforming-3",
+    "name": "Terraforming III",
+    "field": "construction",
+    "branch": "Terraforming",
+    "cost": 25000,
+    "prereqs": [
+      "terraforming-2"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "terraformRate",
+        "value": 0.0005
+      }
+    ],
+    "description": "0.0005 atmospheres per installation per year."
+  },
+  {
+    "id": "terraforming-4",
+    "name": "Terraforming IV",
+    "field": "construction",
+    "branch": "Terraforming",
+    "cost": 60000,
+    "prereqs": [
+      "terraforming-3"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "terraformRate",
+        "value": 0.001
+      }
+    ],
+    "description": "0.001 atmospheres per installation per year."
+  },
+  {
+    "id": "terraforming-5",
+    "name": "Terraforming V",
+    "field": "construction",
+    "branch": "Terraforming",
+    "cost": 120000,
+    "prereqs": [
+      "terraforming-4"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "terraformRate",
+        "value": 0.002
+      }
+    ],
+    "description": "0.002 atmospheres per installation per year."
+  },
+  {
+    "id": "financial-management",
+    "name": "Financial Management",
+    "field": "construction",
+    "branch": "Finance & Trade",
+    "cost": 4000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "unlock",
+        "installation": "financial-centre"
+      },
+      {
+        "kind": "add",
+        "stat": "wealthBonus",
+        "value": 0.1
+      }
+    ],
+    "description": "Financial centres, and a 10% increase in tax revenue."
+  },
+  {
+    "id": "sector-command",
+    "name": "Sector Command Infrastructure",
+    "field": "construction",
+    "branch": "Finance & Trade",
+    "cost": 8000,
+    "prereqs": [
+      "financial-management"
+    ],
+    "effects": [
+      {
+        "kind": "unlock",
+        "installation": "sector-command"
+      }
+    ],
+    "description": "Regional administration, letting a governor's bonuses reach colonies across a sector."
+  },
+  {
+    "id": "banking-systems",
+    "name": "Banking Systems",
+    "field": "construction",
+    "branch": "Finance & Trade",
+    "cost": 8000,
+    "prereqs": [
+      "financial-management"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "wealthBonus",
+        "value": 0.1
+      }
+    ],
+    "description": "Credit that finds its way to every colony: tax revenue up 10%."
+  },
+  {
+    "id": "trade-networks",
+    "name": "Trade Networks",
+    "field": "construction",
+    "branch": "Finance & Trade",
+    "cost": 6000,
+    "prereqs": [
+      "financial-management"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "tradeBonus",
+        "value": 0.1
+      }
+    ],
+    "description": "Standard contracts and shared ledgers: commerce income and the levy on traded goods up 10%."
+  },
+  {
+    "id": "stock-exchanges",
+    "name": "Stock Exchanges",
+    "field": "construction",
+    "branch": "Finance & Trade",
+    "cost": 18000,
+    "prereqs": [
+      "banking-systems"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "wealthBonus",
+        "value": 0.1
+      }
+    ],
+    "description": "Public capital for private ventures: tax revenue up a further 10%."
+  },
+  {
+    "id": "mercantile-exchanges",
+    "name": "Mercantile Exchanges",
+    "field": "construction",
+    "branch": "Finance & Trade",
+    "cost": 14000,
+    "prereqs": [
+      "trade-networks"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "tradeBonus",
+        "value": 0.15
+      }
+    ],
+    "description": "Commerce up a further 15%."
+  },
+  {
+    "id": "quantum-finance",
+    "name": "Quantum Finance",
+    "field": "construction",
+    "branch": "Finance & Trade",
+    "cost": 60000,
+    "prereqs": [
+      "stock-exchanges"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "wealthBonus",
+        "value": 0.15
+      }
+    ],
+    "description": "Instant settlement across light-years: tax revenue up a further 15%."
+  },
+  {
+    "id": "interstellar-commerce",
+    "name": "Interstellar Commerce",
+    "field": "construction",
+    "branch": "Finance & Trade",
+    "cost": 40000,
+    "prereqs": [
+      "mercantile-exchanges"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "tradeBonus",
+        "value": 0.2
+      }
+    ],
+    "description": "Commerce up a further 20%."
+  },
+  {
+    "id": "public-broadcasting",
+    "name": "Public Broadcasting",
+    "field": "construction",
+    "branch": "Administration",
+    "cost": 5000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "stabilityBonus",
+        "value": 2
+      }
+    ],
+    "description": "A shared news and entertainment service: every colony's stability target +2."
+  },
+  {
+    "id": "parliamentary-procedure",
+    "name": "Parliamentary Procedure",
+    "field": "construction",
+    "branch": "Administration",
+    "cost": 6000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "capitalBonus",
+        "value": 0.5
+      }
+    ],
+    "description": "Orderly debate: +0.5 political capital a year."
+  },
+  {
+    "id": "civil-service",
+    "name": "Civil Service Reform",
+    "field": "construction",
+    "branch": "Administration",
+    "cost": 12000,
+    "prereqs": [
+      "public-broadcasting"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "stabilityBonus",
+        "value": 2
+      }
+    ],
+    "description": "A professional, impartial administration: stability +2."
+  },
+  {
+    "id": "council-of-ministries",
+    "name": "Council of Ministries",
+    "field": "construction",
+    "branch": "Administration",
+    "cost": 20000,
+    "prereqs": [
+      "parliamentary-procedure"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "policySlots",
+        "value": 1
+      }
+    ],
+    "description": "A fourth law may be in force at once."
+  },
+  {
+    "id": "arbitration-courts",
+    "name": "Arbitration Courts",
+    "field": "construction",
+    "branch": "Administration",
+    "cost": 25000,
+    "prereqs": [
+      "civil-service"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "stabilityBonus",
+        "value": 2
+      }
+    ],
+    "description": "Disputes settled before they become riots: stability +2."
+  },
+  {
+    "id": "constitutional-reform",
+    "name": "Constitutional Reform",
+    "field": "construction",
+    "branch": "Administration",
+    "cost": 28000,
+    "prereqs": [
+      "council-of-ministries"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "capitalBonus",
+        "value": 0.5
+      }
+    ],
+    "description": "A clearer mandate: +0.5 political capital a year."
+  },
+  {
+    "id": "enlightened-governance",
+    "name": "Enlightened Governance",
+    "field": "construction",
+    "branch": "Administration",
+    "cost": 60000,
+    "prereqs": [
+      "arbitration-courts"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "stabilityBonus",
+        "value": 3
+      }
+    ],
+    "description": "Government that learns from its colonies: stability +3."
+  },
+  {
+    "id": "grand-cabinet",
+    "name": "Grand Cabinet",
+    "field": "construction",
+    "branch": "Administration",
+    "cost": 80000,
+    "prereqs": [
+      "constitutional-reform"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "policySlots",
+        "value": 1
+      }
+    ],
+    "description": "A fifth law may be in force at once."
+  },
+  {
+    "id": "federal-charter",
+    "name": "Federal Charter",
+    "field": "construction",
+    "branch": "Administration",
+    "cost": 120000,
+    "prereqs": [
+      "grand-cabinet"
+    ],
+    "effects": [
+      {
+        "kind": "add",
+        "stat": "capitalBonus",
+        "value": 1
+      }
+    ],
+    "description": "A settled constitution: +1 political capital a year."
+  },
+  {
+    "id": "consumer-lines-125",
+    "name": "Consumer Production Lines 125",
+    "field": "construction",
+    "branch": "Consumer Goods",
+    "cost": 5000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "consumerOutput",
+        "value": 125
+      }
+    ],
+    "description": "Each consumer plant makes 125 units of consumer goods a year."
+  },
+  {
+    "id": "luxury-fabrication-50",
+    "name": "Luxury Fabrication 50",
+    "field": "construction",
+    "branch": "Consumer Goods",
+    "cost": 6000,
+    "prereqs": [
+      "financial-management"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "luxuryOutput",
+        "value": 50
+      }
+    ],
+    "description": "Each luxury workshop makes 50 units of luxuries a year."
+  },
+  {
+    "id": "consumer-lines-150",
+    "name": "Consumer Production Lines 150",
+    "field": "construction",
+    "branch": "Consumer Goods",
+    "cost": 12000,
+    "prereqs": [
+      "consumer-lines-125"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "consumerOutput",
+        "value": 150
+      }
+    ],
+    "description": "Each consumer plant makes 150 units of consumer goods a year."
+  },
+  {
+    "id": "luxury-fabrication-60",
+    "name": "Luxury Fabrication 60",
+    "field": "construction",
+    "branch": "Consumer Goods",
+    "cost": 15000,
+    "prereqs": [
+      "luxury-fabrication-50"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "luxuryOutput",
+        "value": 60
+      }
+    ],
+    "description": "Each luxury workshop makes 60 units of luxuries a year."
+  },
+  {
+    "id": "consumer-lines-200",
+    "name": "Consumer Production Lines 200",
+    "field": "construction",
+    "branch": "Consumer Goods",
+    "cost": 30000,
+    "prereqs": [
+      "consumer-lines-150"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "consumerOutput",
+        "value": 200
+      }
+    ],
+    "description": "Each consumer plant makes 200 units of consumer goods a year."
+  },
+  {
+    "id": "luxury-fabrication-80",
+    "name": "Luxury Fabrication 80",
+    "field": "construction",
+    "branch": "Consumer Goods",
+    "cost": 40000,
+    "prereqs": [
+      "luxury-fabrication-60"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "luxuryOutput",
+        "value": 80
+      }
+    ],
+    "description": "Each luxury workshop makes 80 units of luxuries a year."
+  },
+  {
+    "id": "consumer-lines-300",
+    "name": "Consumer Production Lines 300",
+    "field": "construction",
+    "branch": "Consumer Goods",
+    "cost": 70000,
+    "prereqs": [
+      "consumer-lines-200"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "consumerOutput",
+        "value": 300
+      }
+    ],
+    "description": "Each consumer plant makes 300 units of consumer goods a year."
+  },
+  {
+    "id": "luxury-fabrication-120",
+    "name": "Luxury Fabrication 120",
+    "field": "construction",
+    "branch": "Consumer Goods",
+    "cost": 90000,
+    "prereqs": [
+      "luxury-fabrication-80"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "luxuryOutput",
+        "value": 120
+      }
+    ],
+    "description": "Each luxury workshop makes 120 units of luxuries a year."
+  },
+  {
+    "id": "composite-armour",
+    "name": "Composite Armour",
+    "field": "defence",
+    "branch": "Armour",
+    "cost": 3000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "future": true,
+    "description": "Second-generation armour, 50% tougher per layer than duranium plate."
+  },
+  {
+    "id": "armour-duranium",
+    "name": "Duranium Armour",
+    "field": "defence",
+    "branch": "Armour",
+    "cost": 1500,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "future": true,
+    "description": "The first plate worthy of the name."
+  },
+  {
+    "id": "armour-hd-duranium",
+    "name": "High Density Duranium Armour",
+    "field": "defence",
+    "branch": "Armour",
+    "cost": 3000,
+    "prereqs": [
+      "armour-duranium"
+    ],
+    "future": true,
+    "description": "Denser, tougher plate."
+  },
+  {
+    "id": "armour-ceramic",
+    "name": "Ceramic Composite Armour",
+    "field": "defence",
+    "branch": "Armour",
+    "cost": 7000,
+    "prereqs": [
+      "composite-armour"
+    ],
+    "future": true,
+    "description": "Brittle, but it stops what steel cannot."
+  },
+  {
+    "id": "armour-laminate",
+    "name": "Laminate Composite Armour",
+    "field": "defence",
+    "branch": "Armour",
+    "cost": 14000,
+    "prereqs": [
+      "armour-ceramic"
+    ],
+    "future": true,
+    "description": "Layered for toughness."
+  },
+  {
+    "id": "armour-carbon",
+    "name": "Compressed Carbon Armour",
+    "field": "defence",
+    "branch": "Armour",
+    "cost": 28000,
+    "prereqs": [
+      "armour-laminate"
+    ],
+    "future": true,
+    "description": "Diamond-hard laminate."
+  },
+  {
+    "id": "armour-biphased",
+    "name": "Biphased Carbide Armour",
+    "field": "defence",
+    "branch": "Armour",
+    "cost": 55000,
+    "prereqs": [
+      "armour-carbon"
+    ],
+    "future": true,
+    "description": "Two phases, each covering the other's weakness."
+  },
+  {
+    "id": "armour-crystalline",
+    "name": "Crystalline Composite Armour",
+    "field": "defence",
+    "branch": "Armour",
+    "cost": 100000,
+    "prereqs": [
+      "armour-biphased"
+    ],
+    "future": true,
+    "description": "Grown, not forged."
+  },
+  {
+    "id": "armour-superdense",
+    "name": "Superdense Armour",
+    "field": "defence",
+    "branch": "Armour",
+    "cost": 180000,
+    "prereqs": [
+      "armour-crystalline"
+    ],
+    "future": true,
+    "description": "Matter packed past the point of reason."
+  },
+  {
+    "id": "armour-coherent",
+    "name": "Coherent Superdense Armour",
+    "field": "defence",
+    "branch": "Armour",
+    "cost": 300000,
+    "prereqs": [
+      "armour-superdense"
+    ],
+    "future": true,
+    "description": "Superdense plate with an ordered lattice."
+  },
+  {
+    "id": "armour-collapsium",
+    "name": "Collapsium Armour",
+    "field": "defence",
+    "branch": "Armour",
+    "cost": 500000,
+    "prereqs": [
+      "armour-coherent"
+    ],
+    "future": true,
+    "description": "The densest armour the physics allows."
+  },
+  {
+    "id": "alpha-shields",
+    "name": "Alpha Shields",
+    "field": "defence",
+    "branch": "Shields",
+    "cost": 4000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "future": true,
+    "description": "The first practical deflector shields."
+  },
+  {
+    "id": "beta-shields",
+    "name": "Beta Shields",
+    "field": "defence",
+    "branch": "Shields",
+    "cost": 8000,
+    "prereqs": [
+      "alpha-shields"
+    ],
+    "future": true,
+    "description": "Stronger deflectors."
+  },
+  {
+    "id": "shield-regen-2",
+    "name": "Shield Regeneration 2",
+    "field": "defence",
+    "branch": "Shields",
+    "cost": 6000,
+    "prereqs": [
+      "alpha-shields"
+    ],
+    "future": true,
+    "description": "Shields recover more quickly."
+  },
+  {
+    "id": "gamma-shields",
+    "name": "Gamma Shields",
+    "field": "defence",
+    "branch": "Shields",
+    "cost": 18000,
+    "prereqs": [
+      "beta-shields"
+    ],
+    "future": true,
+    "description": "Faster to recharge."
+  },
+  {
+    "id": "shield-regen-3",
+    "name": "Shield Regeneration 3",
+    "field": "defence",
+    "branch": "Shields",
+    "cost": 15000,
+    "prereqs": [
+      "shield-regen-2"
+    ],
+    "future": true,
+    "description": "Faster again."
+  },
+  {
+    "id": "delta-shields",
+    "name": "Delta Shields",
+    "field": "defence",
+    "branch": "Shields",
+    "cost": 40000,
+    "prereqs": [
+      "gamma-shields"
+    ],
+    "future": true,
+    "description": "Heavy-warship shields."
+  },
+  {
+    "id": "shield-regen-4",
+    "name": "Shield Regeneration 4",
+    "field": "defence",
+    "branch": "Shields",
+    "cost": 36000,
+    "prereqs": [
+      "shield-regen-3"
+    ],
+    "future": true,
+    "description": "Nearly continuous recovery."
+  },
+  {
+    "id": "epsilon-shields",
+    "name": "Epsilon Shields",
+    "field": "defence",
+    "branch": "Shields",
+    "cost": 90000,
+    "prereqs": [
+      "delta-shields"
+    ],
+    "future": true,
+    "description": "Capital-ship shielding."
+  },
+  {
+    "id": "zeta-shields",
+    "name": "Zeta Shields",
+    "field": "defence",
+    "branch": "Shields",
+    "cost": 180000,
+    "prereqs": [
+      "epsilon-shields"
+    ],
+    "future": true,
+    "description": "The finest deflectors ever fitted."
+  },
+  {
+    "id": "damage-control-2",
+    "name": "Damage Control Rating 2",
+    "field": "defence",
+    "branch": "Damage Control",
+    "cost": 2000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "future": true,
+    "description": "Improved shipboard repair."
+  },
+  {
+    "id": "magazine-ejection",
+    "name": "Magazine Ejection System",
+    "field": "defence",
+    "branch": "Damage Control",
+    "cost": 3500,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "future": true,
+    "description": "Throws a burning magazine clear before it takes the ship with it."
+  },
+  {
+    "id": "damage-control-3",
+    "name": "Damage Control Rating 3",
+    "field": "defence",
+    "branch": "Damage Control",
+    "cost": 4000,
+    "prereqs": [
+      "damage-control-2"
+    ],
+    "future": true,
+    "description": "Faster repair crews."
+  },
+  {
+    "id": "damage-control-4",
+    "name": "Damage Control Rating 4",
+    "field": "defence",
+    "branch": "Damage Control",
+    "cost": 10000,
+    "prereqs": [
+      "damage-control-3"
+    ],
+    "future": true,
+    "description": "Fire-fighting robots."
+  },
+  {
+    "id": "damage-control-5",
+    "name": "Damage Control Rating 5",
+    "field": "defence",
+    "branch": "Damage Control",
+    "cost": 26000,
+    "prereqs": [
+      "damage-control-4"
+    ],
+    "future": true,
+    "description": "Self-sealing bulkheads."
+  },
+  {
+    "id": "fighter-bays",
+    "name": "Fighter Bay Technology",
+    "field": "defence",
+    "branch": "Hangars",
+    "cost": 9000,
+    "prereqs": [
+      "alpha-shields"
+    ],
+    "future": true,
+    "description": "Hangars and launch tubes for small craft."
+  },
+  {
+    "id": "laser-10cm",
+    "name": "10cm Infrared Laser",
+    "field": "energy",
+    "branch": "Lasers",
+    "cost": 3000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "future": true,
+    "description": "The first trans-Newtonian beam weapon."
+  },
+  {
+    "id": "laser-15cm",
+    "name": "15cm Visible Light Laser",
+    "field": "energy",
+    "branch": "Lasers",
+    "cost": 6000,
+    "prereqs": [
+      "laser-10cm"
+    ],
+    "future": true,
+    "description": "A shorter wavelength: more punch per shot."
+  },
+  {
+    "id": "laser-focal-reduction",
+    "name": "Reduced Focal Size",
+    "field": "energy",
+    "branch": "Lasers",
+    "cost": 5000,
+    "prereqs": [
+      "laser-10cm"
+    ],
+    "future": true,
+    "description": "Tighter beams carry further."
+  },
+  {
+    "id": "laser-20cm",
+    "name": "20cm Ultraviolet Laser",
+    "field": "energy",
+    "branch": "Lasers",
+    "cost": 14000,
+    "prereqs": [
+      "laser-15cm"
+    ],
+    "future": true,
+    "description": "Heavier beam."
+  },
+  {
+    "id": "laser-focal-reduction-2",
+    "name": "Reduced Focal Size II",
+    "field": "energy",
+    "branch": "Lasers",
+    "cost": 14000,
+    "prereqs": [
+      "laser-focal-reduction"
+    ],
+    "future": true,
+    "description": "Tighter again."
+  },
+  {
+    "id": "laser-25cm",
+    "name": "25cm X-Ray Laser",
+    "field": "energy",
+    "branch": "Lasers",
+    "cost": 32000,
+    "prereqs": [
+      "laser-20cm"
+    ],
+    "future": true,
+    "description": "Hard radiation."
+  },
+  {
+    "id": "laser-focal-reduction-3",
+    "name": "Reduced Focal Size III",
+    "field": "energy",
+    "branch": "Lasers",
+    "cost": 36000,
+    "prereqs": [
+      "laser-focal-reduction-2"
+    ],
+    "future": true,
+    "description": "Near-perfect collimation."
+  },
+  {
+    "id": "laser-30cm",
+    "name": "30cm Gamma-Ray Laser",
+    "field": "energy",
+    "branch": "Lasers",
+    "cost": 70000,
+    "prereqs": [
+      "laser-25cm"
+    ],
+    "future": true,
+    "description": "The heaviest laser."
+  },
+  {
+    "id": "railgun-10cm",
+    "name": "10cm Railgun",
+    "field": "energy",
+    "branch": "Kinetic Guns",
+    "cost": 3000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "future": true,
+    "description": "Kinetic cannon firing four shots per salvo."
+  },
+  {
+    "id": "railgun-15cm",
+    "name": "15cm Railgun",
+    "field": "energy",
+    "branch": "Kinetic Guns",
+    "cost": 6000,
+    "prereqs": [
+      "railgun-10cm"
+    ],
+    "future": true,
+    "description": "A longer barrel."
+  },
+  {
+    "id": "railgun-20cm",
+    "name": "20cm Railgun",
+    "field": "energy",
+    "branch": "Kinetic Guns",
+    "cost": 14000,
+    "prereqs": [
+      "railgun-15cm"
+    ],
+    "future": true,
+    "description": "Capital-class kinetic cannon."
+  },
+  {
+    "id": "gauss-cannon",
+    "name": "Gauss Cannon",
+    "field": "energy",
+    "branch": "Kinetic Guns",
+    "cost": 22000,
+    "prereqs": [
+      "railgun-20cm"
+    ],
+    "future": true,
+    "description": "Rapid-fire point defence."
+  },
+  {
+    "id": "capacitor-2",
+    "name": "Capacitor Recharge Rate 2",
+    "field": "energy",
+    "branch": "Capacitors",
+    "cost": 2500,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "future": true,
+    "description": "Beam weapons recharge twice as quickly."
+  },
+  {
+    "id": "capacitor-3",
+    "name": "Capacitor Recharge Rate 3",
+    "field": "energy",
+    "branch": "Capacitors",
+    "cost": 6000,
+    "prereqs": [
+      "capacitor-2"
+    ],
+    "future": true,
+    "description": "Beams recharge three times as quickly."
+  },
+  {
+    "id": "capacitor-4",
+    "name": "Capacitor Recharge Rate 4",
+    "field": "energy",
+    "branch": "Capacitors",
+    "cost": 14000,
+    "prereqs": [
+      "capacitor-3"
+    ],
+    "future": true,
+    "description": "Four times as quickly."
+  },
+  {
+    "id": "capacitor-5",
+    "name": "Capacitor Recharge Rate 5",
+    "field": "energy",
+    "branch": "Capacitors",
+    "cost": 32000,
+    "prereqs": [
+      "capacitor-4"
+    ],
+    "future": true,
+    "description": "Five times as quickly."
+  },
+  {
+    "id": "turrets",
+    "name": "Weapon Turret Technology",
+    "field": "energy",
+    "branch": "Turrets",
+    "cost": 4000,
+    "prereqs": [
+      "laser-10cm"
+    ],
+    "future": true,
+    "description": "Gimballed mounts, allowing beam weapons to track fast targets."
+  },
+  {
+    "id": "turret-gearing-2",
+    "name": "Turret Gearing 2",
+    "field": "energy",
+    "branch": "Turrets",
+    "cost": 6000,
+    "prereqs": [
+      "turrets"
+    ],
+    "future": true,
+    "description": "Turrets track twice as fast."
+  },
+  {
+    "id": "turret-gearing-3",
+    "name": "Turret Gearing 3",
+    "field": "energy",
+    "branch": "Turrets",
+    "cost": 16000,
+    "prereqs": [
+      "turret-gearing-2"
+    ],
+    "future": true,
+    "description": "Three times as fast."
+  },
+  {
+    "id": "turret-gearing-4",
+    "name": "Turret Gearing 4",
+    "field": "energy",
+    "branch": "Turrets",
+    "cost": 40000,
+    "prereqs": [
+      "turret-gearing-3"
+    ],
+    "future": true,
+    "description": "Fast enough for fighters."
+  },
+  {
+    "id": "plasma-carronade",
+    "name": "Plasma Carronade",
+    "field": "energy",
+    "branch": "Advanced Beams",
+    "cost": 18000,
+    "prereqs": [
+      "capacitor-2"
+    ],
+    "future": true,
+    "description": "Short-range plasma bolts."
+  },
+  {
+    "id": "plasma-torch",
+    "name": "Plasma Torch",
+    "field": "energy",
+    "branch": "Advanced Beams",
+    "cost": 40000,
+    "prereqs": [
+      "plasma-carronade"
+    ],
+    "future": true,
+    "description": "A sustained plasma stream."
+  },
+  {
+    "id": "meson-cannon",
+    "name": "Meson Cannon",
+    "field": "energy",
+    "branch": "Advanced Beams",
+    "cost": 80000,
+    "prereqs": [
+      "plasma-torch"
+    ],
+    "future": true,
+    "description": "Mesons pass through armour."
+  },
+  {
+    "id": "particle-beam",
+    "name": "Particle Beam Cannon",
+    "field": "energy",
+    "branch": "Advanced Beams",
+    "cost": 150000,
+    "prereqs": [
+      "meson-cannon"
+    ],
+    "future": true,
+    "description": "A stream of accelerated particles."
+  },
+  {
+    "id": "microwave-cannon",
+    "name": "High Power Microwave",
+    "field": "energy",
+    "branch": "Advanced Beams",
+    "cost": 60000,
+    "prereqs": [
+      "particle-beam"
+    ],
+    "future": true,
+    "description": "Cooks electronics."
+  },
+  {
+    "id": "cargo-handling",
+    "name": "Improved Cargo Handling Systems",
+    "field": "logistics",
+    "branch": "Cargo & Freight",
+    "cost": 2500,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "description": "Containerised handling: every cargo hold carries 25% more, existing freighters included."
+  },
+  {
+    "id": "freight-containers",
+    "name": "Standard Containers",
+    "field": "logistics",
+    "branch": "Cargo & Freight",
+    "cost": 4000,
+    "prereqs": [
+      "spaceports"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "freightFlow",
+        "value": 1.25
+      }
+    ],
+    "description": "Freight lines and civilian shipping move 25% more goods between colonies."
+  },
+  {
+    "id": "cargo-handling-2",
+    "name": "Improved Cargo Handling II",
+    "field": "logistics",
+    "branch": "Cargo & Freight",
+    "cost": 8000,
+    "prereqs": [
+      "cargo-handling"
+    ],
+    "description": "Cargo holds carry 50% more than the original, existing freighters included."
+  },
+  {
+    "id": "automated-docks",
+    "name": "Automated Docks",
+    "field": "logistics",
+    "branch": "Cargo & Freight",
+    "cost": 12000,
+    "prereqs": [
+      "freight-containers"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "freightFlow",
+        "value": 1.5
+      }
+    ],
+    "description": "Freight moves 50% more than the original."
+  },
+  {
+    "id": "cargo-handling-3",
+    "name": "Improved Cargo Handling III",
+    "field": "logistics",
+    "branch": "Cargo & Freight",
+    "cost": 25000,
+    "prereqs": [
+      "cargo-handling-2"
+    ],
+    "description": "Cargo holds carry twice the original."
+  },
+  {
+    "id": "orbital-lifts",
+    "name": "Orbital Lifts",
+    "field": "logistics",
+    "branch": "Cargo & Freight",
+    "cost": 30000,
+    "prereqs": [
+      "automated-docks"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "freightFlow",
+        "value": 2
+      }
+    ],
+    "description": "Freight moves twice as much as the original."
+  },
+  {
+    "id": "autonomous-freighters",
+    "name": "Autonomous Freighters",
+    "field": "logistics",
+    "branch": "Cargo & Freight",
+    "cost": 80000,
+    "prereqs": [
+      "orbital-lifts"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "freightFlow",
+        "value": 3
+      }
+    ],
+    "description": "Freight moves three times as much as the original."
+  },
+  {
+    "id": "compact-quarters-1",
+    "name": "Compact Crew Quarters I",
+    "field": "logistics",
+    "branch": "Crew",
+    "cost": 4000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "description": "Folding berths: crew quarters berth 25% more."
+  },
+  {
+    "id": "compact-quarters-2",
+    "name": "Compact Crew Quarters II",
+    "field": "logistics",
+    "branch": "Crew",
+    "cost": 12000,
+    "prereqs": [
+      "compact-quarters-1"
+    ],
+    "description": "Crew quarters berth 50% more than the original."
+  },
+  {
+    "id": "compact-quarters-3",
+    "name": "Compact Crew Quarters III",
+    "field": "logistics",
+    "branch": "Crew",
+    "cost": 32000,
+    "prereqs": [
+      "compact-quarters-2"
+    ],
+    "description": "Crew quarters berth twice the original."
+  },
+  {
+    "id": "military-academies",
+    "name": "Military Academy Construction",
+    "field": "logistics",
+    "branch": "Officer Training",
+    "cost": 3000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "unlock",
+        "installation": "military-academy"
+      }
+    ],
+    "description": "Academies train new officers, raising the rate at which commanders enter the pool."
+  },
+  {
+    "id": "officer-training-3",
+    "name": "Advanced Officer Training",
+    "field": "logistics",
+    "branch": "Officer Training",
+    "cost": 6000,
+    "prereqs": [
+      "military-academies"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "academyOutput",
+        "value": 3
+      }
+    ],
+    "description": "Each Military Academy trains 3 officers a year."
+  },
+  {
+    "id": "officer-training-4",
+    "name": "Staff College",
+    "field": "logistics",
+    "branch": "Officer Training",
+    "cost": 16000,
+    "prereqs": [
+      "officer-training-3"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "academyOutput",
+        "value": 4
+      }
+    ],
+    "description": "Each Military Academy trains 4 officers a year."
+  },
+  {
+    "id": "officer-training-6",
+    "name": "War College",
+    "field": "logistics",
+    "branch": "Officer Training",
+    "cost": 45000,
+    "prereqs": [
+      "officer-training-4"
+    ],
+    "effects": [
+      {
+        "kind": "set",
+        "stat": "academyOutput",
+        "value": 6
+      }
+    ],
+    "description": "Each Military Academy trains 6 officers a year."
+  },
+  {
+    "id": "ground-training",
+    "name": "Ground Force Training Facility",
+    "field": "logistics",
+    "branch": "Ground Forces",
+    "cost": 3000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "unlock",
+        "installation": "gftf"
+      }
+    ],
+    "description": "Raises and trains ground formations."
+  },
+  {
+    "id": "ground-weapons-1",
+    "name": "Light Personal Weapons",
+    "field": "logistics",
+    "branch": "Ground Forces",
+    "cost": 3000,
+    "prereqs": [
+      "ground-training"
+    ],
+    "future": true,
+    "description": "Infantry arms."
+  },
+  {
+    "id": "ground-weapons-2",
+    "name": "Crew-Served Weapons",
+    "field": "logistics",
+    "branch": "Ground Forces",
+    "cost": 7000,
+    "prereqs": [
+      "ground-weapons-1"
+    ],
+    "future": true,
+    "description": "Heavy infantry support."
+  },
+  {
+    "id": "ground-armour-1",
+    "name": "Basic Body Armour",
+    "field": "logistics",
+    "branch": "Ground Forces",
+    "cost": 3000,
+    "prereqs": [
+      "ground-weapons-2"
+    ],
+    "future": true,
+    "description": "Protection for infantry."
+  },
+  {
+    "id": "ground-armour-2",
+    "name": "Composite Body Armour",
+    "field": "logistics",
+    "branch": "Ground Forces",
+    "cost": 8000,
+    "prereqs": [
+      "ground-armour-1"
+    ],
+    "future": true,
+    "description": "Lighter, tougher protection."
+  },
+  {
+    "id": "ground-vehicles-1",
+    "name": "Light Vehicles",
+    "field": "logistics",
+    "branch": "Ground Forces",
+    "cost": 6000,
+    "prereqs": [
+      "ground-armour-2"
+    ],
+    "future": true,
+    "description": "Armoured carriers."
+  },
+  {
+    "id": "ground-vehicles-2",
+    "name": "Heavy Vehicles",
+    "field": "logistics",
+    "branch": "Ground Forces",
+    "cost": 14000,
+    "prereqs": [
+      "ground-vehicles-1"
+    ],
+    "future": true,
+    "description": "Tanks."
+  },
+  {
+    "id": "ground-artillery",
+    "name": "Static Artillery",
+    "field": "logistics",
+    "branch": "Ground Forces",
+    "cost": 12000,
+    "prereqs": [
+      "ground-vehicles-2"
+    ],
+    "future": true,
+    "description": "Emplaced guns for defence."
+  },
+  {
+    "id": "ground-aa",
+    "name": "Anti-Air Weapons",
+    "field": "logistics",
+    "branch": "Ground Forces",
+    "cost": 12000,
+    "prereqs": [
+      "ground-artillery"
+    ],
+    "future": true,
+    "description": "Deny the sky to bombardment."
+  },
+  {
+    "id": "ground-xenoarch",
+    "name": "Xenoarchaeology Teams",
+    "field": "logistics",
+    "branch": "Ground Forces",
+    "cost": 9000,
+    "prereqs": [
+      "ground-aa"
+    ],
+    "future": true,
+    "description": "Specialist teams for recovering alien ruins."
+  },
+  {
+    "id": "ground-engineers",
+    "name": "Combat Engineers",
+    "field": "logistics",
+    "branch": "Ground Forces",
+    "cost": 10000,
+    "prereqs": [
+      "ground-xenoarch"
+    ],
+    "future": true,
+    "description": "Fortification and demolition."
+  },
+  {
+    "id": "missile-launcher-1",
+    "name": "Size 1 Missile Launcher",
+    "field": "missiles",
+    "branch": "Launchers",
+    "cost": 2000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "future": true,
+    "description": "The smallest practical launcher."
+  },
+  {
+    "id": "box-launcher",
+    "name": "Box Launchers",
+    "field": "missiles",
+    "branch": "Launchers",
+    "cost": 9000,
+    "prereqs": [
+      "magazine-armour"
+    ],
+    "future": true,
+    "description": "Cheap, one-shot launchers."
+  },
+  {
+    "id": "missile-launcher-2",
+    "name": "Size 2 Missile Launcher",
+    "field": "missiles",
+    "branch": "Launchers",
+    "cost": 3000,
+    "prereqs": [
+      "missile-launcher-1"
+    ],
+    "future": true,
+    "description": "Heavier warheads."
+  },
+  {
+    "id": "missile-launcher-3",
+    "name": "Size 3 Missile Launcher",
+    "field": "missiles",
+    "branch": "Launchers",
+    "cost": 6000,
+    "prereqs": [
+      "missile-launcher-2"
+    ],
+    "future": true,
+    "description": "Anti-ship weight."
+  },
+  {
+    "id": "missile-launcher-4",
+    "name": "Size 4 Missile Launcher",
+    "field": "missiles",
+    "branch": "Launchers",
+    "cost": 12000,
+    "prereqs": [
+      "missile-launcher-3"
+    ],
+    "future": true,
+    "description": "Heavy anti-ship missiles."
+  },
+  {
+    "id": "missile-launcher-6",
+    "name": "Size 6 Missile Launcher",
+    "field": "missiles",
+    "branch": "Launchers",
+    "cost": 26000,
+    "prereqs": [
+      "missile-launcher-4"
+    ],
+    "future": true,
+    "description": "Capital missiles."
+  },
+  {
+    "id": "missile-launcher-8",
+    "name": "Size 8 Missile Launcher",
+    "field": "missiles",
+    "branch": "Launchers",
+    "cost": 50000,
+    "prereqs": [
+      "missile-launcher-6"
+    ],
+    "future": true,
+    "description": "Planet-breakers."
+  },
+  {
+    "id": "warhead-3",
+    "name": "Warhead Strength 3",
+    "field": "missiles",
+    "branch": "Warheads",
+    "cost": 2500,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "future": true,
+    "description": "Denser trans-Newtonian warheads."
+  },
+  {
+    "id": "warhead-4",
+    "name": "Warhead Strength 4",
+    "field": "missiles",
+    "branch": "Warheads",
+    "cost": 4000,
+    "prereqs": [
+      "warhead-3"
+    ],
+    "future": true,
+    "description": "Denser warheads."
+  },
+  {
+    "id": "warhead-5",
+    "name": "Warhead Strength 5",
+    "field": "missiles",
+    "branch": "Warheads",
+    "cost": 9000,
+    "prereqs": [
+      "warhead-4"
+    ],
+    "future": true,
+    "description": "More yield per ton."
+  },
+  {
+    "id": "warhead-6",
+    "name": "Warhead Strength 6",
+    "field": "missiles",
+    "branch": "Warheads",
+    "cost": 20000,
+    "prereqs": [
+      "warhead-5"
+    ],
+    "future": true,
+    "description": "Heavier still."
+  },
+  {
+    "id": "warhead-8",
+    "name": "Warhead Strength 8",
+    "field": "missiles",
+    "branch": "Warheads",
+    "cost": 48000,
+    "prereqs": [
+      "warhead-6"
+    ],
+    "future": true,
+    "description": "Anti-matter seeded."
+  },
+  {
+    "id": "warhead-10",
+    "name": "Warhead Strength 10",
+    "field": "missiles",
+    "branch": "Warheads",
+    "cost": 110000,
+    "prereqs": [
+      "warhead-8"
+    ],
+    "future": true,
+    "description": "The heaviest warhead."
+  },
+  {
+    "id": "missile-agility-32",
+    "name": "Missile Agility 32",
+    "field": "missiles",
+    "branch": "Guidance",
+    "cost": 2500,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "future": true,
+    "description": "Missiles that can chase a manoeuvring target."
+  },
+  {
+    "id": "missile-agility-48",
+    "name": "Missile Agility 48",
+    "field": "missiles",
+    "branch": "Guidance",
+    "cost": 6000,
+    "prereqs": [
+      "missile-agility-32"
+    ],
+    "future": true,
+    "description": "Sharper turns."
+  },
+  {
+    "id": "missile-agility-64",
+    "name": "Missile Agility 64",
+    "field": "missiles",
+    "branch": "Guidance",
+    "cost": 14000,
+    "prereqs": [
+      "missile-agility-48"
+    ],
+    "future": true,
+    "description": "Beats evasive manoeuvres."
+  },
+  {
+    "id": "missile-agility-96",
+    "name": "Missile Agility 96",
+    "field": "missiles",
+    "branch": "Guidance",
+    "cost": 34000,
+    "prereqs": [
+      "missile-agility-64"
+    ],
+    "future": true,
+    "description": "Impossible to dodge for long."
+  },
+  {
+    "id": "missile-fuel-1",
+    "name": "Missile Engine Efficiency I",
+    "field": "missiles",
+    "branch": "Missile Engines",
+    "cost": 3500,
+    "prereqs": [
+      "missile-launcher-1"
+    ],
+    "future": true,
+    "description": "Longer-ranged missiles."
+  },
+  {
+    "id": "missile-fuel-2",
+    "name": "Missile Engine Efficiency II",
+    "field": "missiles",
+    "branch": "Missile Engines",
+    "cost": 9000,
+    "prereqs": [
+      "missile-fuel-1"
+    ],
+    "future": true,
+    "description": "Longer still."
+  },
+  {
+    "id": "missile-fuel-3",
+    "name": "Missile Engine Efficiency III",
+    "field": "missiles",
+    "branch": "Missile Engines",
+    "cost": 24000,
+    "prereqs": [
+      "missile-fuel-2"
+    ],
+    "future": true,
+    "description": "Missiles that outrun a cruiser."
+  },
+  {
+    "id": "magazine-armour",
+    "name": "Armoured Magazines",
+    "field": "missiles",
+    "branch": "Ordnance Handling",
+    "cost": 4000,
+    "prereqs": [
+      "missile-launcher-1"
+    ],
+    "future": true,
+    "description": "Safer ammunition stowage."
+  },
+  {
+    "id": "missile-reload-2",
+    "name": "Missile Reload Rate 2",
+    "field": "missiles",
+    "branch": "Ordnance Handling",
+    "cost": 12000,
+    "prereqs": [
+      "box-launcher"
+    ],
+    "future": true,
+    "description": "Reloads in half the time."
+  },
+  {
+    "id": "missile-reload-3",
+    "name": "Missile Reload Rate 3",
+    "field": "missiles",
+    "branch": "Ordnance Handling",
+    "cost": 30000,
+    "prereqs": [
+      "missile-reload-2"
+    ],
+    "future": true,
+    "description": "Reloads in a third."
+  },
+  {
+    "id": "decoy-missiles",
+    "name": "Missile Decoys",
+    "field": "missiles",
+    "branch": "Countermeasures",
+    "cost": 8000,
+    "prereqs": [
+      "missile-agility-32"
+    ],
+    "future": true,
+    "description": "Cheap lures to draw defensive fire."
+  },
+  {
+    "id": "point-defence",
+    "name": "Point Defence Fire Control",
+    "field": "missiles",
+    "branch": "Countermeasures",
+    "cost": 7000,
+    "prereqs": [
+      "gauss-cannon"
+    ],
+    "future": true,
+    "description": "Fast-tracking guns for the last-ditch intercept."
+  },
+  {
+    "id": "conventional-engine",
+    "name": "Conventional Engine",
+    "field": "power",
+    "branch": "Conventional & Nuclear",
+    "cost": 1000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "description": "An engine for the component designer making 0.2 power per hull space."
+  },
+  {
+    "id": "nuclear-thermal",
+    "name": "Nuclear Thermal Engine",
+    "field": "power",
+    "branch": "Conventional & Nuclear",
+    "cost": 2500,
+    "prereqs": [
+      "conventional-engine"
+    ],
+    "description": "An engine for the component designer making 5 power per hull space, 25x the engine before it."
+  },
+  {
+    "id": "improved-nuclear-thermal",
+    "name": "Improved Nuclear Thermal Engine",
+    "field": "power",
+    "branch": "Conventional & Nuclear",
+    "cost": 4000,
+    "prereqs": [
+      "nuclear-thermal"
+    ],
+    "description": "An engine for the component designer making 6.4 power per hull space, 1.28x the engine before it."
+  },
+  {
+    "id": "nuclear-pulse",
+    "name": "Nuclear Pulse Engine",
+    "field": "power",
+    "branch": "Conventional & Nuclear",
+    "cost": 7500,
+    "prereqs": [
+      "improved-nuclear-thermal"
+    ],
+    "description": "An engine for the component designer making 8 power per hull space, 1.25x the engine before it."
+  },
+  {
+    "id": "improved-nuclear-pulse",
+    "name": "Improved Nuclear Pulse Engine",
+    "field": "power",
+    "branch": "Conventional & Nuclear",
+    "cost": 12000,
+    "prereqs": [
+      "nuclear-pulse"
+    ],
+    "description": "An engine for the component designer making 10 power per hull space, 1.25x the engine before it."
+  },
+  {
+    "id": "ion-engine",
+    "name": "Ion Engine",
+    "field": "power",
+    "branch": "Ion & Fusion",
+    "cost": 20000,
+    "prereqs": [
+      "improved-nuclear-pulse"
+    ],
+    "description": "An engine for the component designer making 12.5 power per hull space, 1.25x the engine before it."
+  },
+  {
+    "id": "magneto-plasma",
+    "name": "Magneto-Plasma Drive",
+    "field": "power",
+    "branch": "Ion & Fusion",
+    "cost": 35000,
+    "prereqs": [
+      "ion-engine"
+    ],
+    "description": "An engine for the component designer making 16 power per hull space, 1.28x the engine before it."
+  },
+  {
+    "id": "internal-fusion",
+    "name": "Internal Confinement Fusion Drive",
+    "field": "power",
+    "branch": "Ion & Fusion",
+    "cost": 60000,
+    "prereqs": [
+      "magneto-plasma"
+    ],
+    "description": "An engine for the component designer making 20 power per hull space, 1.25x the engine before it."
+  },
+  {
+    "id": "magnetic-fusion",
+    "name": "Magnetic Confinement Fusion Drive",
+    "field": "power",
+    "branch": "Ion & Fusion",
+    "cost": 100000,
+    "prereqs": [
+      "internal-fusion"
+    ],
+    "description": "An engine for the component designer making 25 power per hull space, 1.25x the engine before it."
+  },
+  {
+    "id": "inertial-fusion",
+    "name": "Inertial Confinement Fusion Drive",
+    "field": "power",
+    "branch": "Ion & Fusion",
+    "cost": 160000,
+    "prereqs": [
+      "magnetic-fusion"
+    ],
+    "description": "An engine for the component designer making 32 power per hull space, 1.28x the engine before it."
+  },
+  {
+    "id": "solid-antimatter",
+    "name": "Solid Core Anti-matter Drive",
+    "field": "power",
+    "branch": "Antimatter & Photonic",
+    "cost": 260000,
+    "prereqs": [
+      "inertial-fusion"
+    ],
+    "description": "An engine for the component designer making 40 power per hull space, 1.25x the engine before it."
+  },
+  {
+    "id": "gas-antimatter",
+    "name": "Gas Core Anti-matter Drive",
+    "field": "power",
+    "branch": "Antimatter & Photonic",
+    "cost": 420000,
+    "prereqs": [
+      "solid-antimatter"
+    ],
+    "description": "An engine for the component designer making 50 power per hull space, 1.25x the engine before it."
+  },
+  {
+    "id": "plasma-antimatter",
+    "name": "Plasma Core Anti-matter Drive",
+    "field": "power",
+    "branch": "Antimatter & Photonic",
+    "cost": 680000,
+    "prereqs": [
+      "gas-antimatter"
+    ],
+    "description": "An engine for the component designer making 60 power per hull space, 1.2x the engine before it."
+  },
+  {
+    "id": "beam-antimatter",
+    "name": "Beam Core Anti-matter Drive",
+    "field": "power",
+    "branch": "Antimatter & Photonic",
+    "cost": 1100000,
+    "prereqs": [
+      "plasma-antimatter"
+    ],
+    "description": "An engine for the component designer making 80 power per hull space, 1.33x the engine before it."
+  },
+  {
+    "id": "photonic-drive",
+    "name": "Photonic Drive",
+    "field": "power",
+    "branch": "Antimatter & Photonic",
+    "cost": 1800000,
+    "prereqs": [
+      "beam-antimatter"
+    ],
+    "description": "An engine for the component designer making 100 power per hull space, 1.25x the engine before it."
+  },
+  {
+    "id": "fuel-cell-1",
+    "name": "Solid Fuel Cell",
+    "field": "power",
+    "branch": "Chemical Power",
+    "cost": 600,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "description": "A chemical reactor for the component designer, making 2 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly."
+  },
+  {
+    "id": "fuel-cell-2",
+    "name": "Liquid Fuel Cell",
+    "field": "power",
+    "branch": "Chemical Power",
+    "cost": 1200,
+    "prereqs": [
+      "fuel-cell-1"
+    ],
+    "description": "A chemical reactor for the component designer, making 2.5 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly."
+  },
+  {
+    "id": "fuel-cell-3",
+    "name": "Advanced Fuel Cell",
+    "field": "power",
+    "branch": "Chemical Power",
+    "cost": 2400,
+    "prereqs": [
+      "fuel-cell-2"
+    ],
+    "description": "A chemical reactor for the component designer, making 3.2 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly."
+  },
+  {
+    "id": "fuel-cell-4",
+    "name": "High Efficiency Fuel Cell",
+    "field": "power",
+    "branch": "Chemical Power",
+    "cost": 4800,
+    "prereqs": [
+      "fuel-cell-3"
+    ],
+    "description": "A chemical reactor for the component designer, making 4 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly."
+  },
+  {
+    "id": "reactor-nuclear-1",
+    "name": "Fission Reactor",
+    "field": "power",
+    "branch": "Nuclear Power",
+    "cost": 9600,
+    "prereqs": [
+      "fuel-cell-4"
+    ],
+    "description": "A nuclear reactor for the component designer, making 5 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly."
+  },
+  {
+    "id": "reactor-nuclear-2",
+    "name": "Advanced Fission Reactor",
+    "field": "power",
+    "branch": "Nuclear Power",
+    "cost": 19200,
+    "prereqs": [
+      "reactor-nuclear-1"
+    ],
+    "description": "A nuclear reactor for the component designer, making 6.4 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly."
+  },
+  {
+    "id": "reactor-nuclear-3",
+    "name": "Megawatt Fission Reactor",
+    "field": "power",
+    "branch": "Nuclear Power",
+    "cost": 38400,
+    "prereqs": [
+      "reactor-nuclear-2"
+    ],
+    "description": "A nuclear reactor for the component designer, making 8 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly."
+  },
+  {
+    "id": "reactor-nuclear-4",
+    "name": "Advanced Electric Drive Reactor",
+    "field": "power",
+    "branch": "Nuclear Power",
+    "cost": 76800,
+    "prereqs": [
+      "reactor-nuclear-3"
+    ],
+    "description": "A nuclear reactor for the component designer, making 12.8 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly."
+  },
+  {
+    "id": "reactor-fusion-1",
+    "name": "Magnetic Confinement Fusion Reactor",
+    "field": "power",
+    "branch": "Fusion Power",
+    "cost": 153600,
+    "prereqs": [
+      "reactor-nuclear-4"
+    ],
+    "description": "A fusion reactor for the component designer, making 16 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly."
+  },
+  {
+    "id": "reactor-fusion-2",
+    "name": "Inertial Confinement Fusion Reactor",
+    "field": "power",
+    "branch": "Fusion Power",
+    "cost": 307200,
+    "prereqs": [
+      "reactor-fusion-1"
+    ],
+    "description": "A fusion reactor for the component designer, making 20 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly."
+  },
+  {
+    "id": "reactor-fusion-3",
+    "name": "Fusion-Fission Hybrid Reactor",
+    "field": "power",
+    "branch": "Fusion Power",
+    "cost": 614400,
+    "prereqs": [
+      "reactor-fusion-2"
+    ],
+    "description": "A fusion reactor for the component designer, making 25 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly."
+  },
+  {
+    "id": "reactor-fusion-4",
+    "name": "Magnetic Target Fusion Reactor",
+    "field": "power",
+    "branch": "Fusion Power",
+    "cost": 1228800,
+    "prereqs": [
+      "reactor-fusion-3"
+    ],
+    "description": "A fusion reactor for the component designer, making 32 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly."
+  },
+  {
+    "id": "reactor-am-1",
+    "name": "Antimatter Catalyst Reactor",
+    "field": "power",
+    "branch": "Antimatter Power",
+    "cost": 2457600,
+    "prereqs": [
+      "reactor-fusion-4"
+    ],
+    "description": "A antimatter reactor for the component designer, making 40 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly."
+  },
+  {
+    "id": "engine-size-1",
+    "name": "40 Hull Spaces",
+    "field": "power",
+    "branch": "Engine Size",
+    "cost": 2000,
+    "prereqs": [
+      "conventional-engine"
+    ],
+    "description": "A single engine may be up to 40 hull spaces (the largest is 400)."
+  },
+  {
+    "id": "engine-size-2",
+    "name": "60 Hull Spaces",
+    "field": "power",
+    "branch": "Engine Size",
+    "cost": 4000,
+    "prereqs": [
+      "engine-size-1"
+    ],
+    "description": "A single engine may be up to 60 hull spaces (the largest is 400)."
+  },
+  {
+    "id": "engine-size-3",
+    "name": "100 Hull Spaces",
+    "field": "power",
+    "branch": "Engine Size",
+    "cost": 8000,
+    "prereqs": [
+      "engine-size-2"
+    ],
+    "description": "A single engine may be up to 100 hull spaces (the largest is 400)."
+  },
+  {
+    "id": "engine-size-4",
+    "name": "160 Hull Spaces",
+    "field": "power",
+    "branch": "Engine Size",
+    "cost": 16000,
+    "prereqs": [
+      "engine-size-3"
+    ],
+    "description": "A single engine may be up to 160 hull spaces (the largest is 400)."
+  },
+  {
+    "id": "engine-size-5",
+    "name": "250 Hull Spaces",
+    "field": "power",
+    "branch": "Engine Size",
+    "cost": 32000,
+    "prereqs": [
+      "engine-size-4"
+    ],
+    "description": "A single engine may be up to 250 hull spaces (the largest is 400)."
+  },
+  {
+    "id": "engine-size-6",
+    "name": "400 Hull Spaces",
+    "field": "power",
+    "branch": "Engine Size",
+    "cost": 64000,
+    "prereqs": [
+      "engine-size-5"
+    ],
+    "description": "A single engine may be up to 400 hull spaces (the largest is 400)."
+  },
+  {
+    "id": "engine-power-125",
+    "name": "Power Modifier x1.25",
+    "field": "power",
+    "branch": "Power Modifier",
+    "cost": 2000,
+    "prereqs": [
+      "conventional-engine"
+    ],
+    "description": "Raises the engine power modifier ceiling to 1.25x: more thrust from the same engine, at a fuel premium that grows with its square."
+  },
+  {
+    "id": "engine-power-150",
+    "name": "Power Modifier x1.5",
+    "field": "power",
+    "branch": "Power Modifier",
+    "cost": 4000,
+    "prereqs": [
+      "engine-power-125"
+    ],
+    "description": "Raises the engine power modifier ceiling to 1.5x: more thrust from the same engine, at a fuel premium that grows with its square."
+  },
+  {
+    "id": "engine-power-175",
+    "name": "Power Modifier x1.75",
+    "field": "power",
+    "branch": "Power Modifier",
+    "cost": 8000,
+    "prereqs": [
+      "engine-power-150"
+    ],
+    "description": "Raises the engine power modifier ceiling to 1.75x: more thrust from the same engine, at a fuel premium that grows with its square."
+  },
+  {
+    "id": "engine-power-200",
+    "name": "Power Modifier x2",
+    "field": "power",
+    "branch": "Power Modifier",
+    "cost": 16000,
+    "prereqs": [
+      "engine-power-175"
+    ],
+    "description": "Raises the engine power modifier ceiling to 2x: more thrust from the same engine, at a fuel premium that grows with its square."
+  },
+  {
+    "id": "engine-power-250",
+    "name": "Power Modifier x2.5",
+    "field": "power",
+    "branch": "Power Modifier",
+    "cost": 32000,
+    "prereqs": [
+      "engine-power-200"
+    ],
+    "description": "Raises the engine power modifier ceiling to 2.5x: more thrust from the same engine, at a fuel premium that grows with its square."
+  },
+  {
+    "id": "engine-power-300",
+    "name": "Power Modifier x3",
+    "field": "power",
+    "branch": "Power Modifier",
+    "cost": 64000,
+    "prereqs": [
+      "engine-power-250"
+    ],
+    "description": "Raises the engine power modifier ceiling to 3x: more thrust from the same engine, at a fuel premium that grows with its square."
+  },
+  {
+    "id": "miniaturization-1",
+    "name": "Miniaturisation 0.4x",
+    "field": "power",
+    "branch": "Miniaturisation",
+    "cost": 1000,
+    "prereqs": [
+      "conventional-engine"
+    ],
+    "description": "Engines take up only 0.4x the hull space for the same thrust, on every ship, existing ones included."
+  },
+  {
+    "id": "miniaturization-2",
+    "name": "Miniaturisation 0.3x",
+    "field": "power",
+    "branch": "Miniaturisation",
+    "cost": 2000,
+    "prereqs": [
+      "miniaturization-1"
+    ],
+    "description": "Engines take up only 0.3x the hull space for the same thrust, on every ship, existing ones included."
+  },
+  {
+    "id": "miniaturization-3",
+    "name": "Miniaturisation 0.25x",
+    "field": "power",
+    "branch": "Miniaturisation",
+    "cost": 4000,
+    "prereqs": [
+      "miniaturization-2"
+    ],
+    "description": "Engines take up only 0.25x the hull space for the same thrust, on every ship, existing ones included."
+  },
+  {
+    "id": "miniaturization-4",
+    "name": "Miniaturisation 0.2x",
+    "field": "power",
+    "branch": "Miniaturisation",
+    "cost": 8000,
+    "prereqs": [
+      "miniaturization-3"
+    ],
+    "description": "Engines take up only 0.2x the hull space for the same thrust, on every ship, existing ones included."
+  },
+  {
+    "id": "miniaturization-5",
+    "name": "Miniaturisation 0.15x",
+    "field": "power",
+    "branch": "Miniaturisation",
+    "cost": 16000,
+    "prereqs": [
+      "miniaturization-4"
+    ],
+    "description": "Engines take up only 0.15x the hull space for the same thrust, on every ship, existing ones included."
+  },
+  {
+    "id": "miniaturization-6",
+    "name": "Miniaturisation 0.1x",
+    "field": "power",
+    "branch": "Miniaturisation",
+    "cost": 32000,
+    "prereqs": [
+      "miniaturization-5"
+    ],
+    "description": "Engines take up only 0.1x the hull space for the same thrust, on every ship, existing ones included."
+  },
+  {
+    "id": "fuel-efficiency-1",
+    "name": "Fuel Use 0.9x",
+    "field": "power",
+    "branch": "Fuel Efficiency",
+    "cost": 1000,
+    "prereqs": [
+      "conventional-engine"
+    ],
+    "description": "Every engine burns fuel at 0.9x the rate, existing ships included."
+  },
+  {
+    "id": "fuel-efficiency-2",
+    "name": "Fuel Use 0.8x",
+    "field": "power",
+    "branch": "Fuel Efficiency",
+    "cost": 2000,
+    "prereqs": [
+      "fuel-efficiency-1"
+    ],
+    "description": "Every engine burns fuel at 0.8x the rate, existing ships included."
+  },
+  {
+    "id": "fuel-efficiency-3",
+    "name": "Fuel Use 0.7x",
+    "field": "power",
+    "branch": "Fuel Efficiency",
+    "cost": 4000,
+    "prereqs": [
+      "fuel-efficiency-2"
+    ],
+    "description": "Every engine burns fuel at 0.7x the rate, existing ships included."
+  },
+  {
+    "id": "fuel-efficiency-4",
+    "name": "Fuel Use 0.6x",
+    "field": "power",
+    "branch": "Fuel Efficiency",
+    "cost": 8000,
+    "prereqs": [
+      "fuel-efficiency-3"
+    ],
+    "description": "Every engine burns fuel at 0.6x the rate, existing ships included."
+  },
+  {
+    "id": "fuel-efficiency-5",
+    "name": "Fuel Use 0.5x",
+    "field": "power",
+    "branch": "Fuel Efficiency",
+    "cost": 16000,
+    "prereqs": [
+      "fuel-efficiency-4"
+    ],
+    "description": "Every engine burns fuel at 0.5x the rate, existing ships included."
+  },
+  {
+    "id": "fuel-efficiency-6",
+    "name": "Fuel Use 0.4x",
+    "field": "power",
+    "branch": "Fuel Efficiency",
+    "cost": 32000,
+    "prereqs": [
+      "fuel-efficiency-5"
+    ],
+    "description": "Every engine burns fuel at 0.4x the rate, existing ships included."
+  },
+  {
+    "id": "fuel-efficiency-7",
+    "name": "Fuel Use 0.3x",
+    "field": "power",
+    "branch": "Fuel Efficiency",
+    "cost": 64000,
+    "prereqs": [
+      "fuel-efficiency-6"
+    ],
+    "description": "Every engine burns fuel at 0.3x the rate, existing ships included."
+  },
+  {
+    "id": "fuel-efficiency-8",
+    "name": "Fuel Use 0.25x",
+    "field": "power",
+    "branch": "Fuel Efficiency",
+    "cost": 128000,
+    "prereqs": [
+      "fuel-efficiency-7"
+    ],
+    "description": "Every engine burns fuel at 0.25x the rate, existing ships included."
+  },
+  {
+    "id": "fuel-efficiency-9",
+    "name": "Fuel Use 0.2x",
+    "field": "power",
+    "branch": "Fuel Efficiency",
+    "cost": 256000,
+    "prereqs": [
+      "fuel-efficiency-8"
+    ],
+    "description": "Every engine burns fuel at 0.2x the rate, existing ships included."
+  },
+  {
+    "id": "fuel-efficiency-10",
+    "name": "Fuel Use 0.15x",
+    "field": "power",
+    "branch": "Fuel Efficiency",
+    "cost": 512000,
+    "prereqs": [
+      "fuel-efficiency-9"
+    ],
+    "description": "Every engine burns fuel at 0.15x the rate, existing ships included."
+  },
+  {
+    "id": "fuel-efficiency-11",
+    "name": "Fuel Use 0.125x",
+    "field": "power",
+    "branch": "Fuel Efficiency",
+    "cost": 1024000,
+    "prereqs": [
+      "fuel-efficiency-10"
+    ],
+    "description": "Every engine burns fuel at 0.125x the rate, existing ships included."
+  },
+  {
+    "id": "fuel-efficiency-12",
+    "name": "Fuel Use 0.1x",
+    "field": "power",
+    "branch": "Fuel Efficiency",
+    "cost": 2048000,
+    "prereqs": [
+      "fuel-efficiency-11"
+    ],
+    "description": "Every engine burns fuel at 0.1x the rate, existing ships included."
+  },
+  {
+    "id": "jump-point-theory",
+    "name": "Jump Point Theory",
+    "field": "power",
+    "branch": "Jump Technology",
+    "cost": 7500,
+    "prereqs": [
+      "nuclear-pulse",
+      "grav-survey-sensors"
+    ],
+    "description": "The mathematics of jump points, and with it the jump drive: a ship carrying one can cross a jump point on its own, bringing along as much tonnage as the drive is rated for."
+  },
+  {
+    "id": "jump-gate-construction",
+    "name": "Jump Gate Construction",
+    "field": "power",
+    "branch": "Jump Technology",
+    "cost": 12000,
+    "prereqs": [
+      "jump-point-theory"
+    ],
+    "description": "Gate construction modules. A ship carrying one can stabilise a jump point it has crossed, after which any ship - jump drive or not - can use the connection. Gates are what turn a discovery into a trade route."
+  },
+  {
+    "id": "jump-efficiency-1",
+    "name": "Jump Drive Efficiency I",
+    "field": "power",
+    "branch": "Jump Technology",
+    "cost": 15000,
+    "prereqs": [
+      "jump-point-theory"
+    ],
+    "description": "Tuned resonance: jump drives carry 25% more tonnage."
+  },
+  {
+    "id": "jump-efficiency-2",
+    "name": "Jump Drive Efficiency II",
+    "field": "power",
+    "branch": "Jump Technology",
+    "cost": 40000,
+    "prereqs": [
+      "jump-efficiency-1"
+    ],
+    "description": "Jump drives carry 50% more tonnage than the original."
+  },
+  {
+    "id": "gate-construction-2",
+    "name": "Gate Construction II",
+    "field": "power",
+    "branch": "Jump Technology",
+    "cost": 25000,
+    "prereqs": [
+      "jump-gate-construction"
+    ],
+    "description": "Gate construction modules build 50% faster."
+  },
+  {
+    "id": "jump-efficiency-3",
+    "name": "Jump Drive Efficiency III",
+    "field": "power",
+    "branch": "Jump Technology",
+    "cost": 100000,
+    "prereqs": [
+      "jump-efficiency-2"
+    ],
+    "description": "Jump drives carry twice the original tonnage."
+  },
+  {
+    "id": "gate-construction-3",
+    "name": "Gate Construction III",
+    "field": "power",
+    "branch": "Jump Technology",
+    "cost": 60000,
+    "prereqs": [
+      "gate-construction-2"
+    ],
+    "description": "Gate construction modules build twice as fast."
+  },
+  {
+    "id": "gate-construction-4",
+    "name": "Gate Construction IV",
+    "field": "power",
+    "branch": "Jump Technology",
+    "cost": 150000,
+    "prereqs": [
+      "gate-construction-3"
+    ],
+    "description": "Gate construction modules build three times as fast."
+  },
+  {
+    "id": "military-specification",
+    "name": "Military Specification Components",
+    "field": "power",
+    "branch": "Ship Components",
+    "cost": 2500,
+    "prereqs": [
+      "nuclear-thermal"
+    ],
+    "description": "A harder standard for powered parts. Military engines push 30% harder, military sensors and drives work 30% and 25% better - at 70% more cost, half as many more crew, and more than twice the wear. Commercial parts remain cheaper and gentler on maintenance."
+  },
+  {
+    "id": "tank-efficiency-1",
+    "name": "Fuel Tank Linings I",
+    "field": "power",
+    "branch": "Ship Components",
+    "cost": 3500,
+    "prereqs": [
+      "nuclear-thermal"
+    ],
+    "description": "Better sealants: every fuel tank holds 25% more, on ships already built too."
+  },
+  {
+    "id": "tank-efficiency-2",
+    "name": "Fuel Tank Linings II",
+    "field": "power",
+    "branch": "Ship Components",
+    "cost": 12000,
+    "prereqs": [
+      "tank-efficiency-1"
+    ],
+    "description": "Cryogenic tankage: tanks hold 50% more than the original."
+  },
+  {
+    "id": "tank-efficiency-3",
+    "name": "Fuel Tank Linings III",
+    "field": "power",
+    "branch": "Ship Components",
+    "cost": 40000,
+    "prereqs": [
+      "tank-efficiency-2"
+    ],
+    "description": "Compressed fuel stores: tanks hold twice the original."
+  },
+  {
+    "id": "geo-survey-sensors",
+    "name": "Geological Survey Sensors",
+    "field": "sensors",
+    "branch": "Survey Sensors",
+    "cost": 1500,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "description": "Survey sensors for the component designer. A ship carrying one can reveal a body's mineral deposits."
+  },
+  {
+    "id": "grav-survey-sensors",
+    "name": "Gravitational Survey Sensors",
+    "field": "sensors",
+    "branch": "Survey Sensors",
+    "cost": 2000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "description": "Gravitational survey sensors for the component designer. A ship carrying one that surveys a system will, given time, find the jump points in it."
+  },
+  {
+    "id": "geo-survey-strength-1",
+    "name": "Geological Survey Strength I",
+    "field": "sensors",
+    "branch": "Survey Sensors",
+    "cost": 3000,
+    "prereqs": [
+      "geo-survey-sensors"
+    ],
+    "description": "Better spectrometry: geological survey sensors work 1.5x as fast."
+  },
+  {
+    "id": "grav-survey-strength-1",
+    "name": "Gravitational Survey Strength I",
+    "field": "sensors",
+    "branch": "Survey Sensors",
+    "cost": 3500,
+    "prereqs": [
+      "grav-survey-sensors"
+    ],
+    "description": "Finer gravimetry: gravitational survey sensors work 1.5x as fast."
+  },
+  {
+    "id": "geo-survey-strength-2",
+    "name": "Geological Survey Strength II",
+    "field": "sensors",
+    "branch": "Survey Sensors",
+    "cost": 9000,
+    "prereqs": [
+      "geo-survey-strength-1"
+    ],
+    "description": "Geological survey sensors work twice as fast as the original."
+  },
+  {
+    "id": "grav-survey-strength-2",
+    "name": "Gravitational Survey Strength II",
+    "field": "sensors",
+    "branch": "Survey Sensors",
+    "cost": 10000,
+    "prereqs": [
+      "grav-survey-strength-1"
+    ],
+    "description": "Gravitational survey sensors work twice as fast as the original."
+  },
+  {
+    "id": "geo-survey-strength-3",
+    "name": "Geological Survey Strength III",
+    "field": "sensors",
+    "branch": "Survey Sensors",
+    "cost": 25000,
+    "prereqs": [
+      "geo-survey-strength-2"
+    ],
+    "description": "Geological survey sensors work three times as fast as the original."
+  },
+  {
+    "id": "grav-survey-strength-3",
+    "name": "Gravitational Survey Strength III",
+    "field": "sensors",
+    "branch": "Survey Sensors",
+    "cost": 28000,
+    "prereqs": [
+      "grav-survey-strength-2"
+    ],
+    "description": "Gravitational survey sensors work three times as fast as the original."
+  },
+  {
+    "id": "deep-space-tracking",
+    "name": "Deep Space Tracking Station",
+    "field": "sensors",
+    "branch": "Detection",
+    "cost": 3000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "effects": [
+      {
+        "kind": "unlock",
+        "installation": "dstn"
+      }
+    ],
+    "description": "Ground stations giving passive sensor coverage across the system."
+  },
+  {
+    "id": "active-sensor-12",
+    "name": "Active Grav Sensor Strength 12",
+    "field": "sensors",
+    "branch": "Detection",
+    "cost": 2000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "future": true,
+    "description": "Improves the range of active search sensors."
+  },
+  {
+    "id": "thermal-sensor-6",
+    "name": "Thermal Sensor Sensitivity 6",
+    "field": "sensors",
+    "branch": "Detection",
+    "cost": 2000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "future": true,
+    "description": "Passive detection of drive plumes at longer range."
+  },
+  {
+    "id": "em-sensor-6",
+    "name": "EM Sensor Sensitivity 6",
+    "field": "sensors",
+    "branch": "Detection",
+    "cost": 2000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "future": true,
+    "description": "Passive detection of active sensor emissions."
+  },
+  {
+    "id": "active-sensor-18",
+    "name": "Active Grav Sensor Strength 18",
+    "field": "sensors",
+    "branch": "Detection",
+    "cost": 6000,
+    "prereqs": [
+      "active-sensor-12"
+    ],
+    "future": true,
+    "description": "Active search sensors reach further."
+  },
+  {
+    "id": "thermal-sensor-9",
+    "name": "Thermal Sensor Sensitivity 9",
+    "field": "sensors",
+    "branch": "Detection",
+    "cost": 6000,
+    "prereqs": [
+      "thermal-sensor-6"
+    ],
+    "future": true,
+    "description": "Drive plumes picked out at greater range."
+  },
+  {
+    "id": "em-sensor-9",
+    "name": "EM Sensor Sensitivity 9",
+    "field": "sensors",
+    "branch": "Detection",
+    "cost": 6000,
+    "prereqs": [
+      "em-sensor-6"
+    ],
+    "future": true,
+    "description": "Longer-range emission detection."
+  },
+  {
+    "id": "active-sensor-24",
+    "name": "Active Grav Sensor Strength 24",
+    "field": "sensors",
+    "branch": "Detection",
+    "cost": 14000,
+    "prereqs": [
+      "active-sensor-18"
+    ],
+    "future": true,
+    "description": "Longer still."
+  },
+  {
+    "id": "thermal-sensor-12",
+    "name": "Thermal Sensor Sensitivity 12",
+    "field": "sensors",
+    "branch": "Detection",
+    "cost": 14000,
+    "prereqs": [
+      "thermal-sensor-9"
+    ],
+    "future": true,
+    "description": "Picks out a cooling hull."
+  },
+  {
+    "id": "em-sensor-12",
+    "name": "EM Sensor Sensitivity 12",
+    "field": "sensors",
+    "branch": "Detection",
+    "cost": 14000,
+    "prereqs": [
+      "em-sensor-9"
+    ],
+    "future": true,
+    "description": "Hears a whisper of radar."
+  },
+  {
+    "id": "active-sensor-36",
+    "name": "Active Grav Sensor Strength 36",
+    "field": "sensors",
+    "branch": "Detection",
+    "cost": 32000,
+    "prereqs": [
+      "active-sensor-24"
+    ],
+    "future": true,
+    "description": "The best conventional active sensor."
+  },
+  {
+    "id": "thermal-sensor-18",
+    "name": "Thermal Sensor Sensitivity 18",
+    "field": "sensors",
+    "branch": "Detection",
+    "cost": 32000,
+    "prereqs": [
+      "thermal-sensor-12"
+    ],
+    "future": true,
+    "description": "The faintest heat signatures."
+  },
+  {
+    "id": "fire-control-16k",
+    "name": "Fire Control Range 16,000 km",
+    "field": "sensors",
+    "branch": "Fire Control",
+    "cost": 2500,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "future": true,
+    "description": "Longer-ranged beam fire control systems."
+  },
+  {
+    "id": "fire-control-32k",
+    "name": "Fire Control Range 32,000 km",
+    "field": "sensors",
+    "branch": "Fire Control",
+    "cost": 6000,
+    "prereqs": [
+      "fire-control-16k"
+    ],
+    "future": true,
+    "description": "Beam fire control at twice the range."
+  },
+  {
+    "id": "fire-control-64k",
+    "name": "Fire Control Range 64,000 km",
+    "field": "sensors",
+    "branch": "Fire Control",
+    "cost": 14000,
+    "prereqs": [
+      "fire-control-32k"
+    ],
+    "future": true,
+    "description": "Four times the original reach."
+  },
+  {
+    "id": "fire-control-96k",
+    "name": "Fire Control Range 96,000 km",
+    "field": "sensors",
+    "branch": "Fire Control",
+    "cost": 32000,
+    "prereqs": [
+      "fire-control-64k"
+    ],
+    "future": true,
+    "description": "Long-range gunnery."
+  },
+  {
+    "id": "ecm-1",
+    "name": "Electronic Countermeasures I",
+    "field": "sensors",
+    "branch": "Electronic Warfare",
+    "cost": 3000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "future": true,
+    "description": "Jamming that spoils enemy fire control."
+  },
+  {
+    "id": "eccm-1",
+    "name": "Counter-Countermeasures I",
+    "field": "sensors",
+    "branch": "Electronic Warfare",
+    "cost": 3000,
+    "prereqs": [
+      "trans-newtonian"
+    ],
+    "future": true,
+    "description": "Fire control that burns through jamming."
+  },
+  {
+    "id": "ecm-2",
+    "name": "Electronic Countermeasures II",
+    "field": "sensors",
+    "branch": "Electronic Warfare",
+    "cost": 9000,
+    "prereqs": [
+      "ecm-1"
+    ],
+    "future": true,
+    "description": "Smarter jamming."
+  },
+  {
+    "id": "eccm-2",
+    "name": "Counter-Countermeasures II",
+    "field": "sensors",
+    "branch": "Electronic Warfare",
+    "cost": 9000,
+    "prereqs": [
+      "eccm-1"
+    ],
+    "future": true,
+    "description": "Frequency-hopping fire control."
+  },
+  {
+    "id": "ecm-3",
+    "name": "Electronic Countermeasures III",
+    "field": "sensors",
+    "branch": "Electronic Warfare",
+    "cost": 24000,
+    "prereqs": [
+      "ecm-2"
+    ],
+    "future": true,
+    "description": "Adaptive jamming."
+  },
+  {
+    "id": "eccm-3",
+    "name": "Counter-Countermeasures III",
+    "field": "sensors",
+    "branch": "Electronic Warfare",
+    "cost": 24000,
+    "prereqs": [
+      "eccm-2"
+    ],
+    "future": true,
+    "description": "Nothing jams it for long."
+  }
+]

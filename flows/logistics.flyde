@@ -1,0 +1,1103 @@
+node:
+  instances:
+    - id: cargo-handling
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: cargo-handling
+        name:
+          type: string
+          value: Improved Cargo Handling Systems
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Cargo & Freight
+        cost:
+          type: number
+          value: 2500
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: trans-newtonian
+        description:
+          type: string
+          value: "Containerised handling: every cargo hold carries 25% more, existing freighters included."
+      pos:
+        x: 0
+        y: 0
+      displayName: Improved Cargo Handling Systems
+    - id: freight-containers
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: freight-containers
+        name:
+          type: string
+          value: Standard Containers
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Cargo & Freight
+        cost:
+          type: number
+          value: 4000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: freightFlow = 1.25
+        extraPrereqs:
+          type: string
+          value: spaceports
+        description:
+          type: string
+          value: Freight lines and civilian shipping move 25% more goods between colonies.
+      pos:
+        x: 0
+        y: 300
+      displayName: Standard Containers
+    - id: cargo-handling-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: cargo-handling-2
+        name:
+          type: string
+          value: Improved Cargo Handling II
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Cargo & Freight
+        cost:
+          type: number
+          value: 8000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Cargo holds carry 50% more than the original, existing freighters included.
+      pos:
+        x: 340
+        y: 0
+      displayName: Improved Cargo Handling II
+    - id: automated-docks
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: automated-docks
+        name:
+          type: string
+          value: Automated Docks
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Cargo & Freight
+        cost:
+          type: number
+          value: 12000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: freightFlow = 1.5
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Freight moves 50% more than the original.
+      pos:
+        x: 340
+        y: 300
+      displayName: Automated Docks
+    - id: cargo-handling-3
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: cargo-handling-3
+        name:
+          type: string
+          value: Improved Cargo Handling III
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Cargo & Freight
+        cost:
+          type: number
+          value: 25000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Cargo holds carry twice the original.
+      pos:
+        x: 680
+        y: 0
+      displayName: Improved Cargo Handling III
+    - id: orbital-lifts
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: orbital-lifts
+        name:
+          type: string
+          value: Orbital Lifts
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Cargo & Freight
+        cost:
+          type: number
+          value: 30000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: freightFlow = 2
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Freight moves twice as much as the original.
+      pos:
+        x: 680
+        y: 300
+      displayName: Orbital Lifts
+    - id: autonomous-freighters
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: autonomous-freighters
+        name:
+          type: string
+          value: Autonomous Freighters
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Cargo & Freight
+        cost:
+          type: number
+          value: 80000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: freightFlow = 3
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Freight moves three times as much as the original.
+      pos:
+        x: 1020
+        y: 0
+      displayName: Autonomous Freighters
+    - id: compact-quarters-1
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: compact-quarters-1
+        name:
+          type: string
+          value: Compact Crew Quarters I
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Crew
+        cost:
+          type: number
+          value: 4000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: trans-newtonian
+        description:
+          type: string
+          value: "Folding berths: crew quarters berth 25% more."
+      pos:
+        x: 0
+        y: 720
+      displayName: Compact Crew Quarters I
+    - id: compact-quarters-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: compact-quarters-2
+        name:
+          type: string
+          value: Compact Crew Quarters II
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Crew
+        cost:
+          type: number
+          value: 12000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Crew quarters berth 50% more than the original.
+      pos:
+        x: 340
+        y: 720
+      displayName: Compact Crew Quarters II
+    - id: compact-quarters-3
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: compact-quarters-3
+        name:
+          type: string
+          value: Compact Crew Quarters III
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Crew
+        cost:
+          type: number
+          value: 32000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Crew quarters berth twice the original.
+      pos:
+        x: 680
+        y: 720
+      displayName: Compact Crew Quarters III
+    - id: military-academies
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: military-academies
+        name:
+          type: string
+          value: Military Academy Construction
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Officer Training
+        cost:
+          type: number
+          value: 3000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: unlock military-academy
+        extraPrereqs:
+          type: string
+          value: trans-newtonian
+        description:
+          type: string
+          value: Academies train new officers, raising the rate at which commanders enter the pool.
+      pos:
+        x: 0
+        y: 1140
+      displayName: Military Academy Construction
+    - id: officer-training-3
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: officer-training-3
+        name:
+          type: string
+          value: Advanced Officer Training
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Officer Training
+        cost:
+          type: number
+          value: 6000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: academyOutput = 3
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each Military Academy trains 3 officers a year.
+      pos:
+        x: 340
+        y: 1140
+      displayName: Advanced Officer Training
+    - id: officer-training-4
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: officer-training-4
+        name:
+          type: string
+          value: Staff College
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Officer Training
+        cost:
+          type: number
+          value: 16000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: academyOutput = 4
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each Military Academy trains 4 officers a year.
+      pos:
+        x: 680
+        y: 1140
+      displayName: Staff College
+    - id: officer-training-6
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: officer-training-6
+        name:
+          type: string
+          value: War College
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Officer Training
+        cost:
+          type: number
+          value: 45000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: academyOutput = 6
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each Military Academy trains 6 officers a year.
+      pos:
+        x: 1020
+        y: 1140
+      displayName: War College
+    - id: ground-training
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: ground-training
+        name:
+          type: string
+          value: Ground Force Training Facility
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Ground Forces
+        cost:
+          type: number
+          value: 3000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: unlock gftf
+        extraPrereqs:
+          type: string
+          value: trans-newtonian
+        description:
+          type: string
+          value: Raises and trains ground formations.
+      pos:
+        x: 0
+        y: 1560
+      displayName: Ground Force Training Facility
+    - id: ground-weapons-1
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: ground-weapons-1
+        name:
+          type: string
+          value: Light Personal Weapons
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Ground Forces
+        cost:
+          type: number
+          value: 3000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Infantry arms.
+      pos:
+        x: 340
+        y: 1560
+      displayName: Light Personal Weapons
+    - id: ground-weapons-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: ground-weapons-2
+        name:
+          type: string
+          value: Crew-Served Weapons
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Ground Forces
+        cost:
+          type: number
+          value: 7000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Heavy infantry support.
+      pos:
+        x: 680
+        y: 1560
+      displayName: Crew-Served Weapons
+    - id: ground-armour-1
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: ground-armour-1
+        name:
+          type: string
+          value: Basic Body Armour
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Ground Forces
+        cost:
+          type: number
+          value: 3000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Protection for infantry.
+      pos:
+        x: 1020
+        y: 1560
+      displayName: Basic Body Armour
+    - id: ground-armour-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: ground-armour-2
+        name:
+          type: string
+          value: Composite Body Armour
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Ground Forces
+        cost:
+          type: number
+          value: 8000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Lighter, tougher protection.
+      pos:
+        x: 1360
+        y: 1560
+      displayName: Composite Body Armour
+    - id: ground-vehicles-1
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: ground-vehicles-1
+        name:
+          type: string
+          value: Light Vehicles
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Ground Forces
+        cost:
+          type: number
+          value: 6000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Armoured carriers.
+      pos:
+        x: 1700
+        y: 1560
+      displayName: Light Vehicles
+    - id: ground-vehicles-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: ground-vehicles-2
+        name:
+          type: string
+          value: Heavy Vehicles
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Ground Forces
+        cost:
+          type: number
+          value: 14000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Tanks.
+      pos:
+        x: 2040
+        y: 1560
+      displayName: Heavy Vehicles
+    - id: ground-artillery
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: ground-artillery
+        name:
+          type: string
+          value: Static Artillery
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Ground Forces
+        cost:
+          type: number
+          value: 12000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Emplaced guns for defence.
+      pos:
+        x: 2380
+        y: 1560
+      displayName: Static Artillery
+    - id: ground-aa
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: ground-aa
+        name:
+          type: string
+          value: Anti-Air Weapons
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Ground Forces
+        cost:
+          type: number
+          value: 12000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Deny the sky to bombardment.
+      pos:
+        x: 2720
+        y: 1560
+      displayName: Anti-Air Weapons
+    - id: ground-xenoarch
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: ground-xenoarch
+        name:
+          type: string
+          value: Xenoarchaeology Teams
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Ground Forces
+        cost:
+          type: number
+          value: 9000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Specialist teams for recovering alien ruins.
+      pos:
+        x: 3060
+        y: 1560
+      displayName: Xenoarchaeology Teams
+    - id: ground-engineers
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: ground-engineers
+        name:
+          type: string
+          value: Combat Engineers
+        field:
+          type: string
+          value: logistics
+        branch:
+          type: string
+          value: Ground Forces
+        cost:
+          type: number
+          value: 10000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Fortification and demolition.
+      pos:
+        x: 3400
+        y: 1560
+      displayName: Combat Engineers
+  connections:
+    - from:
+        insId: cargo-handling
+        pinId: unlocks
+      to:
+        insId: cargo-handling-2
+        pinId: requires
+    - from:
+        insId: freight-containers
+        pinId: unlocks
+      to:
+        insId: automated-docks
+        pinId: requires
+    - from:
+        insId: cargo-handling-2
+        pinId: unlocks
+      to:
+        insId: cargo-handling-3
+        pinId: requires
+    - from:
+        insId: automated-docks
+        pinId: unlocks
+      to:
+        insId: orbital-lifts
+        pinId: requires
+    - from:
+        insId: orbital-lifts
+        pinId: unlocks
+      to:
+        insId: autonomous-freighters
+        pinId: requires
+    - from:
+        insId: compact-quarters-1
+        pinId: unlocks
+      to:
+        insId: compact-quarters-2
+        pinId: requires
+    - from:
+        insId: compact-quarters-2
+        pinId: unlocks
+      to:
+        insId: compact-quarters-3
+        pinId: requires
+    - from:
+        insId: military-academies
+        pinId: unlocks
+      to:
+        insId: officer-training-3
+        pinId: requires
+    - from:
+        insId: officer-training-3
+        pinId: unlocks
+      to:
+        insId: officer-training-4
+        pinId: requires
+    - from:
+        insId: officer-training-4
+        pinId: unlocks
+      to:
+        insId: officer-training-6
+        pinId: requires
+    - from:
+        insId: ground-training
+        pinId: unlocks
+      to:
+        insId: ground-weapons-1
+        pinId: requires
+    - from:
+        insId: ground-weapons-1
+        pinId: unlocks
+      to:
+        insId: ground-weapons-2
+        pinId: requires
+    - from:
+        insId: ground-weapons-2
+        pinId: unlocks
+      to:
+        insId: ground-armour-1
+        pinId: requires
+    - from:
+        insId: ground-armour-1
+        pinId: unlocks
+      to:
+        insId: ground-armour-2
+        pinId: requires
+    - from:
+        insId: ground-armour-2
+        pinId: unlocks
+      to:
+        insId: ground-vehicles-1
+        pinId: requires
+    - from:
+        insId: ground-vehicles-1
+        pinId: unlocks
+      to:
+        insId: ground-vehicles-2
+        pinId: requires
+    - from:
+        insId: ground-vehicles-2
+        pinId: unlocks
+      to:
+        insId: ground-artillery
+        pinId: requires
+    - from:
+        insId: ground-artillery
+        pinId: unlocks
+      to:
+        insId: ground-aa
+        pinId: requires
+    - from:
+        insId: ground-aa
+        pinId: unlocks
+      to:
+        insId: ground-xenoarch
+        pinId: requires
+    - from:
+        insId: ground-xenoarch
+        pinId: unlocks
+      to:
+        insId: ground-engineers
+        pinId: requires
+  id: tech-logistics
+  inputs: {}
+  outputs: {}
+  inputsPosition: {}
+  outputsPosition: {}

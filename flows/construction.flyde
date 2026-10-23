@@ -1,0 +1,3428 @@
+node:
+  instances:
+    - id: trans-newtonian
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: trans-newtonian
+        name:
+          type: string
+          value: Trans-Newtonian Technology
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Foundations
+        cost:
+          type: number
+          value: 2500
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "The foundation of the age: trans-Newtonian elements can be refined and worked, and every installation and drive that follows depends on it."
+      pos:
+        x: 0
+        y: 0
+      displayName: Trans-Newtonian Technology
+    - id: mining-12
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: mining-12
+        name:
+          type: string
+          value: Mining Production 12 Tons
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Mining
+        cost:
+          type: number
+          value: 1500
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: miningRate = 12
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each mine extracts 12 tons per year from a deposit of accessibility 1.0.
+      pos:
+        x: 340
+        y: 420
+      displayName: Mining Production 12 Tons
+    - id: mining-15
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: mining-15
+        name:
+          type: string
+          value: Mining Production 15 Tons
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Mining
+        cost:
+          type: number
+          value: 3000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: miningRate = 15
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each mine extracts 15 tons per year from a deposit of accessibility 1.0.
+      pos:
+        x: 680
+        y: 420
+      displayName: Mining Production 15 Tons
+    - id: mining-18
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: mining-18
+        name:
+          type: string
+          value: Mining Production 18 Tons
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Mining
+        cost:
+          type: number
+          value: 6000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: miningRate = 18
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each mine extracts 18 tons per year from a deposit of accessibility 1.0.
+      pos:
+        x: 1020
+        y: 420
+      displayName: Mining Production 18 Tons
+    - id: mining-21
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: mining-21
+        name:
+          type: string
+          value: Mining Production 21 Tons
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Mining
+        cost:
+          type: number
+          value: 12000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: miningRate = 21
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each mine extracts 21 tons per year from a deposit of accessibility 1.0.
+      pos:
+        x: 1360
+        y: 420
+      displayName: Mining Production 21 Tons
+    - id: mining-24
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: mining-24
+        name:
+          type: string
+          value: Mining Production 24 Tons
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Mining
+        cost:
+          type: number
+          value: 24000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: miningRate = 24
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each mine extracts 24 tons per year from a deposit of accessibility 1.0.
+      pos:
+        x: 1700
+        y: 420
+      displayName: Mining Production 24 Tons
+    - id: mining-27
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: mining-27
+        name:
+          type: string
+          value: Mining Production 27 Tons
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Mining
+        cost:
+          type: number
+          value: 48000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: miningRate = 27
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each mine extracts 27 tons per year from a deposit of accessibility 1.0.
+      pos:
+        x: 2040
+        y: 420
+      displayName: Mining Production 27 Tons
+    - id: mining-30
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: mining-30
+        name:
+          type: string
+          value: Mining Production 30 Tons
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Mining
+        cost:
+          type: number
+          value: 96000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: miningRate = 30
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each mine extracts 30 tons per year from a deposit of accessibility 1.0.
+      pos:
+        x: 2380
+        y: 420
+      displayName: Mining Production 30 Tons
+    - id: mining-33
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: mining-33
+        name:
+          type: string
+          value: Mining Production 33 Tons
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Mining
+        cost:
+          type: number
+          value: 160000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: miningRate = 33
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each mine extracts 33 tons per year from a deposit of accessibility 1.0.
+      pos:
+        x: 2720
+        y: 420
+      displayName: Mining Production 33 Tons
+    - id: mining-36
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: mining-36
+        name:
+          type: string
+          value: Mining Production 36 Tons
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Mining
+        cost:
+          type: number
+          value: 260000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: miningRate = 36
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each mine extracts 36 tons per year from a deposit of accessibility 1.0.
+      pos:
+        x: 3060
+        y: 420
+      displayName: Mining Production 36 Tons
+    - id: construction-12
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: construction-12
+        name:
+          type: string
+          value: Construction Rate 12 BP
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Factories
+        cost:
+          type: number
+          value: 1500
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: constructionRate = 12
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each construction factory produces 12 build points per year.
+      pos:
+        x: 340
+        y: 840
+      displayName: Construction Rate 12 BP
+    - id: construction-15
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: construction-15
+        name:
+          type: string
+          value: Construction Rate 15 BP
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Factories
+        cost:
+          type: number
+          value: 3000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: constructionRate = 15
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each construction factory produces 15 build points per year.
+      pos:
+        x: 680
+        y: 840
+      displayName: Construction Rate 15 BP
+    - id: construction-18
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: construction-18
+        name:
+          type: string
+          value: Construction Rate 18 BP
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Factories
+        cost:
+          type: number
+          value: 6000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: constructionRate = 18
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each construction factory produces 18 build points per year.
+      pos:
+        x: 1020
+        y: 840
+      displayName: Construction Rate 18 BP
+    - id: construction-21
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: construction-21
+        name:
+          type: string
+          value: Construction Rate 21 BP
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Factories
+        cost:
+          type: number
+          value: 12000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: constructionRate = 21
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each construction factory produces 21 build points per year.
+      pos:
+        x: 1360
+        y: 840
+      displayName: Construction Rate 21 BP
+    - id: construction-24
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: construction-24
+        name:
+          type: string
+          value: Construction Rate 24 BP
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Factories
+        cost:
+          type: number
+          value: 24000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: constructionRate = 24
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each construction factory produces 24 build points per year.
+      pos:
+        x: 1700
+        y: 840
+      displayName: Construction Rate 24 BP
+    - id: construction-27
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: construction-27
+        name:
+          type: string
+          value: Construction Rate 27 BP
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Factories
+        cost:
+          type: number
+          value: 48000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: constructionRate = 27
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each construction factory produces 27 build points per year.
+      pos:
+        x: 2040
+        y: 840
+      displayName: Construction Rate 27 BP
+    - id: construction-30
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: construction-30
+        name:
+          type: string
+          value: Construction Rate 30 BP
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Factories
+        cost:
+          type: number
+          value: 96000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: constructionRate = 30
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each construction factory produces 30 build points per year.
+      pos:
+        x: 2380
+        y: 840
+      displayName: Construction Rate 30 BP
+    - id: construction-33
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: construction-33
+        name:
+          type: string
+          value: Construction Rate 33 BP
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Factories
+        cost:
+          type: number
+          value: 160000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: constructionRate = 33
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each construction factory produces 33 build points per year.
+      pos:
+        x: 2720
+        y: 840
+      displayName: Construction Rate 33 BP
+    - id: construction-36
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: construction-36
+        name:
+          type: string
+          value: Construction Rate 36 BP
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Factories
+        cost:
+          type: number
+          value: 260000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: constructionRate = 36
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each construction factory produces 36 build points per year.
+      pos:
+        x: 3060
+        y: 840
+      displayName: Construction Rate 36 BP
+    - id: research-250
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: research-250
+        name:
+          type: string
+          value: Research Rate 250 RP
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Laboratories
+        cost:
+          type: number
+          value: 2000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: researchRate = 250
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each research laboratory generates 250 research points per year.
+      pos:
+        x: 340
+        y: 1260
+      displayName: Research Rate 250 RP
+    - id: research-300
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: research-300
+        name:
+          type: string
+          value: Research Rate 300 RP
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Laboratories
+        cost:
+          type: number
+          value: 4000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: researchRate = 300
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each research laboratory generates 300 research points per year.
+      pos:
+        x: 680
+        y: 1260
+      displayName: Research Rate 300 RP
+    - id: research-350
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: research-350
+        name:
+          type: string
+          value: Research Rate 350 RP
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Laboratories
+        cost:
+          type: number
+          value: 8000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: researchRate = 350
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each research laboratory generates 350 research points per year.
+      pos:
+        x: 1020
+        y: 1260
+      displayName: Research Rate 350 RP
+    - id: research-400
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: research-400
+        name:
+          type: string
+          value: Research Rate 400 RP
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Laboratories
+        cost:
+          type: number
+          value: 16000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: researchRate = 400
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each research laboratory generates 400 research points per year.
+      pos:
+        x: 1360
+        y: 1260
+      displayName: Research Rate 400 RP
+    - id: research-500
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: research-500
+        name:
+          type: string
+          value: Research Rate 500 RP
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Laboratories
+        cost:
+          type: number
+          value: 32000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: researchRate = 500
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each research laboratory generates 500 research points per year.
+      pos:
+        x: 1700
+        y: 1260
+      displayName: Research Rate 500 RP
+    - id: research-600
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: research-600
+        name:
+          type: string
+          value: Research Rate 600 RP
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Laboratories
+        cost:
+          type: number
+          value: 64000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: researchRate = 600
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each research laboratory generates 600 research points per year.
+      pos:
+        x: 2040
+        y: 1260
+      displayName: Research Rate 600 RP
+    - id: research-750
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: research-750
+        name:
+          type: string
+          value: Research Rate 750 RP
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Laboratories
+        cost:
+          type: number
+          value: 120000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: researchRate = 750
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each research laboratory generates 750 research points per year.
+      pos:
+        x: 2380
+        y: 1260
+      displayName: Research Rate 750 RP
+    - id: research-900
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: research-900
+        name:
+          type: string
+          value: Research Rate 900 RP
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Laboratories
+        cost:
+          type: number
+          value: 200000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: researchRate = 900
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each research laboratory generates 900 research points per year.
+      pos:
+        x: 2720
+        y: 1260
+      displayName: Research Rate 900 RP
+    - id: research-1100
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: research-1100
+        name:
+          type: string
+          value: Research Rate 1100 RP
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Laboratories
+        cost:
+          type: number
+          value: 320000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: researchRate = 1100
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each research laboratory generates 1100 research points per year.
+      pos:
+        x: 3060
+        y: 1260
+      displayName: Research Rate 1100 RP
+    - id: fuel-60k
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-60k
+        name:
+          type: string
+          value: Fuel Production 60,000 Litres
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Fuel Refining
+        cost:
+          type: number
+          value: 2500
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: fuelPerRefinery = 60000
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each refinery converts Sorium into 60,000 litres of fuel per year.
+      pos:
+        x: 340
+        y: 1680
+      displayName: Fuel Production 60,000 Litres
+    - id: fuel-80k
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-80k
+        name:
+          type: string
+          value: Fuel Production 80,000 Litres
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Fuel Refining
+        cost:
+          type: number
+          value: 5000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: fuelPerRefinery = 80000
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each refinery converts Sorium into 80,000 litres of fuel per year.
+      pos:
+        x: 680
+        y: 1680
+      displayName: Fuel Production 80,000 Litres
+    - id: fuel-100000
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-100000
+        name:
+          type: string
+          value: Fuel Production 100000 Litres
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Fuel Refining
+        cost:
+          type: number
+          value: 10000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: fuelPerRefinery = 100000
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each refinery converts Sorium into 100,000 litres of fuel per year.
+      pos:
+        x: 1020
+        y: 1680
+      displayName: Fuel Production 100000 Litres
+    - id: fuel-125000
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-125000
+        name:
+          type: string
+          value: Fuel Production 125000 Litres
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Fuel Refining
+        cost:
+          type: number
+          value: 20000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: fuelPerRefinery = 125000
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each refinery converts Sorium into 125,000 litres of fuel per year.
+      pos:
+        x: 1360
+        y: 1680
+      displayName: Fuel Production 125000 Litres
+    - id: fuel-160000
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-160000
+        name:
+          type: string
+          value: Fuel Production 160000 Litres
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Fuel Refining
+        cost:
+          type: number
+          value: 40000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: fuelPerRefinery = 160000
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each refinery converts Sorium into 160,000 litres of fuel per year.
+      pos:
+        x: 1700
+        y: 1680
+      displayName: Fuel Production 160000 Litres
+    - id: fuel-200000
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-200000
+        name:
+          type: string
+          value: Fuel Production 200000 Litres
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Fuel Refining
+        cost:
+          type: number
+          value: 80000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: fuelPerRefinery = 200000
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each refinery converts Sorium into 200,000 litres of fuel per year.
+      pos:
+        x: 2040
+        y: 1680
+      displayName: Fuel Production 200000 Litres
+    - id: mass-drivers
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: mass-drivers
+        name:
+          type: string
+          value: Mass Driver Technology
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Mass Drivers
+        cost:
+          type: number
+          value: 3000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: |-
+            unlock mass-driver
+            massDriverThroughput = 1000
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Magnetic launchers throw mineral packets between colonies at 1,000 tons per driver per year - the only way to move minerals before freighters exist.
+      pos:
+        x: 340
+        y: 2100
+      displayName: Mass Driver Technology
+    - id: mass-drivers-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: mass-drivers-2
+        name:
+          type: string
+          value: Improved Mass Drivers
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Mass Drivers
+        cost:
+          type: number
+          value: 7000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: massDriverThroughput = 2500
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Heavier launch packages: 2,500 tons per driver per year."
+      pos:
+        x: 680
+        y: 2100
+      displayName: Improved Mass Drivers
+    - id: mass-drivers-3
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: mass-drivers-3
+        name:
+          type: string
+          value: Mass Drivers III
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Mass Drivers
+        cost:
+          type: number
+          value: 15000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: massDriverThroughput = 5000
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Coil-gun staging: 5,000 tons per driver per year."
+      pos:
+        x: 1020
+        y: 2100
+      displayName: Mass Drivers III
+    - id: mass-drivers-4
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: mass-drivers-4
+        name:
+          type: string
+          value: Mass Drivers IV
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Mass Drivers
+        cost:
+          type: number
+          value: 32000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: massDriverThroughput = 10000
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Superconducting rails: 10,000 tons per driver per year."
+      pos:
+        x: 1360
+        y: 2100
+      displayName: Mass Drivers IV
+    - id: mass-drivers-5
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: mass-drivers-5
+        name:
+          type: string
+          value: Mass Drivers V
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Mass Drivers
+        cost:
+          type: number
+          value: 70000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: massDriverThroughput = 20000
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Orbital catchers: 20,000 tons per driver per year."
+      pos:
+        x: 1700
+        y: 2100
+      displayName: Mass Drivers V
+    - id: maintenance-facilities
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: maintenance-facilities
+        name:
+          type: string
+          value: Maintenance Facility Construction
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Maintenance
+        cost:
+          type: number
+          value: 1500
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: unlock maintenance
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Orbital maintenance bays that hold off the failure rate of ships stationed at a colony.
+      pos:
+        x: 340
+        y: 2520
+      displayName: Maintenance Facility Construction
+    - id: ordnance-factories
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: ordnance-factories
+        name:
+          type: string
+          value: Ordnance Factory Construction
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Maintenance
+        cost:
+          type: number
+          value: 2000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: unlock ordnance-factory
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Dedicated plant for missiles and other ordnance.
+      pos:
+        x: 340
+        y: 2820
+      displayName: Ordnance Factory Construction
+    - id: spaceports
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: spaceports
+        name:
+          type: string
+          value: Spaceport Construction
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Maintenance
+        cost:
+          type: number
+          value: 4000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: unlock spaceport
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Ground facilities that speed cargo handling at a colony.
+      pos:
+        x: 340
+        y: 3120
+      displayName: Spaceport Construction
+    - id: maintenance-bays-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: maintenance-bays-2
+        name:
+          type: string
+          value: Maintenance Bay Efficiency
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Maintenance
+        cost:
+          type: number
+          value: 3000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: serviceTonsPerFacility = 8000
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Better tooling and stores: each maintenance facility can service twice the tonnage of ship at once."
+      pos:
+        x: 680
+        y: 2520
+      displayName: Maintenance Bay Efficiency
+    - id: maintenance-bays-3
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: maintenance-bays-3
+        name:
+          type: string
+          value: Maintenance Bays III
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Maintenance
+        cost:
+          type: number
+          value: 7000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: serviceTonsPerFacility = 12000
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each maintenance facility can service 12,000 tons of ship at once.
+      pos:
+        x: 1020
+        y: 2520
+      displayName: Maintenance Bays III
+    - id: maintenance-bays-4
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: maintenance-bays-4
+        name:
+          type: string
+          value: Maintenance Bays IV
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Maintenance
+        cost:
+          type: number
+          value: 15000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: serviceTonsPerFacility = 16000
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Robotic overhaul: 16,000 tons per facility."
+      pos:
+        x: 1360
+        y: 2520
+      displayName: Maintenance Bays IV
+    - id: maintenance-bays-5
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: maintenance-bays-5
+        name:
+          type: string
+          value: Maintenance Bays V
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Maintenance
+        cost:
+          type: number
+          value: 32000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: serviceTonsPerFacility = 24000
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Dry-dock automation: 24,000 tons per facility."
+      pos:
+        x: 1700
+        y: 2520
+      displayName: Maintenance Bays V
+    - id: terraforming
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: terraforming
+        name:
+          type: string
+          value: Terraforming Technology
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Terraforming
+        cost:
+          type: number
+          value: 5000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: |-
+            unlock terraforming
+            terraformRate = 0.0001
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Atmospheric processors that add or remove 0.0001 atmospheres of a chosen gas per installation per year.
+      pos:
+        x: 340
+        y: 3540
+      displayName: Terraforming Technology
+    - id: terraforming-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: terraforming-2
+        name:
+          type: string
+          value: Improved Terraforming
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Terraforming
+        cost:
+          type: number
+          value: 11000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: terraformRate = 0.00025
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Higher-throughput processors: 0.00025 atmospheres per installation per year."
+      pos:
+        x: 680
+        y: 3540
+      displayName: Improved Terraforming
+    - id: terraforming-3
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: terraforming-3
+        name:
+          type: string
+          value: Terraforming III
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Terraforming
+        cost:
+          type: number
+          value: 25000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: terraformRate = 0.0005
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: 0.0005 atmospheres per installation per year.
+      pos:
+        x: 1020
+        y: 3540
+      displayName: Terraforming III
+    - id: terraforming-4
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: terraforming-4
+        name:
+          type: string
+          value: Terraforming IV
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Terraforming
+        cost:
+          type: number
+          value: 60000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: terraformRate = 0.001
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: 0.001 atmospheres per installation per year.
+      pos:
+        x: 1360
+        y: 3540
+      displayName: Terraforming IV
+    - id: terraforming-5
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: terraforming-5
+        name:
+          type: string
+          value: Terraforming V
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Terraforming
+        cost:
+          type: number
+          value: 120000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: terraformRate = 0.002
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: 0.002 atmospheres per installation per year.
+      pos:
+        x: 1700
+        y: 3540
+      displayName: Terraforming V
+    - id: financial-management
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: financial-management
+        name:
+          type: string
+          value: Financial Management
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Finance & Trade
+        cost:
+          type: number
+          value: 4000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: |-
+            unlock financial-centre
+            wealthBonus += 0.1
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Financial centres, and a 10% increase in tax revenue.
+      pos:
+        x: 340
+        y: 3960
+      displayName: Financial Management
+    - id: sector-command
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: sector-command
+        name:
+          type: string
+          value: Sector Command Infrastructure
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Finance & Trade
+        cost:
+          type: number
+          value: 8000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: unlock sector-command
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Regional administration, letting a governor's bonuses reach colonies across a sector.
+      pos:
+        x: 680
+        y: 3960
+      displayName: Sector Command Infrastructure
+    - id: banking-systems
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: banking-systems
+        name:
+          type: string
+          value: Banking Systems
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Finance & Trade
+        cost:
+          type: number
+          value: 8000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: wealthBonus += 0.1
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Credit that finds its way to every colony: tax revenue up 10%."
+      pos:
+        x: 680
+        y: 4260
+      displayName: Banking Systems
+    - id: trade-networks
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: trade-networks
+        name:
+          type: string
+          value: Trade Networks
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Finance & Trade
+        cost:
+          type: number
+          value: 6000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: tradeBonus += 0.1
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Standard contracts and shared ledgers: commerce income and the levy on traded goods up 10%."
+      pos:
+        x: 680
+        y: 4560
+      displayName: Trade Networks
+    - id: stock-exchanges
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: stock-exchanges
+        name:
+          type: string
+          value: Stock Exchanges
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Finance & Trade
+        cost:
+          type: number
+          value: 18000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: wealthBonus += 0.1
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Public capital for private ventures: tax revenue up a further 10%."
+      pos:
+        x: 1020
+        y: 3960
+      displayName: Stock Exchanges
+    - id: mercantile-exchanges
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: mercantile-exchanges
+        name:
+          type: string
+          value: Mercantile Exchanges
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Finance & Trade
+        cost:
+          type: number
+          value: 14000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: tradeBonus += 0.15
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Commerce up a further 15%.
+      pos:
+        x: 1020
+        y: 4260
+      displayName: Mercantile Exchanges
+    - id: quantum-finance
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: quantum-finance
+        name:
+          type: string
+          value: Quantum Finance
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Finance & Trade
+        cost:
+          type: number
+          value: 60000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: wealthBonus += 0.15
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Instant settlement across light-years: tax revenue up a further 15%."
+      pos:
+        x: 1360
+        y: 3960
+      displayName: Quantum Finance
+    - id: interstellar-commerce
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: interstellar-commerce
+        name:
+          type: string
+          value: Interstellar Commerce
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Finance & Trade
+        cost:
+          type: number
+          value: 40000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: tradeBonus += 0.2
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Commerce up a further 20%.
+      pos:
+        x: 1360
+        y: 4260
+      displayName: Interstellar Commerce
+    - id: public-broadcasting
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: public-broadcasting
+        name:
+          type: string
+          value: Public Broadcasting
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Administration
+        cost:
+          type: number
+          value: 5000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: stabilityBonus += 2
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "A shared news and entertainment service: every colony's stability target +2."
+      pos:
+        x: 340
+        y: 4980
+      displayName: Public Broadcasting
+    - id: parliamentary-procedure
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: parliamentary-procedure
+        name:
+          type: string
+          value: Parliamentary Procedure
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Administration
+        cost:
+          type: number
+          value: 6000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: capitalBonus += 0.5
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Orderly debate: +0.5 political capital a year."
+      pos:
+        x: 340
+        y: 5280
+      displayName: Parliamentary Procedure
+    - id: civil-service
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: civil-service
+        name:
+          type: string
+          value: Civil Service Reform
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Administration
+        cost:
+          type: number
+          value: 12000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: stabilityBonus += 2
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "A professional, impartial administration: stability +2."
+      pos:
+        x: 680
+        y: 4980
+      displayName: Civil Service Reform
+    - id: council-of-ministries
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: council-of-ministries
+        name:
+          type: string
+          value: Council of Ministries
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Administration
+        cost:
+          type: number
+          value: 20000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: policySlots += 1
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A fourth law may be in force at once.
+      pos:
+        x: 680
+        y: 5280
+      displayName: Council of Ministries
+    - id: arbitration-courts
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: arbitration-courts
+        name:
+          type: string
+          value: Arbitration Courts
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Administration
+        cost:
+          type: number
+          value: 25000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: stabilityBonus += 2
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Disputes settled before they become riots: stability +2."
+      pos:
+        x: 1020
+        y: 4980
+      displayName: Arbitration Courts
+    - id: constitutional-reform
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: constitutional-reform
+        name:
+          type: string
+          value: Constitutional Reform
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Administration
+        cost:
+          type: number
+          value: 28000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: capitalBonus += 0.5
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "A clearer mandate: +0.5 political capital a year."
+      pos:
+        x: 1020
+        y: 5280
+      displayName: Constitutional Reform
+    - id: enlightened-governance
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: enlightened-governance
+        name:
+          type: string
+          value: Enlightened Governance
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Administration
+        cost:
+          type: number
+          value: 60000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: stabilityBonus += 3
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Government that learns from its colonies: stability +3."
+      pos:
+        x: 1360
+        y: 4980
+      displayName: Enlightened Governance
+    - id: grand-cabinet
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: grand-cabinet
+        name:
+          type: string
+          value: Grand Cabinet
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Administration
+        cost:
+          type: number
+          value: 80000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: policySlots += 1
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A fifth law may be in force at once.
+      pos:
+        x: 1360
+        y: 5280
+      displayName: Grand Cabinet
+    - id: federal-charter
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: federal-charter
+        name:
+          type: string
+          value: Federal Charter
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Administration
+        cost:
+          type: number
+          value: 120000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: capitalBonus += 1
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "A settled constitution: +1 political capital a year."
+      pos:
+        x: 1700
+        y: 4980
+      displayName: Federal Charter
+    - id: consumer-lines-125
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: consumer-lines-125
+        name:
+          type: string
+          value: Consumer Production Lines 125
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Consumer Goods
+        cost:
+          type: number
+          value: 5000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: consumerOutput = 125
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each consumer plant makes 125 units of consumer goods a year.
+      pos:
+        x: 340
+        y: 5700
+      displayName: Consumer Production Lines 125
+    - id: luxury-fabrication-50
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: luxury-fabrication-50
+        name:
+          type: string
+          value: Luxury Fabrication 50
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Consumer Goods
+        cost:
+          type: number
+          value: 6000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: luxuryOutput = 50
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each luxury workshop makes 50 units of luxuries a year.
+      pos:
+        x: 680
+        y: 5700
+      displayName: Luxury Fabrication 50
+    - id: consumer-lines-150
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: consumer-lines-150
+        name:
+          type: string
+          value: Consumer Production Lines 150
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Consumer Goods
+        cost:
+          type: number
+          value: 12000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: consumerOutput = 150
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each consumer plant makes 150 units of consumer goods a year.
+      pos:
+        x: 680
+        y: 6000
+      displayName: Consumer Production Lines 150
+    - id: luxury-fabrication-60
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: luxury-fabrication-60
+        name:
+          type: string
+          value: Luxury Fabrication 60
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Consumer Goods
+        cost:
+          type: number
+          value: 15000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: luxuryOutput = 60
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each luxury workshop makes 60 units of luxuries a year.
+      pos:
+        x: 1020
+        y: 5700
+      displayName: Luxury Fabrication 60
+    - id: consumer-lines-200
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: consumer-lines-200
+        name:
+          type: string
+          value: Consumer Production Lines 200
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Consumer Goods
+        cost:
+          type: number
+          value: 30000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: consumerOutput = 200
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each consumer plant makes 200 units of consumer goods a year.
+      pos:
+        x: 1020
+        y: 6000
+      displayName: Consumer Production Lines 200
+    - id: luxury-fabrication-80
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: luxury-fabrication-80
+        name:
+          type: string
+          value: Luxury Fabrication 80
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Consumer Goods
+        cost:
+          type: number
+          value: 40000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: luxuryOutput = 80
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each luxury workshop makes 80 units of luxuries a year.
+      pos:
+        x: 1360
+        y: 5700
+      displayName: Luxury Fabrication 80
+    - id: consumer-lines-300
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: consumer-lines-300
+        name:
+          type: string
+          value: Consumer Production Lines 300
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Consumer Goods
+        cost:
+          type: number
+          value: 70000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: consumerOutput = 300
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each consumer plant makes 300 units of consumer goods a year.
+      pos:
+        x: 1360
+        y: 6000
+      displayName: Consumer Production Lines 300
+    - id: luxury-fabrication-120
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: luxury-fabrication-120
+        name:
+          type: string
+          value: Luxury Fabrication 120
+        field:
+          type: string
+          value: construction
+        branch:
+          type: string
+          value: Consumer Goods
+        cost:
+          type: number
+          value: 90000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: luxuryOutput = 120
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Each luxury workshop makes 120 units of luxuries a year.
+      pos:
+        x: 1700
+        y: 5700
+      displayName: Luxury Fabrication 120
+  connections:
+    - from:
+        insId: trans-newtonian
+        pinId: unlocks
+      to:
+        insId: mining-12
+        pinId: requires
+    - from:
+        insId: mining-12
+        pinId: unlocks
+      to:
+        insId: mining-15
+        pinId: requires
+    - from:
+        insId: mining-15
+        pinId: unlocks
+      to:
+        insId: mining-18
+        pinId: requires
+    - from:
+        insId: mining-18
+        pinId: unlocks
+      to:
+        insId: mining-21
+        pinId: requires
+    - from:
+        insId: mining-21
+        pinId: unlocks
+      to:
+        insId: mining-24
+        pinId: requires
+    - from:
+        insId: mining-24
+        pinId: unlocks
+      to:
+        insId: mining-27
+        pinId: requires
+    - from:
+        insId: mining-27
+        pinId: unlocks
+      to:
+        insId: mining-30
+        pinId: requires
+    - from:
+        insId: mining-30
+        pinId: unlocks
+      to:
+        insId: mining-33
+        pinId: requires
+    - from:
+        insId: mining-33
+        pinId: unlocks
+      to:
+        insId: mining-36
+        pinId: requires
+    - from:
+        insId: trans-newtonian
+        pinId: unlocks
+      to:
+        insId: construction-12
+        pinId: requires
+    - from:
+        insId: construction-12
+        pinId: unlocks
+      to:
+        insId: construction-15
+        pinId: requires
+    - from:
+        insId: construction-15
+        pinId: unlocks
+      to:
+        insId: construction-18
+        pinId: requires
+    - from:
+        insId: construction-18
+        pinId: unlocks
+      to:
+        insId: construction-21
+        pinId: requires
+    - from:
+        insId: construction-21
+        pinId: unlocks
+      to:
+        insId: construction-24
+        pinId: requires
+    - from:
+        insId: construction-24
+        pinId: unlocks
+      to:
+        insId: construction-27
+        pinId: requires
+    - from:
+        insId: construction-27
+        pinId: unlocks
+      to:
+        insId: construction-30
+        pinId: requires
+    - from:
+        insId: construction-30
+        pinId: unlocks
+      to:
+        insId: construction-33
+        pinId: requires
+    - from:
+        insId: construction-33
+        pinId: unlocks
+      to:
+        insId: construction-36
+        pinId: requires
+    - from:
+        insId: trans-newtonian
+        pinId: unlocks
+      to:
+        insId: research-250
+        pinId: requires
+    - from:
+        insId: research-250
+        pinId: unlocks
+      to:
+        insId: research-300
+        pinId: requires
+    - from:
+        insId: research-300
+        pinId: unlocks
+      to:
+        insId: research-350
+        pinId: requires
+    - from:
+        insId: research-350
+        pinId: unlocks
+      to:
+        insId: research-400
+        pinId: requires
+    - from:
+        insId: research-400
+        pinId: unlocks
+      to:
+        insId: research-500
+        pinId: requires
+    - from:
+        insId: research-500
+        pinId: unlocks
+      to:
+        insId: research-600
+        pinId: requires
+    - from:
+        insId: research-600
+        pinId: unlocks
+      to:
+        insId: research-750
+        pinId: requires
+    - from:
+        insId: research-750
+        pinId: unlocks
+      to:
+        insId: research-900
+        pinId: requires
+    - from:
+        insId: research-900
+        pinId: unlocks
+      to:
+        insId: research-1100
+        pinId: requires
+    - from:
+        insId: trans-newtonian
+        pinId: unlocks
+      to:
+        insId: fuel-60k
+        pinId: requires
+    - from:
+        insId: fuel-60k
+        pinId: unlocks
+      to:
+        insId: fuel-80k
+        pinId: requires
+    - from:
+        insId: fuel-80k
+        pinId: unlocks
+      to:
+        insId: fuel-100000
+        pinId: requires
+    - from:
+        insId: fuel-100000
+        pinId: unlocks
+      to:
+        insId: fuel-125000
+        pinId: requires
+    - from:
+        insId: fuel-125000
+        pinId: unlocks
+      to:
+        insId: fuel-160000
+        pinId: requires
+    - from:
+        insId: fuel-160000
+        pinId: unlocks
+      to:
+        insId: fuel-200000
+        pinId: requires
+    - from:
+        insId: trans-newtonian
+        pinId: unlocks
+      to:
+        insId: mass-drivers
+        pinId: requires
+    - from:
+        insId: mass-drivers
+        pinId: unlocks
+      to:
+        insId: mass-drivers-2
+        pinId: requires
+    - from:
+        insId: mass-drivers-2
+        pinId: unlocks
+      to:
+        insId: mass-drivers-3
+        pinId: requires
+    - from:
+        insId: mass-drivers-3
+        pinId: unlocks
+      to:
+        insId: mass-drivers-4
+        pinId: requires
+    - from:
+        insId: mass-drivers-4
+        pinId: unlocks
+      to:
+        insId: mass-drivers-5
+        pinId: requires
+    - from:
+        insId: trans-newtonian
+        pinId: unlocks
+      to:
+        insId: maintenance-facilities
+        pinId: requires
+    - from:
+        insId: trans-newtonian
+        pinId: unlocks
+      to:
+        insId: ordnance-factories
+        pinId: requires
+    - from:
+        insId: trans-newtonian
+        pinId: unlocks
+      to:
+        insId: spaceports
+        pinId: requires
+    - from:
+        insId: maintenance-facilities
+        pinId: unlocks
+      to:
+        insId: maintenance-bays-2
+        pinId: requires
+    - from:
+        insId: maintenance-bays-2
+        pinId: unlocks
+      to:
+        insId: maintenance-bays-3
+        pinId: requires
+    - from:
+        insId: maintenance-bays-3
+        pinId: unlocks
+      to:
+        insId: maintenance-bays-4
+        pinId: requires
+    - from:
+        insId: maintenance-bays-4
+        pinId: unlocks
+      to:
+        insId: maintenance-bays-5
+        pinId: requires
+    - from:
+        insId: trans-newtonian
+        pinId: unlocks
+      to:
+        insId: terraforming
+        pinId: requires
+    - from:
+        insId: terraforming
+        pinId: unlocks
+      to:
+        insId: terraforming-2
+        pinId: requires
+    - from:
+        insId: terraforming-2
+        pinId: unlocks
+      to:
+        insId: terraforming-3
+        pinId: requires
+    - from:
+        insId: terraforming-3
+        pinId: unlocks
+      to:
+        insId: terraforming-4
+        pinId: requires
+    - from:
+        insId: terraforming-4
+        pinId: unlocks
+      to:
+        insId: terraforming-5
+        pinId: requires
+    - from:
+        insId: trans-newtonian
+        pinId: unlocks
+      to:
+        insId: financial-management
+        pinId: requires
+    - from:
+        insId: financial-management
+        pinId: unlocks
+      to:
+        insId: sector-command
+        pinId: requires
+    - from:
+        insId: financial-management
+        pinId: unlocks
+      to:
+        insId: banking-systems
+        pinId: requires
+    - from:
+        insId: financial-management
+        pinId: unlocks
+      to:
+        insId: trade-networks
+        pinId: requires
+    - from:
+        insId: banking-systems
+        pinId: unlocks
+      to:
+        insId: stock-exchanges
+        pinId: requires
+    - from:
+        insId: trade-networks
+        pinId: unlocks
+      to:
+        insId: mercantile-exchanges
+        pinId: requires
+    - from:
+        insId: stock-exchanges
+        pinId: unlocks
+      to:
+        insId: quantum-finance
+        pinId: requires
+    - from:
+        insId: mercantile-exchanges
+        pinId: unlocks
+      to:
+        insId: interstellar-commerce
+        pinId: requires
+    - from:
+        insId: trans-newtonian
+        pinId: unlocks
+      to:
+        insId: public-broadcasting
+        pinId: requires
+    - from:
+        insId: trans-newtonian
+        pinId: unlocks
+      to:
+        insId: parliamentary-procedure
+        pinId: requires
+    - from:
+        insId: public-broadcasting
+        pinId: unlocks
+      to:
+        insId: civil-service
+        pinId: requires
+    - from:
+        insId: parliamentary-procedure
+        pinId: unlocks
+      to:
+        insId: council-of-ministries
+        pinId: requires
+    - from:
+        insId: civil-service
+        pinId: unlocks
+      to:
+        insId: arbitration-courts
+        pinId: requires
+    - from:
+        insId: council-of-ministries
+        pinId: unlocks
+      to:
+        insId: constitutional-reform
+        pinId: requires
+    - from:
+        insId: arbitration-courts
+        pinId: unlocks
+      to:
+        insId: enlightened-governance
+        pinId: requires
+    - from:
+        insId: constitutional-reform
+        pinId: unlocks
+      to:
+        insId: grand-cabinet
+        pinId: requires
+    - from:
+        insId: grand-cabinet
+        pinId: unlocks
+      to:
+        insId: federal-charter
+        pinId: requires
+    - from:
+        insId: trans-newtonian
+        pinId: unlocks
+      to:
+        insId: consumer-lines-125
+        pinId: requires
+    - from:
+        insId: financial-management
+        pinId: unlocks
+      to:
+        insId: luxury-fabrication-50
+        pinId: requires
+    - from:
+        insId: consumer-lines-125
+        pinId: unlocks
+      to:
+        insId: consumer-lines-150
+        pinId: requires
+    - from:
+        insId: luxury-fabrication-50
+        pinId: unlocks
+      to:
+        insId: luxury-fabrication-60
+        pinId: requires
+    - from:
+        insId: consumer-lines-150
+        pinId: unlocks
+      to:
+        insId: consumer-lines-200
+        pinId: requires
+    - from:
+        insId: luxury-fabrication-60
+        pinId: unlocks
+      to:
+        insId: luxury-fabrication-80
+        pinId: requires
+    - from:
+        insId: consumer-lines-200
+        pinId: unlocks
+      to:
+        insId: consumer-lines-300
+        pinId: requires
+    - from:
+        insId: luxury-fabrication-80
+        pinId: unlocks
+      to:
+        insId: luxury-fabrication-120
+        pinId: requires
+  id: tech-construction
+  inputs: {}
+  outputs: {}
+  inputsPosition: {}
+  outputsPosition: {}
