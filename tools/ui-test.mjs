@@ -1528,6 +1528,72 @@ async function buildSuite(browser) {
   await page.close();
 }
 
+async function upkeepSuite(browser) {
+  console.log("\nMaintenance");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.goto(`${BASE}?debug&new&seed=sol-1&events=off`);
+  await page.waitForSelector("#view-tabs");
+  await page.evaluate(() => {
+    const e = window.__game.empire;
+    for (const t of ["conventional-engine", "nuclear-thermal", "military-specification"]) e.research(t);
+    e.addStandardComponents(0);
+    const eng = e.addComponentDesign("engine", { type: "nuclear-thermal", size: 5, modifier: 1, grade: "military" }, 0);
+    const tank = e.componentDesigns.find((c) => c.kind === "fuel-tank");
+    const quarters = e.componentDesigns.find((c) => c.kind === "crew-quarters");
+    const bay = e.componentDesigns.find((c) => c.kind === "maintenance-bay");
+    const engSec = e.componentDesigns.find((c) => c.kind === "engineering");
+    e.addDesign("Picket", [{ componentId: eng.id, count: 2 }, { componentId: tank.id, count: 4 }, { componentId: quarters.id, count: 2 }, { componentId: bay.id, count: 2 }, { componentId: engSec.id, count: 1 }], 0, "frigate");
+    window.__game.emit();
+  });
+  await nav(page, "Design").click();
+  await page.locator("#view-design .tab", { hasText: "Ship Classes" }).click();
+  await page.locator("#view-design .design-row", { hasText: "Picket" }).click();
+  await page.waitForTimeout(300);
+  const derived = () => page.locator("#view-design .derived-host").innerText();
+  await check("a military class summary has Aurora's maintenance line", async () => {
+    const t = await derived();
+    return /maint life/i.test(t) && /MSP/.test(t) && /AFR/.test(t) && /IFR/.test(t) && /1YR/.test(t) && /5YR/.test(t) && /max repair/i.test(t);
+  });
+  await page.evaluate(() => { const e = window.__game.empire; e.addStandardClasses(0); window.__game.emit(); });
+  await page.waitForTimeout(200);
+  await page.locator("#view-design .design-row", { hasText: "Hauler" }).first().click();
+  await page.waitForTimeout(300);
+  await check("a commercial class says it needs none", async () => /commercial class: not kept in readiness/i.test(await derived()));
+
+  // --- a ship with a system out gets a Repair button
+  await page.evaluate(() => {
+    const e = window.__game.empire;
+    const design = e.designs.find((d) => d.name === "Picket");
+    const fleet = e.createFleet("Picket Line", window.__game.galaxy.byId.get("earth").world, "earth");
+    const ship = e.commissionShip(design.id, fleet, "Picket 001", 0);
+    ship.fuel = 1e6;
+    ship.broken = { [design.components[0].componentId]: 1 };
+    ship.msp = 0;
+    window.__game.selectFleet(fleet.id);
+    window.__game.emit();
+  });
+  await nav(page, "Fleets").click();
+  await page.waitForTimeout(300);
+  const fleetPane = page.locator("#view-fleets");
+  await check("the ship list shows its clock and supplies", async () => /clock .* mo - msp/i.test(await fleetPane.innerText()));
+  await check("and that a system is out", async () => /1 system out/i.test(await fleetPane.innerText()));
+  await page.getByRole("button", { name: "Repair Picket 001" }).click();
+  await page.waitForTimeout(200);
+  await check("damage control says what it costs when the ship cannot pay", async () => /damage control|costs .* msp/i.test(await fleetPane.innerText()));
+
+  // --- a colony shows its supplies
+  await page.evaluate(() => { const c = window.__game.empire.colony("earth"); c.installations.maintenance = 4; c.msp = 123; window.__game.emit(); });
+  await nav(page, "Colonies").click();
+  await page.waitForTimeout(300);
+  await check("the colony lists its maintenance supplies", async () => /maintenance supplies/i.test(await page.locator("#view-colonies").innerText()));
+  await check("no console errors", () => errors.length === 0);
+  if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
+  await page.close();
+}
+
 const browser = await chromium.launch(launch);
 try {
   await desktopSuite(browser);
@@ -1544,6 +1610,7 @@ try {
   await yardSuite(browser);
   await systemSuite(browser);
   await buildSuite(browser);
+  await upkeepSuite(browser);
   await mobileSuite(browser);
 } finally {
   await browser.close();

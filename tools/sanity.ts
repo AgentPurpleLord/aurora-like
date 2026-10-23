@@ -22,7 +22,7 @@ import { supplyToward } from "../src/sim/economy/standingOrders";
 import { deriveProposals } from "../src/sim/governors";
 import { effectiveColonyCost, shipyardCapacity } from "../src/sim/economy/production";
 import { componentStats, normaliseParams, suggestName, SURVEY_POINTS_NEEDED } from "../src/sim/ships/components";
-import { maintainShips, servicingCapacity } from "../src/sim/ships/maintenance";
+import { brokenCount, failSystem, fieldRepair, maintainShips, mspStoreCapacity, produceSupplies, servicingCapacity } from "../src/sim/ships/maintenance";
 import { statsFor, TECHS, TECH_BY_ID } from "../src/sim/research/techs";
 import { ENGINE_TYPES, REACTOR_TYPES } from "../src/sim/ships/engines";
 import { FIELD_BRANCHES } from "../src/sim/research/branches";
@@ -1635,86 +1635,173 @@ console.log("");
   assert("it costs more", hs.buildCost > ps.buildCost * 1.2);
   assert("it wears faster", hs.wear > ps.wear * 1.3);
 
-  // --- wear
+  // --- the maintenance model
+  assert("a commercial class is exempt from maintenance", !ps.maintenance.maintained);
+  assert("a military class is not", hs.maintenance.maintained && hs.maintenance.afr0 > 0);
+  check("with no bays it carries no supplies", hs.maintenance.mspCapacity, 0, 0);
+  const bay = e.addComponentDesign("maintenance-bay", { size: 4 }, 0);
+  const engSection = e.addComponentDesign("engineering", { size: 2 }, 0);
+  const stocked = e.addDesign("Stocked", [
+    { componentId: militaryEngine.id, count: 2 }, { componentId: tank.id, count: 4 }, { componentId: quarters.id, count: 2 },
+    { componentId: bay.id, count: 1 }, { componentId: engSection.id, count: 1 },
+  ], 0);
+  const ss = e.statsOf(stocked.id)!;
+  check("a 4 HS bay holds 80 and a 2 HS engineering section 10", ss.maintenance.mspCapacity, 90, 0);
+  assert("engineering cuts the failure rate", ss.maintenance.afr0 < hs.maintenance.afr0 * 1.2 && ss.maintenance.engineeringShare > 0);
+  const noEng = e.addDesign("Stocked2", [
+    { componentId: militaryEngine.id, count: 2 }, { componentId: tank.id, count: 4 }, { componentId: quarters.id, count: 2 },
+    { componentId: bay.id, count: 1 },
+  ], 0);
+  assert("compared with the same ship without it", ss.maintenance.afr0 < e.statsOf(noEng.id)!.maintenance.afr0);
+  const m = ss.maintenance;
+  check("AFR is the failure rate with a year on the clock", m.afr, m.afr0 * 3, 1e-9);
+  check("5YR is fifteen times 1YR, as in Aurora", m.fiveYear / m.oneYear, 15, 1e-9);
+  assert("maintenance life is positive and finite", m.life > 0 && Number.isFinite(m.life));
+  check("the carried supplies last exactly the life, at the 1YR spend", m.averageCost * m.afr0 * (m.life + m.life * m.life), m.mspCapacity, 1e-6);
+  assert("max repair is double the dearest system", m.maxRepair >= 2 * Math.max(...m.systems.map((x) => x.unitCost)) - 1e-9);
+
+  // --- a commercial ship never ages
   const fleet = e.createFleet("Test Wing", { x: 0, y: 0, z: 0 }, "earth");
   const ship = e.commissionShip(plain.id, fleet, "P1", 0);
   ship.fuel = ps.fuelCapacity;
-  check("a new ship is in perfect condition", ship.condition, 100, 0);
   fleet.orders.push({ kind: "move", bodyId: "neptune" });
-  const sail = 30;
-  for (let i = 0; i < sail / CYCLE_DAYS; i++) g.step(CYCLE_DAYS * SECONDS_PER_DAY);
-  assert(`a ship under way wears (${ship.condition.toFixed(1)}%)`, fleet.anchorId === null && ship.condition < 100);
-  check("by its wear rate", 100 - ship.condition, 28 * ps.wear * (sail / 365.25), 0.2);
+  for (let i = 0; i < 12; i++) g.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  assert("a commercial ship under way keeps no clock", fleet.anchorId === null && ship.clock === 0 && ship.condition === 100);
 
-  // --- a ship at a distant, unserviced body wears slowly
-  const mars = g.galaxy.byId.get("mars")!;
-  const idle = e.createFleet("Idle", mars.world, "mars");
-  const idleShip = e.commissionShip(plain.id, idle, "I1", 0);
-  const rate = 28 * ps.wear / 365.25;
-  g.step(CYCLE_DAYS * SECONDS_PER_DAY * 4);
-  assert("a ship parked at an unserviced body wears at 40% of the working rate",
-    Math.abs((100 - idleShip.condition) - rate * 0.4 * CYCLE_DAYS * 4) < 0.3);
+  // --- a military ship under way runs its clock and has supplies from new
+  const wfleet = e.createFleet("War Wing", { x: 0, y: 0, z: 0 }, "earth");
+  const warship = e.commissionShip(stocked.id, wfleet, "W1", 0);
+  warship.fuel = ss.fuelCapacity;
+  check("a new warship carries full supplies", warship.msp, 90, 0);
+  wfleet.orders.push({ kind: "move", bodyId: "neptune" });
+  for (let i = 0; i < 12; i++) g.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  assert("under way it runs its maintenance clock", wfleet.anchorId === null && warship.clock >= 55);
+  assert("and its readiness falls with it", warship.condition < 100);
 
-  // --- service
-  const earthYard = e.createFleet("Yard", g.galaxy.byId.get("earth")!.world, "earth");
-  const serviced = e.commissionShip(plain.id, earthYard, "S1", 0);
-  serviced.condition = 40;
-  const capacity = servicingCapacity(e, e.colony("earth")!);
-  assert(`a colony with shipyards has servicing capacity (${capacity} t)`, capacity === 2 * 1500);
-  const result = maintainShips(e, g.galaxy, CYCLE_DAYS);
-  assert("a parked ship at it is restored", serviced.condition > 45);
-  const gained = serviced.condition - 40;
-  check("servicing costs a share of the ship's price, in proportion to the work",
-    result.cost, ps.buildCost * 0.15 * gained / 100, 1e-6);
-  for (let i = 0; i < 20; i++) g.step(CYCLE_DAYS * SECONDS_PER_DAY);
-  check("and it gets all the way back", serviced.condition, 100, 0);
+  // --- failures: supplies prevent, their absence destroys
+  warship.clock = 400;
+  warship.msp = 90;
+  const logBefore = e.log.length;
+  failSystem(e, warship, 0);
+  assert("with supplies a failure is prevented, and costs supplies", warship.msp < 90 && brokenCount(warship) === 0 && e.log.length > logBefore);
+  warship.msp = 0;
+  failSystem(e, warship, 0);
+  check("with none a system is destroyed", brokenCount(warship), 1, 0);
+  warship.broken = {};
+
+  // --- lost engines are lost speed
+  const engineId = militaryEngine.id;
+  const stopped = e.createFleet("Stopped", { x: 0, y: 0, z: 0 }, "earth");
+  const stoppedShip = e.commissionShip(stocked.id, stopped, "W2", 0);
+  stoppedShip.fuel = ss.fuelCapacity;
+  const fastSpeed = fleetStats(e, stopped).speed;
+  stoppedShip.broken[engineId] = 1;
+  check("one engine of two gone halves the speed", fleetStats(e, stopped).speed / fastSpeed, 0.5, 1e-9);
+  stoppedShip.broken[engineId] = 2;
+  check("both gone, the ship cannot move", fleetStats(e, stopped).speed, 0, 0);
+
+  // --- damage control: double the cost, from the ship's own supplies, needs engineers
+  stoppedShip.broken = { [engineId]: 1 };
+  stoppedShip.msp = 10;
+  assert("the crew cannot afford it", fieldRepair(e, stoppedShip) !== null && brokenCount(stoppedShip) === 1);
+  const engineCost = ss.maintenance.systems.find((x) => x.componentId === engineId)!.unitCost;
+  stoppedShip.msp = engineCost * 2 + 1;
+  assert("with enough it repairs", fieldRepair(e, stoppedShip) === null && brokenCount(stoppedShip) === 0);
+  check("at twice the system's cost", stoppedShip.msp, 1, 1e-6);
+  const barren = e.createFleet("Barren", { x: 0, y: 0, z: 0 }, "earth");
+  const barrenShip = e.commissionShip(hard.id, barren, "W3", 0);
+  barrenShip.broken = { [militaryEngine.id]: 1 };
+  barrenShip.msp = 1000;
+  assert("without an engineering section there is no damage control", fieldRepair(e, barrenShip) !== null);
+
+  // --- at a base: the clock unwinds, supplies are drawn and refilled
+  stopped.anchorId = null;
+  barren.anchorId = null;
+  const earthC = e.colony("earth")!;
+  const dock = e.createFleet("Dock", g.galaxy.byId.get("earth")!.world, "earth");
+  const docked = e.commissionShip(stocked.id, dock, "D1", 0);
+  docked.clock = 200;
+  docked.msp = 40;
+  earthC.msp = 500;
+  maintainShips(e, g.galaxy, CYCLE_DAYS);
+  assert("a ship the base can look after is covered", docked.covered === true);
+  check("overhaul winds the clock back four days a day", docked.clock, 200 - 4 * CYCLE_DAYS, 1e-9);
+  assert("the colony supplies it and tops up its stores", earthC.msp < 500 && docked.msp === 90);
+  for (let i = 0; i < 12; i++) maintainShips(e, g.galaxy, CYCLE_DAYS);
+  check("and it gets all the way back", docked.clock, 0, 0);
+  check("a ship at a base that has no supplies is not covered", (() => {
+    earthC.msp = 0;
+    docked.msp = 0;
+    docked.clock = 50;
+    maintainShips(e, g.galaxy, CYCLE_DAYS);
+    return docked.covered ? 1 : 0;
+  })(), 0, 0);
+  assert("and its clock runs", docked.clock > 50);
+  // a shipyard repairs from the colony's supplies at ordinary cost
+  earthC.msp = 1000;
+  docked.broken = { [engineId]: 1 };
+  maintainShips(e, g.galaxy, CYCLE_DAYS);
+  assert("a shipyard repairs a destroyed system", brokenCount(docked) === 0 && earthC.msp < 1000);
+  check("at its ordinary cost", 1000 - earthC.msp > engineCost - 1e-6 ? 1 : 0, 1, 0);
+
+  // --- facilities make supplies from minerals
+  earthC.installations["maintenance"] = 3;
+  earthC.msp = 0;
+  earthC.stockpile.Duranium = 10_000;
+  earthC.stockpile.Tritanium = 10_000;
+  const dur = earthC.stockpile.Duranium;
+  produceSupplies(e, earthC, 1, 1);
+  check("three facilities make 120 supplies a year", earthC.msp, 120, 1e-9);
+  check("from 2.5 tons of minerals each", dur - earthC.stockpile.Duranium + 10_000 - earthC.stockpile.Tritanium, 120 * 2.5, 1e-6);
+  earthC.msp = mspStoreCapacity(earthC);
+  check("and stop at what the stores can hold", produceSupplies(e, earthC, 1, 1), 0, 0);
   e.research("maintenance-facilities");
   e.research("maintenance-bays-2");
-  e.colony("earth")!.installations["maintenance"] = 3;
   check("maintenance facilities add capacity, twice as much with better bays",
     servicingCapacity(e, e.colony("earth")!), 3 * 8000 + 3000, 0);
 
-  // --- condition slows a ship
-  const slowFleet = e.createFleet("Slow", { x: 0, y: 0, z: 0 }, "earth");
-  const slowShip = e.commissionShip(plain.id, slowFleet, "W1", 0);
-  slowShip.fuel = ps.fuelCapacity;
-  const fast = fleetStats(e, slowFleet).speed;
-  slowShip.condition = 0;
-  check("a ship in ruins still limps at 60% speed", fleetStats(e, slowFleet).speed / fast, 0.6, 1e-9);
-  slowShip.condition = 50;
-  check("and half-worn at 80%", fleetStats(e, slowFleet).speed / fast, 0.8, 1e-9);
-
   // --- raised for attention, and breaking down
-  slowShip.condition = 25;
+  const worn = e.createFleet("Worn", { x: 0, y: 0, z: 0 }, "earth");
+  const wornShip = e.commissionShip(stocked.id, worn, "W4", 0);
+  wornShip.clock = 850;
+  wornShip.condition = 0;
+  maintainShips(e, g.galaxy, 0.001);
   assert("an overdue fleet is raised for attention",
-    deriveIssues(e, g.galaxy).some((i) => i.id === `fleet:overdue:${slowFleet.id}`));
+    deriveIssues(e, g.galaxy).some((i) => i.id === `fleet:overdue:${worn.id}`));
+  wornShip.broken = { [engineId]: 1 };
+  assert("and so is one with systems out", deriveIssues(e, g.galaxy).some((i) => i.id === `fleet:broken:${worn.id}`));
   const failure = rollEvent({ empire: e, galaxy: g.galaxy, now: g.clock.seconds, rng: e.eventRng }, "ship-failure");
   assert("a badly worn ship can break down", failure !== null && failure.decision);
   if (failure) {
-    const worn = e.ships.get(String(failure.params.ship))!;
-    const before = worn.condition;
+    const bad = e.ships.get(String(failure.params.ship))!;
+    const before = bad.clock;
     resolveEvent(e, g.galaxy, failure.id, "repair", g.clock.seconds);
-    assert("field repairs restore condition for a price", worn.condition >= before + 34 || worn.condition === 100);
+    assert("field repairs take four months off the clock", bad.clock <= before - 119 || bad.clock === 0);
   }
 
-  // --- a programme fleet goes for service rather than carrying on worn out
+  // --- a programme fleet at a base waits to be overhauled, then sets out
   const sg = new Game("worn");
   const se = sg.empire;
   se.research("nuclear-thermal");
+  se.research("military-specification");
   se.research("geo-survey-sensors");
   const sp = parts(se);
   const scout = se.addDesign("Scout", [
-    { componentId: sp.engine("nuclear-thermal").id, count: 2 }, { componentId: sp.tank().id, count: 6 },
+    { componentId: se.addComponentDesign("engine", { type: "nuclear-thermal", size: 5, modifier: 1, grade: "military" }, 0).id, count: 2 },
+    { componentId: sp.tank().id, count: 6 },
     { componentId: sp.sensor().id, count: 2 }, { componentId: sp.quarters().id, count: 1 },
+    { componentId: se.addComponentDesign("maintenance-bay", { size: 2 }, 0).id, count: 1 },
   ], 0);
   const sf = se.createFleet("Wing", sg.galaxy.byId.get("earth")!.world, "earth");
   const sship = se.commissionShip(scout.id, sf, "W1", 0);
   sship.fuel = se.statsOf(scout.id)!.fuelCapacity;
-  sship.condition = 55;
+  sship.clock = 300;
+  se.colony("earth")!.msp = 2000;
+  sg.step(CYCLE_DAYS * SECONDS_PER_DAY);
   sf.program = { kind: "survey", maxAu: 0, systemId: "sol" };
   sg.step(SECONDS_PER_DAY * 2);
-  assert("a survey fleet at a servicing colony waits to be serviced before setting out",
-    sf.orders.length === 0 && /serviced/i.test(sf.programStatus ?? ""));
+  assert("a survey fleet at a base waits to be overhauled before setting out",
+    sf.orders.length === 0 && /overhaul/i.test(sf.programStatus ?? ""));
   for (let i = 0; i < 30 && sf.orders.length === 0; i++) sg.step(CYCLE_DAYS * SECONDS_PER_DAY);
   assert("and sets out once it is nearly right", sship.condition >= 90 && sf.orders.length > 0);
 

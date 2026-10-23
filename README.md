@@ -346,7 +346,7 @@ stay red, lightness and transparency are kept), and writes
 `tools/terminal-extra.css`. After changing `style.css`, run it again so the two
 themes stay in step.
 
-## Commercial and military parts, and maintenance
+## Commercial and military parts
 
 **Specification.** Every powered component - engines, survey sensors, jump drives and
 gate modules - is designed as *commercial* or *military*. Commercial is the civilian
@@ -360,21 +360,36 @@ is hidden in the designer. Military parts are named as such, a class made of any
 is a military class, and a part designed before this existed counts as commercial, so
 nothing already built changes.
 
-**Condition.** Every ship has a condition, 100% when new. Ships wear with use - fully
-when under way or surveying, at 40% when parked away from a colony, at 15% when parked
-at one - at 28 points a year times the class's wear (tonnage-weighted: engines and
-sensors count, tanks and holds hardly do). A worn ship is slower, down to 60% speed at
-nothing, and below 30% it can break down: a decision asks whether to pay for field
-repairs or to limp on, losing condition and fuel. An overdue fleet is raised on the
-attention rail.
+## Maintenance
 
-**Servicing.** A colony services the ships parked at it: 1,500 t of ship per shipyard
-and 4,000 t per maintenance facility (8,000 with *Maintenance Bay Efficiency*). Ships
-beyond that share the capacity and are restored more slowly - up to 4 points a day at
-full capacity - and it costs 15% of the ship's build cost for a complete overhaul, so a
-military hull is dear to keep and a freighter is not. Colonies show their capacity and
-how much is in dock. Survey and exploration programmes go to a servicing colony when
-a fleet is worn out, and wait to be serviced before setting out again.
+Maintenance follows Aurora. **Military classes** (any military part, or a warship hull) need it;
+**commercial classes** do not, as in Aurora: a freighter or colony ship has no clock, no failures and
+needs no supplies.
+
+- **Maintenance supplies (MSP)** are spare parts. A **Maintenance Storage Bay** holds 20 MSP per hull
+  space; an **Engineering Section** holds 5 and also cuts the failure rate (a bigger share of the ship
+  cuts it more). New ships carry full stores.
+- **The maintenance clock** counts days since the ship was last looked after. Every five-day increment
+  a ship that is not covered may suffer a failure in one of its systems; the failure rate is
+  multiplied by 1 + 2 x the years on the clock, so a ship kept away from home falls apart.
+- **A failure** is prevented by spending MSP equal to the system's cost in build points; with too few
+  the system is **destroyed**: a lost engine is speed lost, a lost jump drive may strand the ship, lost
+  holds, sensors and modules cut cargo, survey and gate rates. A shipyard repairs a destroyed system
+  from the colony's supplies at its ordinary cost; the crew can repair one (the **Repair** button on
+  the ship) for double its cost from the ship's own supplies, if an engineering section still works.
+- **The class summary** carries Aurora's line - *Maint Life* (years the stores should last), *MSP*,
+  *AFR* (failures a year with a year on the clock), *IFR* (chance in one five-day increment), *1YR* and
+  *5YR* (MSP expected to be spent over the first one and five years) and *Max Repair*. Failures are
+  scaled by the cost of what a ship is made of: expensive, hard-worked systems fail most.
+- **Bases.** A colony covers the ships parked at it up to its maintenance capacity (1,500 t per
+  shipyard, 4,000 t per maintenance facility, more with *Maintenance Bay Efficiency*), if it has
+  supplies to draw on. Covered ships do not run their clock, use a quarter of their build cost in MSP a
+  year, refill their stores, and are **overhauled**: four days of clock unwound for each day, at the
+  rate of a whole build cost in MSP a year. A base with no supplies covers nothing.
+- **Maintenance facilities** make 40 MSP a year each from 2.5 tons of Duranium and Tritanium per MSP
+  (a store of 300 per facility). Survey and exploration programmes wait in overhaul at a supplied base
+  and go to one when worn out. Issues are raised for overdue fleets and for systems out of action.
+- Not modelled: supply ships (ships drawing on a flagged tender), hangars, abandoning an overhaul early.
 
 ## Hull types and class names
 

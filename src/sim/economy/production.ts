@@ -16,7 +16,7 @@ import type { Body } from "../system";
 import type { Galaxy } from "../galaxy";
 import { gatedConnected } from "../ships/routing";
 import { runEvents } from "../events/engine";
-import { maintainShips } from "../ships/maintenance";
+import { maintainShips, produceSupplies } from "../ships/maintenance";
 import type { EmpireStats } from "../research/techs";
 import { TECH_BY_ID } from "../research/techs";
 import { MINERALS, type MineralName } from "../minerals";
@@ -279,6 +279,9 @@ export function runCycle(empire: Empire, system: Galaxy, now: number, days: numb
       colony.fuel += sorium * FUEL_PER_SORIUM;
       fuelProduced += (sorium * FUEL_PER_SORIUM) / year;
     }
+
+    // --- maintenance supplies
+    produceSupplies(empire, colony, output.employment, year);
 
     // --- industry
     const spent = buildFromQueue(empire, system, colony, output.buildPoints * year, now, body.name);

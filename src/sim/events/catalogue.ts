@@ -13,7 +13,7 @@ import { installationCount } from "../../state/colony";
 import { MINERALS, type MineralName } from "../minerals";
 import { TECH_BY_ID } from "../research/techs";
 import { fullName } from "../people/officers";
-import { FAILING } from "../ships/maintenance";
+import { FAILING, shipCondition } from "../ships/maintenance";
 import type { EffectKind } from "../../state/empire";
 import type { EventContext, EventDef, EventOption, EventParams } from "./types";
 
@@ -696,7 +696,7 @@ export const EVENTS: EventDef[] = [
       const ship = ctx.empire.ships.get(String(p.ship));
       return {
         title: "Breakdown",
-        text: `${ship?.name ?? "A ship"} is badly overdue for servicing and has lost main drive power. The engineers say they can patch it here - or you can ask them to keep going.`,
+        text: `${ship?.name ?? "A ship"} is badly overdue for overhaul and has lost main drive power. The engineers say they can patch it here - or you can ask them to keep going.`,
         link: { view: "fleets", fleetId: ship?.fleetId },
       };
     },
@@ -705,12 +705,15 @@ export const EVENTS: EventDef[] = [
       {
         id: "repair",
         label: "Field repairs",
-        detail: `Costs ${fmt(Number(p.cost))}. Restores about a third of its condition on the spot.`,
+        detail: `Costs ${fmt(Number(p.cost))}. Takes four months off its maintenance clock on the spot.`,
         disabled: ctx.empire.treasury < Number(p.cost) ? "The treasury cannot cover it." : undefined,
         apply: () => {
           const ship = ctx.empire.ships.get(String(p.ship));
           ctx.empire.treasury -= Number(p.cost);
-          if (ship) ship.condition = Math.min(100, ship.condition + 35);
+          if (ship) {
+            ship.clock = Math.max(0, ship.clock - 120);
+            ship.condition = shipCondition(ctx.empire, ship);
+          }
           return `The crew patch the drive for ${fmt(Number(p.cost))}. Condition rises to ${Math.round(ship?.condition ?? 0)}%.`;
         },
       },
@@ -721,7 +724,8 @@ export const EVENTS: EventDef[] = [
         apply: () => {
           const ship = ctx.empire.ships.get(String(p.ship));
           if (ship) {
-            ship.condition = Math.max(0, ship.condition - 8);
+            ship.clock += 45;
+            ship.condition = shipCondition(ctx.empire, ship);
             ship.fuel *= 0.85;
           }
           return `The drive limps on. Condition falls to ${Math.round(ship?.condition ?? 0)}% and 15% of the fuel is lost.`;

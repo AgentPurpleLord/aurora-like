@@ -52,6 +52,8 @@ export interface Colony {
   stability: number;
   /** The groups of people who live here; see economy/goods.ts. */
   pops: PopGroup[];
+  /** Maintenance supplies in store, made by maintenance facilities. */
+  msp: number;
   /** Named shipyards; see economy/shipyards.ts. */
   yards: Shipyard[];
   /** Set while the colony is in famine, to log it once. */
@@ -79,6 +81,7 @@ export function createColony(bodyId: string, founded: number): Colony {
     founded,
     stability: 70,
     pops: defaultPops(),
+    msp: 0,
     yards: [],
   };
 }

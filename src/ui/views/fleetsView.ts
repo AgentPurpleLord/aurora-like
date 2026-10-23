@@ -26,7 +26,7 @@ import {
   type FleetOrder,
 } from "../../sim/ships/fleet";
 import { fullName } from "../../sim/people/officers";
-import { FAILING, OVERDUE, fleetCondition, wearPerYear } from "../../sim/ships/maintenance";
+import { FAILING, OVERDUE, brokenCount, fieldRepair, fleetCondition, requiresMaintenance } from "../../sim/ships/maintenance";
 import { compact, el, num, themed } from "../format";
 import { button, emptyNote, numberInput, progressBar, section, select, stat } from "../widgets";
 import { formatYears } from "./economyView";
@@ -62,6 +62,8 @@ export class FleetsView {
   private orderAmount = 1;
   private buildColony = "";
   private buildQuantity = 1;
+  /** Why the last damage-control repair was refused. */
+  private repairMessage: string | null = null;
   /** What the last press of Build did, shown on that class's card until the next. */
   private buildNotice: { designId: string; text: string; ok: boolean } | null = null;
   private automation: FleetAutomation;
@@ -443,6 +445,7 @@ export class FleetsView {
   private renderShips(parent: HTMLElement, fleet: Fleet): void {
     const { empire } = this.game;
     const sec = section(parent, "Ships");
+    if (this.repairMessage) sec.append(el("p", "project-warning", this.repairMessage));
     const others = [...empire.fleets.values()].filter(
       (f) => f.id !== fleet.id && f.anchorId && f.anchorId === fleet.anchorId,
     );
@@ -460,7 +463,27 @@ export class FleetsView {
       row.append(
         el("span", `install-count${ship.condition < OVERDUE ? " bad" : ""}`, `${compact(ship.fuel)} l  ${Math.round(ship.condition)}%`),
       );
-      row.title = `Condition ${Math.round(ship.condition)}%. Wears ${(wearPerYear(empire, ship)).toFixed(0)} points a year under way.`;
+      const kept = requiresMaintenance(empire, ship);
+      row.title = kept
+        ? `Readiness ${Math.round(ship.condition)}%. Maintenance clock ${(ship.clock / 30.44).toFixed(1)} months; ${Math.round(ship.msp)} of ${Math.round(stats?.maintenance.mspCapacity ?? 0)} supplies aboard.`
+        : "A commercial class: no maintenance clock or failures.";
+      if (kept) {
+        const meta = el("div", "muted small ship-maint");
+        meta.textContent = `Clock ${(ship.clock / 30.44).toFixed(1)} mo - MSP ${Math.round(ship.msp)}/${Math.round(stats?.maintenance.mspCapacity ?? 0)} - ${ship.covered ? "in overhaul/cover" : "on its own"}`;
+        row.append(meta);
+        const lost = brokenCount(ship);
+        if (lost > 0) {
+          row.append(el("span", "chip bad", `${lost} system${lost === 1 ? "" : "s"} out`));
+          const fix = button("Repair", () => {
+            this.repairMessage = fieldRepair(empire, ship);
+            this.game.emit();
+            this.render();
+          }, "ghost-btn");
+          fix.title = "Damage control: the crew repair one system for double its cost in the ship's own supplies. Needs an engineering section.";
+          fix.setAttribute("aria-label", `Repair ${ship.name}`);
+          row.append(fix);
+        }
+      }
       row.append(
         button("Detach", () => {
           const split = empire.createFleet(`${ship.name} Group`, fleet.position, fleet.anchorId, fleet.systemId);

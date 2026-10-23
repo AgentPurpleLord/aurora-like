@@ -79,7 +79,7 @@ export const INSTALLATIONS: InstallationType[] = [
   },
   {
     id: "maintenance", name: "Maintenance Facility", category: "military",
-    blurb: "Services ships in orbit, holding off maintenance failures.",
+    blurb: "Looks after military ships in orbit - their clocks stop and they are overhauled - and makes 40 maintenance supplies a year from 2.5 tons of Duranium and Tritanium each. Without supplies it can do nothing.",
     cost: 150, minerals: { Duranium: 75, Neutronium: 75 }, workers: 0.05, tons: 25_000,
   },
   {

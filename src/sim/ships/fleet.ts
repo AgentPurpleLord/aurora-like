@@ -18,7 +18,7 @@ import { bonus } from "../people/officers";
 import { SURVEY_POINTS_NEEDED } from "./components";
 import { planProgram } from "./programs";
 import { routeFor } from "./routing";
-import { conditionSpeed } from "./maintenance";
+import { workingShare } from "./maintenance";
 import { GATE_POINTS_NEEDED, JUMP_SURVEY_POINTS } from "./components";
 
 export interface Ship {
@@ -29,8 +29,16 @@ export interface Ship {
   /** Litres aboard. */
   fuel: number;
   built: number;
-  /** Mechanical condition, 100 as new down to 0. Wears with use; services restore it. */
+  /** Readiness, 100 to 0, worked out from the maintenance clock and lost systems. */
   condition: number;
+  /** Days on the maintenance clock since the last overhaul. Commercial ships keep it at zero. */
+  clock: number;
+  /** Maintenance supplies aboard. */
+  msp: number;
+  /** Systems destroyed by failures, by component, in units. */
+  broken: Record<string, number>;
+  /** Set each cycle: parked at a base that is looking after it. */
+  covered?: boolean;
 }
 
 export type FleetOrder =
@@ -186,16 +194,17 @@ export function fleetStats(empire: Empire, fleet: Fleet): FleetStats {
     const stats = ship && empire.statsOf(ship.designId);
     if (!ship || !stats) continue;
     tons += stats.tons;
-    speed = Math.min(speed, stats.speed * conditionSpeed(ship.condition));
+    // Destroyed engines are speed lost, and so on for the other systems.
+    speed = Math.min(speed, stats.speed * workingShare(empire, ship, "engine"));
     fuel += ship.fuel;
     fuelCapacity += stats.fuelCapacity;
     fuelPerHour += stats.fuelPerHour;
-    cargoCapacity += stats.cargoCapacity;
-    colonistCapacity += stats.colonistCapacity;
-    surveyRate += stats.survey.geological;
-    gravRate += stats.survey.gravitational;
-    jumpCapacity += stats.jumpCapacity;
-    gateRate += stats.gateRate;
+    cargoCapacity += stats.cargoCapacity * workingShare(empire, ship, "cargo-hold");
+    colonistCapacity += stats.colonistCapacity * workingShare(empire, ship, "colony-module");
+    surveyRate += stats.survey.geological * workingShare(empire, ship, "survey-sensor");
+    gravRate += stats.survey.gravitational * workingShare(empire, ship, "survey-sensor");
+    jumpCapacity += stats.jumpCapacity * workingShare(empire, ship, "jump-drive");
+    gateRate += stats.gateRate * workingShare(empire, ship, "gate-module");
     if (ship.fuel <= 0) dry = true;
   }
 
