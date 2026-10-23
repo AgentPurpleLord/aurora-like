@@ -10,8 +10,8 @@
 // [fusion-magnetic] Magnetic Confinement Fusion Drive
 //   field: power
 //   cost: 20000
-//   requires: magneto-plasma
-//   effect: engine { power/HS 85, fuel/power 2.7, cost/HS 20, crew/HS 1.0 }
+//   requires: ne-adv-electric
+//   effect: engine-family (see propusion-power-techs.ts)
 //   text: Fusion thrust contained in magnetic bottles.
 
 // [engine-power-150] Engine Power Modifier x1.5
@@ -25,17 +25,17 @@
 // SECTION: Fuel and tankage
 // =====================================================================
 
-// [fuel-consumption-07] Fuel Consumption 0.7
+// [fuel-efficiency-2] Fuel Efficiency 0.8x
 //   field: power
-//   cost: 4000
-//   requires: fuel-consumption-08
-//   effect: ladder fuelUse 0.7
+//   cost: 2000
+//   requires: fuel-efficiency-1
+//   effect: ladder fuelUse 0.8
 //   text: Every engine burns 30% less fuel than the standard.
 
 // [tank-efficiency-1] Fuel Tank Linings I
 //   field: power
 //   cost: 3500
-//   requires: nuclear-thermal
+//   requires: solid-motor
 //   effect: ladder tankCapacity 1.25
 //   text: Every fuel tank holds 25% more, on ships already built too.
 
@@ -46,6 +46,6 @@
 // [fusion-reactor-plant] Fusion Reactor Technology
 //   field: power
 //   cost: 15000
-//   requires: nuclear-pulse
+//   requires: pump-fed
 //   effect: unlock installation fusion-reactor-plant ; note: each plant should raise colony industrial output by 10%
 //   text: Compact fusion plant for colonies.

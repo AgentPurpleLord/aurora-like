@@ -284,21 +284,21 @@ async function shipSuite(browser) {
 
   await page.getByRole("button", { name: /^Propulsion/ }).click();
   await check("technology that is not available yet is hidden by default", async () =>
-    (await page.locator(".tech-node", { hasText: "Ion Drive Technology" }).count()) === 0 &&
-    (await page.locator(".tech-node", { hasText: "Nuclear Thermal Engine Technology" }).count()) === 1);
+    (await page.locator(".tech-node", { hasText: "Chemical Rockets: Pressure-fed Liquid" }).count()) === 0 &&
+    (await page.locator(".tech-node", { hasText: "Chemical Rockets: Solid Motor" }).count()) === 1);
   await check("and the field tab only counts what is shown", async () =>
     /\d+\/\d+/.test(await page.locator(".research-tab", { hasText: "Propulsion" }).innerText()));
   await page.getByLabel("Show locked technologies").check();
   await check("ticking the box reveals the whole tree", async () =>
-    (await page.locator(".tech-node", { hasText: "Ion Drive Technology" }).count()) === 1);
-  await page.locator(".tech-node", { hasText: "Ion Drive Technology" }).first().click();
+    (await page.locator(".tech-node", { hasText: "Chemical Rockets: Pressure-fed Liquid" }).count()) === 1);
+  await page.locator(".tech-node", { hasText: "Chemical Rockets: Pressure-fed Liquid" }).first().click();
   await check("a locked technology says what to research first", async () =>
-    /Research Nuclear Pulse Engine Technology first/.test(await page.locator(".research-side").innerText()));
+    /Research Chemical Rockets: Solid Motor first/.test(await page.locator(".research-side").innerText()));
   await check("selecting a technology highlights what it needs", async () =>
     (await page.locator(".tech-node.is-prereq").count()) === 1);
   await check("and what it opens", async () =>
     (await page.locator(".tech-node.is-dependent").count()) >= 1);
-  await page.locator(".tech-node", { hasText: "Nuclear Thermal Engine Technology" }).first().click();
+  await page.locator(".tech-node", { hasText: "Chemical Rockets: Solid Motor" }).first().click();
   await check("a technology says what it unlocks", async () =>
     /engines in the component designer/.test(await page.locator(".research-side").innerText()));
   await check("a ready technology offers a recommended start", async () =>
@@ -313,14 +313,14 @@ async function shipSuite(browser) {
     (await page.locator("#view-design select").first().locator("option", { hasText: "Engine (locked)" }).count()) === 1);
   await page.locator("#view-design select").first().selectOption("engine");
   await check("choosing a locked kind says what to research", async () =>
-    /Research Nuclear Thermal/.test(await page.locator("#view-design .fleet-detail").innerText()));
+    /Research Chemical Rockets/.test(await page.locator("#view-design .fleet-detail").innerText()));
 
   // --- research the drive in one click
-  await startResearch(page, "Nuclear Thermal Engine Technology", { freeUp: true });
+  await startResearch(page, "Chemical Rockets: Solid Motor", { freeUp: true });
   await skip(14);
   await check("the engine is researched", async () => {
-    await page.locator(".research-search").fill("Nuclear Thermal Engine Technology");
-    return /Researched/.test(await page.locator(".tech-node", { hasText: "Nuclear Thermal Engine Technology" }).first().innerText());
+    await page.locator(".research-search").fill("Chemical Rockets: Solid Motor");
+    return /Researched/.test(await page.locator(".tech-node", { hasText: "Chemical Rockets: Solid Motor" }).first().innerText());
   });
 
   // --- the component designer
@@ -380,7 +380,7 @@ async function shipSuite(browser) {
     const row = page.locator("#view-design .component-row", { hasText: name }).first();
     for (let i = 0; i < times; i++) await row.getByRole("button", { name: "+", exact: true }).click();
   };
-  await addPart("Nuclear Thermal 5HS", 2);
+  await addPart("Chemical Rockets: Solid Motor 5HS", 2);
   await addPart("Fuel Tank 5HS", 4);
   await addPart("Cargo Hold 20HS", 4);
   const classDerived = () => page.locator("#view-design .derived-host").innerText();
@@ -401,7 +401,7 @@ async function shipSuite(browser) {
 
   // A component already built into a class cannot be rewritten.
   await page.getByRole("button", { name: /Components/ }).click();
-  await page.locator("#view-design .design-row", { hasText: "Nuclear Thermal 5HS" }).first().click();
+  await page.locator("#view-design .design-row", { hasText: "Chemical Rockets: Solid Motor 5HS" }).first().click();
   await check("a component in use is superseded, not edited", async () =>
     /superseded rather than rewritten/.test(await page.locator("#view-design .fleet-detail").innerText()));
 
@@ -657,10 +657,10 @@ async function programSuite(browser) {
   await page.evaluate(() => {
     const g = window.__game;
     const e = g.empire;
-    e.research("nuclear-thermal");
+    e.research("solid-motor");
     e.research("geo-survey-sensors");
     const part = (kind, params) => e.addComponentDesign(kind, params, 0);
-    const engine = part("engine", { type: "nuclear-thermal", size: 5, modifier: 1 });
+    const engine = part("engine", { type: "solid-motor", size: 5, modifier: 1 });
     const tank = part("fuel-tank", { size: 5 });
     const quarters = part("crew-quarters", { size: 2 });
     const cargo = part("cargo-hold", { size: 20 });
@@ -819,9 +819,9 @@ async function explorationSuite(browser) {
   await page.evaluate(() => {
     const g = window.__game;
     const e = g.empire;
-    for (const t of ["nuclear-thermal", "geo-survey-sensors", "grav-survey-sensors", "nuclear-pulse", "jump-point-theory", "jump-gate-construction"]) e.research(t);
+    for (const t of ["solid-motor", "geo-survey-sensors", "grav-survey-sensors", "nuclear-pulse", "jump-point-theory", "jump-gate-construction"]) e.research(t);
     const mk = (kind, params) => e.addComponentDesign(kind, params, 0);
-    const engine = mk("engine", { type: "nuclear-thermal", size: 5, modifier: 1 });
+    const engine = mk("engine", { type: "solid-motor", size: 5, modifier: 1 });
     const tank = mk("fuel-tank", { size: 5 });
     const quarters = mk("crew-quarters", { size: 2 });
     const drive = mk("jump-drive", { size: 30 });
@@ -1063,7 +1063,7 @@ async function maintenanceSuite(browser) {
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.goto(`${BASE}?debug&new&seed=sol-1&events=off`);
   await page.waitForSelector("#view-tabs");
-  await page.evaluate(() => { window.__game.empire.research("nuclear-thermal"); window.__game.emit(); });
+  await page.evaluate(() => { window.__game.empire.research("solid-motor"); window.__game.emit(); });
 
   await nav(page, "Design").click();
   await page.getByRole("button", { name: "New component", exact: true }).click();
@@ -1225,7 +1225,7 @@ async function mobileSuite(browser) {
   await mobileGo(page, "Design");
   await page.waitForTimeout(400);
   await check("the designer does not scroll sideways", async () => (await overflow()) <= 1);
-  await page.evaluate(() => { window.__game.empire.research("nuclear-thermal"); window.__game.empire.addStandardComponents(0); window.__game.empire.addStandardClasses(0); window.__game.emit(); });
+  await page.evaluate(() => { window.__game.empire.research("solid-motor"); window.__game.empire.addStandardComponents(0); window.__game.empire.addStandardClasses(0); window.__game.emit(); });
   await page.waitForTimeout(300);
   const visibleRow = async (sel) => page.evaluate((s) => {
     const row = document.querySelector(s);
@@ -1452,7 +1452,7 @@ async function buildSuite(browser) {
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.goto(`${BASE}?debug&new&seed=sol-1&events=off`);
   await page.waitForSelector("#view-tabs");
-  await page.evaluate(() => { const e = window.__game.empire; e.research("nuclear-thermal"); e.addStandardComponents(0); e.addStandardClasses(0); window.__game.emit(); });
+  await page.evaluate(() => { const e = window.__game.empire; e.research("solid-motor"); e.addStandardComponents(0); e.addStandardClasses(0); window.__game.emit(); });
 
   // --- the designer draws the hull filling up
   await nav(page, "Design").click();

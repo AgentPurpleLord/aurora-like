@@ -10,6 +10,7 @@
  * derived from those, and from current research, so nothing is stored twice.
  */
 
+import { ENGINE_TYPES, REACTOR_TYPES, type EngineType, type ReactorType } from "./engines";
 import type { MineralName } from "../minerals";
 
 /** Tons in one hull space. Speed is quoted per hull space, as in Aurora. */
@@ -17,6 +18,7 @@ export const TONS_PER_HS = 50;
 
 export type ComponentKind =
   | "engine"
+  | "reactor"
   | "fuel-tank"
   | "crew-quarters"
   | "cargo-hold"
@@ -90,6 +92,9 @@ export interface ComponentStats {
   cargo?: number;
   colonists?: number;
   survey?: { type: "geological" | "gravitational"; rate: number };
+  /** Reactor power a part makes (reactors) or draws (electric engines). */
+  output?: number;
+  powerDraw?: number;
   /** Tons of ship a jump drive can carry through a jump point, itself included. */
   jump?: number;
   /** Gate construction points per day. */
@@ -107,31 +112,10 @@ export interface ComponentStats {
 
 // ----------------------------------------------------------------- engines
 
-export interface EngineType {
-  id: string;
-  name: string;
-  tech: string;
-  /** Engine power per hull space at modifier 1.0. */
-  powerPerHS: number;
-  /** Litres per power-hour at modifier 1.0. */
-  fuelPerPower: number;
-  costPerHS: number;
-  crewPerHS: number;
-}
-
-export const ENGINE_TYPES: EngineType[] = [
-  { id: "nuclear-thermal", name: "Nuclear Thermal", tech: "nuclear-thermal", powerPerHS: 12, fuelPerPower: 5, costPerHS: 4, crewPerHS: 0.6 },
-  { id: "nuclear-pulse", name: "Nuclear Pulse", tech: "nuclear-pulse", powerPerHS: 24, fuelPerPower: 4, costPerHS: 6.4, crewPerHS: 0.6 },
-  { id: "ion", name: "Ion Drive", tech: "ion-drive", powerPerHS: 40, fuelPerPower: 3.5, costPerHS: 9.6, crewPerHS: 0.8 },
-  { id: "magneto-plasma", name: "Magneto-Plasma", tech: "magneto-plasma", powerPerHS: 64, fuelPerPower: 3, costPerHS: 14, crewPerHS: 1 },
-  { id: "fusion-magnetic", name: "Magnetic Confinement Fusion", tech: "fusion-magnetic", powerPerHS: 85, fuelPerPower: 2.7, costPerHS: 20, crewPerHS: 1 },
-  { id: "fusion-inertial", name: "Inertial Confinement Fusion", tech: "fusion-inertial", powerPerHS: 110, fuelPerPower: 2.3, costPerHS: 28, crewPerHS: 1.1 },
-  { id: "antimatter-solid", name: "Solid-Core Anti-Matter", tech: "antimatter-solid", powerPerHS: 140, fuelPerPower: 2, costPerHS: 38, crewPerHS: 1.2 },
-  { id: "antimatter-gas", name: "Gas-Core Anti-Matter", tech: "antimatter-gas", powerPerHS: 180, fuelPerPower: 1.7, costPerHS: 52, crewPerHS: 1.3 },
-  { id: "photonic", name: "Photonic Drive", tech: "photonic-drive", powerPerHS: 240, fuelPerPower: 1.2, costPerHS: 80, crewPerHS: 1.5 },
-];
+export { ENGINE_TYPES, REACTOR_TYPES, type EngineType, type ReactorType };
 
 export const ENGINE_BY_ID = new Map(ENGINE_TYPES.map((e) => [e.id, e]));
+export const REACTOR_BY_ID = new Map(REACTOR_TYPES.map((r) => [r.id, r]));
 
 /**
  * Fuel burned per power-hour, relative to the raw engine figure. With ships
@@ -158,9 +142,24 @@ export function ladderValue(researched: ReadonlySet<string>, ladder: Ladder, bas
   return value;
 }
 
-export const POWER_MODIFIER_LADDER: Ladder = [["engine-power-125", 1.25], ["engine-power-150", 1.5], ["engine-power-175", 1.75], ["engine-power-200", 2]];
+export const POWER_MODIFIER_LADDER: Ladder = [
+  ["engine-power-125", 1.25], ["engine-power-150", 1.5], ["engine-power-175", 1.75], ["engine-power-200", 2],
+  ["engine-power-250", 2.5], ["engine-power-300", 3],
+];
 export const FUEL_USE_LADDER: Ladder = [
-  ["fuel-consumption-08", 0.8], ["fuel-consumption-07", 0.7], ["fuel-consumption-06", 0.6], ["fuel-consumption-05", 0.5], ["fuel-consumption-04", 0.4],
+  ["fuel-efficiency-1", 0.9], ["fuel-efficiency-2", 0.8], ["fuel-efficiency-3", 0.7], ["fuel-efficiency-4", 0.6],
+  ["fuel-efficiency-5", 0.5], ["fuel-efficiency-6", 0.4], ["fuel-efficiency-7", 0.3], ["fuel-efficiency-8", 0.25],
+  ["fuel-efficiency-9", 0.2], ["fuel-efficiency-10", 0.15], ["fuel-efficiency-11", 0.125], ["fuel-efficiency-12", 0.1],
+];
+/** The largest single engine, in hull spaces; 20 until engine size research. */
+export const ENGINE_SIZE_LADDER: Ladder = [
+  ["engine-size-1", 40], ["engine-size-2", 60], ["engine-size-3", 100], ["engine-size-4", 160], ["engine-size-5", 250], ["engine-size-6", 400],
+];
+export const BASE_ENGINE_SIZE = 20;
+/** What fraction of its hull space an engine takes for the same thrust. */
+export const MINIATURE_LADDER: Ladder = [
+  ["miniaturization-1", 0.4], ["miniaturization-2", 0.3], ["miniaturization-3", 0.25],
+  ["miniaturization-4", 0.2], ["miniaturization-5", 0.15], ["miniaturization-6", 0.1],
 ];
 export const TANK_LADDER: Ladder = [["tank-efficiency-1", 1.25], ["tank-efficiency-2", 1.5], ["tank-efficiency-3", 2]];
 export const QUARTERS_LADDER: Ladder = [["compact-quarters-1", 1.25], ["compact-quarters-2", 1.5], ["compact-quarters-3", 2]];
@@ -175,7 +174,9 @@ export const GATE_LADDER: Ladder = [["gate-construction-2", 1.5], ["gate-constru
 export function partTechNote(techId: string): string | null {
   const notes: [Ladder, (v: number) => string][] = [
     [POWER_MODIFIER_LADDER, (v) => `Engine power modifier ceiling ${v}`],
-    [FUEL_USE_LADDER, (v) => `Every engine burns ${Math.round((1 - v) * 100)}% less fuel, existing ships included`],
+    [FUEL_USE_LADDER, (v) => `Every engine burns fuel at ${v}x the rate, existing ships included`],
+    [ENGINE_SIZE_LADDER, (v) => `A single engine may be up to ${v} hull spaces`],
+    [MINIATURE_LADDER, (v) => `Engines take ${v}x the hull space for the same thrust, existing ships included`],
     [TANK_LADDER, (v) => `Fuel tanks hold ${v}x as much`],
     [QUARTERS_LADDER, (v) => `Crew quarters berth ${v}x as many`],
     [CARGO_LADDER, (v) => `Cargo holds carry ${v}x as much`],
@@ -194,6 +195,14 @@ export function partTechNote(techId: string): string | null {
 
 export function maxPowerModifier(researched: ReadonlySet<string>): number {
   return ladderValue(researched, POWER_MODIFIER_LADDER, 1.0);
+}
+
+export function maxEngineSize(researched: ReadonlySet<string>): number {
+  return ladderValue(researched, ENGINE_SIZE_LADDER, BASE_ENGINE_SIZE);
+}
+
+export function engineMiniaturisation(researched: ReadonlySet<string>): number {
+  return ladderValue(researched, MINIATURE_LADDER, 1, "min");
 }
 
 export const MIN_POWER_MODIFIER = 0.25;
@@ -264,16 +273,27 @@ export const KINDS: KindDef[] = [
     name: "Engine",
     blurb: "Thrust. Speed is total engine power per hull space of the whole ship.",
     available: (r) => ENGINE_TYPES.some((e) => r.has(e.tech)),
-    lockedReason: "Research Nuclear Thermal Engine Technology.",
+    lockedReason: "Research Chemical Rockets: Solid Motor.",
     params: [
       { id: "type", label: "Engine type", type: "choice" },
       { id: "grade", label: "Specification", type: "choice", help: "Military engines push 30% harder and cost 70% more; they need more crew and wear faster." },
-      sizeParam(50, "Bigger engines push harder but weigh more."),
+      sizeParam(400, "Bigger engines push harder but weigh more. The ceiling rises with engine size research."),
       {
         id: "modifier", label: "Power modifier", type: "number",
         min: MIN_POWER_MODIFIER, max: 1.25, step: 0.05, unit: "x",
         help: "Above 1.0 buys thrust at a steep fuel premium; below 1.0 saves fuel for range.",
       },
+    ],
+  },
+  {
+    kind: "reactor",
+    name: "Reactor",
+    blurb: "Power for electric drives. A ship whose engines draw more than its reactors make cannot fly.",
+    available: (r) => REACTOR_TYPES.some((t) => r.has(t.tech)),
+    lockedReason: "Research a power system, starting with Chemical Power: Solid Fuel Cell.",
+    params: [
+      { id: "type", label: "Power system", type: "choice" },
+      sizeParam(40, "Output is per hull space and rises with the power system's tier."),
     ],
   },
   {
@@ -362,18 +382,34 @@ export function choiceOptions(
   if (kind === "engine") {
     return ENGINE_TYPES.map((e) => ({ value: e.id, label: e.name, locked: !researched.has(e.tech) }));
   }
+  if (kind === "reactor") {
+    return REACTOR_TYPES.map((t) => ({ value: t.id, label: t.name, locked: !researched.has(t.tech) }));
+  }
   if (kind === "survey-sensor") {
     return SENSOR_TYPES.map((s) => ({ value: s.id, label: s.name, locked: !researched.has(s.tech) }));
   }
   return [];
 }
 
+/**
+ * The strongest researched engine that needs no reactor, for standard
+ * designs; ships built from the standard parts have no power system.
+ */
+export function bestSelfPoweredEngine(researched: ReadonlySet<string>): EngineType | undefined {
+  return ENGINE_TYPES.filter((e) => e.powerDraw === 0 && researched.has(e.tech))
+    .sort((a, b) => b.powerPerHS - a.powerPerHS || b.tier - a.tier)[0];
+}
+
 /** A sensible starting design for a kind, using the best thing researched. */
 export function defaultParams(kind: ComponentKind, researched: ReadonlySet<string>): ParamSet {
   switch (kind) {
     case "engine": {
-      const best = [...ENGINE_TYPES].reverse().find((e) => researched.has(e.tech)) ?? ENGINE_TYPES[0];
+      const best = bestSelfPoweredEngine(researched) ?? ENGINE_TYPES[0];
       return { type: best.id, grade: "commercial", size: 5, modifier: 1 };
+    }
+    case "reactor": {
+      const best = [...REACTOR_TYPES].reverse().find((t) => researched.has(t.tech)) ?? REACTOR_TYPES[0];
+      return { type: best.id, size: 5 };
     }
     case "fuel-tank": return { size: 5 };
     case "crew-quarters": return { size: 2 };
@@ -409,6 +445,7 @@ export function normaliseParams(
     const raw = Number(out[p.id]);
     let max = p.max ?? Infinity;
     if (kind === "engine" && p.id === "modifier") max = maxPowerModifier(researched);
+    if (kind === "engine" && p.id === "size") max = maxEngineSize(researched);
     const clamped = Math.min(max, Math.max(p.min ?? 0, Number.isFinite(raw) ? raw : Number(base[p.id])));
     out[p.id] = roundTo(clamped, p.step ?? 1);
   }
@@ -458,18 +495,40 @@ export function componentStats(
       }
       if (!researched.has(type.tech)) problems.push(`${type.name} has not been researched.`);
       const modifier = Number(params.modifier);
+      const mini = engineMiniaturisation(researched);
       result.power = size * type.powerPerHS * modifier * g.power;
       result.fuelPerHour =
         result.power * type.fuelPerPower * g.fuel * Math.pow(modifier, MODIFIER_FUEL_EXPONENT) * fuelEfficiency(researched) * FUEL_BURN_SCALE;
       result.cost = Math.round(size * type.costPerHS * modifier * g.cost * 10) / 10;
       result.crew = Math.ceil(size * type.crewPerHS * g.crew);
+      // Miniaturisation shrinks the engine, not its thrust.
+      result.tons = tons * mini;
+      result.hullSpaces = size * mini;
+      if (type.powerDraw > 0) result.powerDraw = size * type.powerDraw * modifier;
       mineral("Gallicite", 0.5);
       result.lines.push(
         ["Power", fmt(result.power, 1)],
         ["Fuel burn", `${fmt(result.fuelPerHour)} l/hour`],
         ["Fuel per power-hour", fmt(result.fuelPerHour / result.power, 2)],
-        ["Power per ton", fmt(result.power / tons, 2)],
+        ["Power per ton", fmt(result.power / result.tons, 2)],
       );
+      if (mini < 1) result.lines.push(["Miniaturisation", `${mini}x the hull space`]);
+      if (result.powerDraw) result.lines.push(["Reactor power drawn", fmt(result.powerDraw, 1)]);
+      break;
+    }
+    case "reactor": {
+      const type = REACTOR_BY_ID.get(String(params.type));
+      if (!type) {
+        problems.push("Choose a power system.");
+        break;
+      }
+      if (!researched.has(type.tech)) problems.push(`${type.name} has not been researched.`);
+      result.output = size * type.output;
+      result.cost = Math.round(size * type.costPerHS * 10) / 10;
+      result.crew = Math.ceil(size * type.crewPerHS);
+      mineral("Corbomite", 0.5);
+      mineral("Duranium", 0.3);
+      result.lines.push(["Power output", fmt(result.output, 1)], ["Output per hull space", fmt(type.output, 1)]);
       break;
     }
     case "fuel-tank": {
@@ -570,6 +629,10 @@ export function suggestName(kind: ComponentKind, rawParams: ParamSet, researched
       const modifier = Number(params.modifier);
       const tuned = Math.abs(modifier - 1) > 0.001 ? ` x${modifier.toFixed(2)}` : "";
       return `${military}${type?.name ?? "Engine"} ${size}${tuned}`;
+    }
+    case "reactor": {
+      const type = REACTOR_BY_ID.get(String(params.type));
+      return `${type?.name ?? "Reactor"} Reactor ${size}`;
     }
     case "fuel-tank": return `Fuel Tank ${size}`;
     case "crew-quarters": return `Crew Quarters ${size}`;

@@ -10,7 +10,7 @@ import type { Empire } from "../../state/empire";
 import { installationCount } from "../../state/colony";
 import { INSTALLATION_BY_ID } from "../economy/installations";
 import { employmentRatio } from "../economy/production";
-import { ENGINE_TYPES, KINDS, SENSOR_TYPES, partTechNote } from "../ships/components";
+import { ENGINE_TYPES, KINDS, REACTOR_TYPES, SENSOR_TYPES, partTechNote } from "../ships/components";
 import { bonus, labCapacity, type Officer } from "../people/officers";
 import { RESEARCH_FIELDS, type ResearchField } from "./fields";
 import { TECHS, TECH_BY_ID, type Tech } from "./techs";
@@ -150,6 +150,9 @@ export function unlocksOf(tech: Tech): Unlocks {
   for (const engine of ENGINE_TYPES) {
     if (engine.tech === tech.id) gains.push(`${engine.name} engines in the component designer`);
   }
+  for (const reactor of REACTOR_TYPES) {
+    if (reactor.tech === tech.id) gains.push(`${reactor.name} reactors in the component designer`);
+  }
   for (const sensor of SENSOR_TYPES) {
     if (sensor.tech === tech.id) gains.push(`${sensor.name} sensors in the component designer`);
   }
@@ -157,7 +160,7 @@ export function unlocksOf(tech: Tech): Unlocks {
   const partNote = partTechNote(tech.id);
   if (partNote) improves.push(partNote);
   if (tech.id === "trans-newtonian") {
-    const kinds = KINDS.filter((k) => !["engine", "survey-sensor", "jump-drive", "gate-module"].includes(k.kind)).map((k) => k.name);
+    const kinds = KINDS.filter((k) => !["engine", "reactor", "survey-sensor", "jump-drive", "gate-module"].includes(k.kind)).map((k) => k.name);
     gains.push(`${kinds.join(", ")} in the component designer`);
   }
   if (tech.id === "grav-survey-sensors") gains.push("Finds the jump points in a system when a ship carrying one surveys it");

@@ -87,22 +87,21 @@ installation needs a name, cost, minerals and what it does - give me a block lik
 //   does: ...
 ```
 
-### Engines
+### Engines and reactors
 
-```
-//   effect: engine { power/HS 85, fuel/power 2.7, cost/HS 20, crew/HS 1.0 }
-```
-
-`power/HS` is thrust per hull space at modifier 1.0 (nuclear thermal 12, magneto-plasma 64);
-`fuel/power` is litres per power-hour (thermal 5, magneto-plasma 3; lower is better). Range depends
-only on `fuel/power`; speed on `power/HS`.
+Engines are defined by *family* (see `src/sim/ships/engines.ts` and the propulsion spec): a baseline
+density (thrust relative to a chemical rocket's 12 per hull space), a fuel-efficiency range across the
+tiers, a reactor power draw, and the tiers themselves with their research cost. To add or change an
+engine family or power system, give me the family and its tiers in the same shape as
+`propusion-power-techs.ts`. Range depends only on fuel efficiency, speed on density.
 
 ### Part ladders (`ladder`)
 
 Each takes a multiplier (or a value) and applies from the moment the tech is researched:
 
 `powerModifierCeiling` (engine overdrive limit), `fuelUse` (multiplier on fuel burned, below 1 is
-better), `tankCapacity`, `quartersBerths`, `cargoCapacity`, `colonistCapacity`,
+better), `engineSize` (largest single engine in hull spaces), `miniaturisation` (fraction of its
+hull space an engine takes), `tankCapacity`, `quartersBerths`, `cargoCapacity`, `colonistCapacity`,
 `geoSurveyRate`, `gravSurveyRate`, `jumpCapacity`, `gateRate`.
 
 Example: `effect: ladder tankCapacity 1.25`.

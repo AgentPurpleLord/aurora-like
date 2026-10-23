@@ -21,11 +21,12 @@ function svg<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string,
 
 /** Rear to front: where each kind of part sits in the hull. */
 const ORDER: ComponentKind[] = [
-  "engine", "fuel-tank", "crew-quarters", "cargo-hold", "colony-module", "survey-sensor", "gate-module", "jump-drive",
+  "engine", "reactor", "fuel-tank", "crew-quarters", "cargo-hold", "colony-module", "survey-sensor", "gate-module", "jump-drive",
 ];
 
 export const KIND_COLOURS: Record<ComponentKind, string> = {
   "engine": "#ff9a4d",
+  "reactor": "#ffe14d",
   "fuel-tank": "#4da6ff",
   "crew-quarters": "#9aa8b8",
   "cargo-hold": "#d6b36a",

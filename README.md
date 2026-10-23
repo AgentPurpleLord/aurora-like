@@ -547,10 +547,38 @@ stat, add an engine, or improve a part on every ship already built.
 Part-improving techs apply to ships already built, because a class's figures are always derived
 from what is researched.
 
+## Engines and power systems
+
+The propulsion tree follows `src/sim/research/propusion-power-techs.ts`, which is the specification;
+`ships/engines.ts` turns it into numbers and `research/propulsion.ts` into technologies.
+
+- **Six engine families**, researched in tiers: Chemical Rockets (5), Electric Drives (5), Nuclear
+  Thermal (4), Nuclear Electric (4), Fusion (5), Antimatter (4). Each tier is its own engine type in
+  the component designer. Costs are the ones in the specification.
+- **Baseline density** is thrust per hull space against a chemical rocket's 12 (electric 0.5x, nuclear
+  thermal 2x, nuclear electric 1.5x, fusion 4x, antimatter 8x). **Fuel efficiency** is how many times
+  further a litre goes than a chemical rocket's, rising across a family's tiers (electric 3-10x,
+  nuclear thermal 1.8-3x, nuclear electric 5-15x, fusion 10-30x, antimatter 20-50x).
+- **Order of unlocking:** electric drives need a chemical fuel cell; nuclear thermal follows
+  Pressure-fed Liquid; nuclear electric needs Resistojet and the first nuclear reactor; fusion needs all
+  of nuclear electric; antimatter needs all of fusion. Where the specification was silent, that is my reading.
+- **Power systems** (chemical, nuclear, fusion, antimatter) unlock one after another and give the
+  new **Reactor** component, which makes the stated power output per hull space. **Electric Drives
+  draw 1.0 power per hull space and Nuclear Electric 0.6** (times the power modifier); a ship whose engines draw more
+  than its reactors make is refused. Other families need no reactor. Standard parts use the best
+  engine that needs none.
+- **Secondary branches**, each opening once an engine exists: *Engine Size* (the largest single engine,
+  20 hull spaces at first, up to 400), *Maximum Engine Power Modifier* (1.25x to 3.0x),
+  *Miniaturisation* (engines take 0.4x down to 0.1x the hull space for the same thrust, ships already
+  built included) and *Fuel Efficiency* (12 tiers, 0.9x down to 0.1x fuel burned).
+- The old Nuclear Thermal / Pulse / Ion / Magneto-Plasma line and its fuel and modifier techs are gone.
+  Other techs that hung from them (military specification, jump point theory, fuel tank linings) now
+  hang from the new engines.
+
 ## Ship speed and fuel
 
 Ships are much slower than they were: engine power now gives 15% of the old speed, and fuel burn
-is tuned so a plain hauler on a nuclear thermal drive manages about 160 km/s and a range of about
+is tuned so a plain hauler on a chemical Solid Motor manages about 160 km/s and a range of about
 3 AU - days to a neighbouring world, most of a year to cross the system. Better engines (and
 fuel-consumption and tank techs) are what extend the reach.
 

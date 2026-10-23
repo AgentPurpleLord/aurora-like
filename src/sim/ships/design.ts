@@ -67,6 +67,9 @@ export interface DesignStats {
   wear: number;
   /** True if any powered component is built to the military specification. */
   military: boolean;
+  /** Power the class's reactors make, and what its electric engines draw. */
+  reactorOutput: number;
+  powerDraw: number;
   /** How many engines of each specification the class carries. */
   engineGrades: { commercial: number; military: number };
   buildCost: number;
@@ -101,6 +104,8 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
   let gateRate = 0;
   let wearTons = 0;
   let military = false;
+  let reactorOutput = 0;
+  let powerDraw = 0;
   const engineGrades = { commercial: 0, military: 0 };
   const minerals: Partial<Record<MineralName, number>> = {};
   const counts: Partial<Record<ComponentKind, number>> = {};
@@ -129,6 +134,8 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
     wearTons += stats.wear * stats.tons * n;
     if (stats.grade === "military") military = true;
     if (component.kind === "engine") engineGrades[stats.grade] += n;
+    reactorOutput += (stats.output ?? 0) * n;
+    powerDraw += (stats.powerDraw ?? 0) * n;
     jumpCapacity += (stats.jump ?? 0) * n;
     gateRate += (stats.gate ?? 0) * n;
     counts[component.kind] = (counts[component.kind] ?? 0) + n;
@@ -147,6 +154,9 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
   if (tons === 0) problems.push("The class has no components.");
   else if (power === 0) problems.push("No engine: the class cannot move.");
   else if (fuelCapacity === 0) problems.push("No fuel tank: the engines have nothing to burn.");
+  if (powerDraw > reactorOutput + 1e-9) {
+    problems.push(`Electric engines draw ${Math.round(powerDraw * 10) / 10} power but the reactors make ${Math.round(reactorOutput * 10) / 10}. Add a reactor.`);
+  }
   if (berths < crewRequired) problems.push(`Crew quarters short by ${crewRequired - berths} berths.`);
 
   const stats: DesignStats = {
@@ -167,6 +177,8 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
     gateRate,
     wear: tons > 0 ? wearTons / tons : 0,
     military,
+    reactorOutput,
+    powerDraw,
     engineGrades,
     buildCost,
     minerals,

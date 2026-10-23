@@ -12,6 +12,7 @@
 
 import type { ResearchField } from "./fields";
 import { EXTENDED_TECHS } from "./techsExtended";
+import { PROPULSION_TECHS, REPLACED_TECH_IDS } from "./propulsion";
 
 export interface EmpireStats {
   /** Tons per mine per year at accessibility 1.0. */
@@ -87,10 +88,23 @@ const set = (stat: NumericStat, value: number): TechEffect => ({ kind: "set", st
 const add = (stat: NumericStat, value: number): TechEffect => ({ kind: "add", stat, value });
 const unlock = (installation: string): TechEffect => ({ kind: "unlock", installation });
 
-export const TECHS: Tech[] = [
-  ...CORE_TECHS(),
-  ...EXTENDED_TECHS,
-];
+/**
+ * Technologies of the old propulsion line that other techs still hang from,
+ * and what they hang from now.
+ */
+const RENAMED_PREREQS: Record<string, string> = {
+  "nuclear-thermal": "solid-motor",
+  "nuclear-pulse": "pump-fed",
+  "ion-drive": "pump-fed",
+  "magneto-plasma": "pump-fed",
+};
+
+/** Everything that is not engines or power systems, with the old engine line dropped. */
+const OTHER_TECHS: Tech[] = [...CORE_TECHS(), ...EXTENDED_TECHS]
+  .filter((t) => !REPLACED_TECH_IDS.has(t.id))
+  .map((t) => ({ ...t, prereqs: t.prereqs.map((p) => RENAMED_PREREQS[p] ?? p) }));
+
+export const TECHS: Tech[] = [...OTHER_TECHS, ...PROPULSION_TECHS];
 
 function CORE_TECHS(): Tech[] {
   return [

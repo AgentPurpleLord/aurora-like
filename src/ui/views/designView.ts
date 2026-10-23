@@ -693,6 +693,9 @@ export class DesignView {
     stat(sec, "Engine power", num(stats.power));
     stat(sec, "Fuel", `${compact(stats.fuelCapacity)} l`);
     stat(sec, "Burn", `${num(stats.fuelPerHour)} l/hour`);
+    if (stats.powerDraw > 0 || stats.reactorOutput > 0) {
+      stat(sec, "Reactor power", `${num(stats.reactorOutput)} made / ${num(stats.powerDraw)} drawn`, stats.powerDraw > stats.reactorOutput ? "bad" : undefined);
+    }
     stat(sec, "Endurance", stats.enduranceHours > 0 ? `${(stats.enduranceHours / 24).toFixed(1)} days` : "-");
     stat(sec, "Range", `${stats.rangeAu.toFixed(2)} AU`);
     stat(

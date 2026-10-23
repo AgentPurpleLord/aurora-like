@@ -60,7 +60,7 @@ for (const body of game.galaxy.bodies) {
 const colonyCount = empire.colonies.size;
 
 // A navy at a scale the current game cannot reach but a later one will.
-empire.research("nuclear-thermal");
+empire.research("solid-motor");
 empire.addStandardComponents(0);
 const design = empire.addStandardClasses(0).find((d) => d.name === "Hauler")!;
 const stats = empire.statsOf(design.id)!;
