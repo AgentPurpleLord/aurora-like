@@ -276,6 +276,14 @@ async function shipSuite(browser) {
     (await page.locator(".proj-card").count()) >= 1);
 
   await page.getByRole("button", { name: /^Propulsion/ }).click();
+  await check("technology that is not available yet is hidden by default", async () =>
+    (await page.locator(".tech-node", { hasText: "Ion Drive Technology" }).count()) === 0 &&
+    (await page.locator(".tech-node", { hasText: "Nuclear Thermal Engine Technology" }).count()) === 1);
+  await check("and the field tab only counts what is shown", async () =>
+    /\d+\/\d+/.test(await page.locator(".research-tab", { hasText: "Propulsion" }).innerText()));
+  await page.getByLabel("Show locked technologies").check();
+  await check("ticking the box reveals the whole tree", async () =>
+    (await page.locator(".tech-node", { hasText: "Ion Drive Technology" }).count()) === 1);
   await page.locator(".tech-node", { hasText: "Ion Drive Technology" }).first().click();
   await check("a locked technology says what to research first", async () =>
     /Research Nuclear Pulse Engine Technology first/.test(await page.locator(".research-side").innerText()));
@@ -333,6 +341,29 @@ async function shipSuite(browser) {
   await page.waitForTimeout(200);
   await check("the saved component appears in the library", async () =>
     (await page.locator("#view-design .design-row", { hasText: "x0.50" }).count()) === 1);
+
+  // Names keep following the figures, including when a saved part is reopened.
+  await page.locator("#view-design .design-row", { hasText: "x0.50" }).click();
+  await page.waitForTimeout(150);
+  const reopened = page.locator("#view-design .field-row", { hasText: "Power modifier" }).locator(".number-input");
+  await reopened.fill("0.6");
+  await reopened.press("Enter");
+  await page.waitForTimeout(150);
+  await check("a reopened component's name still follows its figures", async () =>
+    (await page.locator("#view-design .name-input").inputValue()).includes("x0.60"));
+  await page.getByRole("button", { name: "New component", exact: true }).click();
+  await page.locator("#view-design select").first().selectOption("fuel-tank");
+  const tankSize = page.locator("#view-design .field-row", { hasText: "Size" }).locator(".number-input");
+  await tankSize.fill("9");
+  await tankSize.press("Enter");
+  await page.waitForTimeout(150);
+  await check("a fuel tank's name follows its size", async () =>
+    (await page.locator("#view-design .name-input").inputValue()) === "Fuel Tank 9HS");
+  await tankSize.fill("12");
+  await tankSize.press("Enter");
+  await page.waitForTimeout(150);
+  await check("and keeps following as it grows", async () =>
+    (await page.locator("#view-design .name-input").inputValue()) === "Fuel Tank 12HS");
 
   // --- the ship designer
   await page.getByRole("button", { name: /Ship Classes/ }).click();
@@ -983,6 +1014,18 @@ async function mobileSuite(browser) {
     return box.y < viewport.height;
   });
   await page.screenshot({ path: `${SHOTS}/mobile-research.png` });
+
+  // Cancelling research works from the project card, without scrolling to a panel.
+  await page.locator(".research-search").fill("");
+  const cancelButtons = page.getByRole("button", { name: /^Cancel .* project$/ });
+  const projectsBefore = await cancelButtons.count();
+  await check("each project under way has a cancel button on its card", async () => projectsBefore >= 1);
+  await check("and it can be tapped", async () => (await cancelButtons.first().boundingBox()).height >= 26);
+  page.once("dialog", (d) => d.accept());
+  await cancelButtons.first().click();
+  await page.waitForTimeout(200);
+  await check("cancelling removes the project", async () =>
+    (await page.getByRole("button", { name: /^Cancel .* project$/ }).count()) === projectsBefore - 1);
 
   await mobileGo(page, "Design");
   await page.waitForTimeout(400);

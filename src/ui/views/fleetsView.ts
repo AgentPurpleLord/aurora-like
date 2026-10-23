@@ -293,7 +293,7 @@ export class FleetsView {
     } else if (this.orderKind === "load-installation") {
       form.append(
         select(
-          INSTALLATIONS.map((i) => ({ value: i.id, label: i.name })),
+          INSTALLATIONS.filter((i) => game.empire.stats.unlocked.has(i.id) || i.id === "infrastructure").map((i) => ({ value: i.id, label: i.name })),
           this.orderInstallation,
           (value) => (this.orderInstallation = value),
         ),

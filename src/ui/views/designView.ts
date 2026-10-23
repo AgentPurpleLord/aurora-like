@@ -8,6 +8,7 @@
  * before you commit to it.
  */
 
+import { settings } from "../settings";
 import type { Game } from "../../state/game";
 import { shipyardCapacity } from "../../sim/economy/production";
 import {
@@ -230,7 +231,8 @@ export class DesignView {
       id,
       kind: component.kind,
       name: component.name,
-      nameTouched: true,
+      // A name that is just the standard one keeps following the figures.
+      nameTouched: component.name !== suggestName(component.kind, component.params, this.game.empire.researched),
       params: { ...component.params },
     };
     this.render();
@@ -264,7 +266,7 @@ export class DesignView {
     if (this.notice) kindSec.append(el("p", "project-warning", this.notice));
     kindSec.append(
       select(
-        KINDS.map((k) => ({
+        KINDS.filter((k) => settings.showLocked || k.available(empire.researched) || k.kind === draft.kind).map((k) => ({
           value: k.kind,
           label: k.available(empire.researched) ? k.name : `${k.name} (locked)`,
         })),
@@ -330,7 +332,10 @@ export class DesignView {
       button(existing ? "Save as new component" : "Create component", () => {
         if (blocked) return;
         const created = empire.addComponentDesign(draft.kind, draft.params, this.game.clock.seconds, draft.name);
-        this.componentDraft = { ...draft, id: created.id, name: created.name, nameTouched: true };
+        this.componentDraft = {
+          ...draft, id: created.id, name: created.name,
+          nameTouched: created.name !== suggestName(created.kind, created.params, empire.researched),
+        };
         this.game.emit();
       }, existing && !users.length ? "ghost-btn" : "primary-btn"),
     );
@@ -373,7 +378,9 @@ export class DesignView {
     row.append(el("label", "field-label", def.label));
 
     if (def.type === "choice") {
-      const options = choiceOptions(draft.kind, def.id, empire.researched);
+      const options = choiceOptions(draft.kind, def.id, empire.researched).filter(
+        (o) => settings.showLocked || !o.locked || o.value === String(draft.params[def.id]),
+      );
       const node = el("select", "select");
       for (const option of options) {
         const opt = el("option", undefined, option.locked ? `${option.label} (not researched)` : option.label);

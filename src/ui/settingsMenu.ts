@@ -138,6 +138,23 @@ export class SettingsMenu {
     guide.append(guideBox, guideText);
     this.panel.append(guide);
 
+    const locked = el("label", "check-row");
+    const lockedBox = el("input");
+    lockedBox.type = "checkbox";
+    lockedBox.checked = settings.showLocked;
+    lockedBox.addEventListener("change", () => {
+      settings.showLocked = lockedBox.checked;
+      saveSettings();
+      this.onChange();
+    });
+    const lockedText = el("span");
+    lockedText.append(
+      el("span", "check-label", "Show locked technology"),
+      el("span", "muted small", "Research and parts you cannot use yet. Hidden by default."),
+    );
+    locked.append(lockedBox, lockedText);
+    this.panel.append(locked);
+
     const reset = el("button", "ghost-btn", "Unfold every section");
     reset.addEventListener("click", () => {
       settings.collapsed = [];

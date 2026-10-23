@@ -15,6 +15,7 @@ import { classLabel } from "../sim/system";
 import type { Body } from "../sim/system";
 import type { ViewId } from "./app";
 import { el } from "./format";
+import { settings } from "./settings";
 
 export interface PaletteActions {
   goView(view: ViewId): void;
@@ -180,6 +181,8 @@ export class CommandPalette {
     }
     for (const tech of TECHS) {
       const state = techState(empire, tech);
+      // Technology that is not available yet stays out of search, like the research board.
+      if (state === "locked" && !settings.showLocked) continue;
       e.push({
         label: tech.name,
         hint: `${state === "available" ? "Ready to research" : state === "locked" ? "Locked" : state === "active" ? "In progress" : "Researched"} - ${tech.description}`,
