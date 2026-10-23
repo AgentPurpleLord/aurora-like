@@ -36,7 +36,7 @@ export const Tech: CodeNode<TechConfig> = {
     extraPrereqs: configurableValue("string", ""),
     description: configurableValue("string", ""),
   },
-  inputs: { requires: { description: "Prerequisite technologies" } },
+  inputs: { requires: { mode: "required", description: "Prerequisite technologies" } },
   outputs: { unlocks: { description: "Technologies that need this one" } },
   run: () => {},
   editorConfig: {

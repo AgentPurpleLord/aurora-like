@@ -79,7 +79,7 @@ export function techsToFlow(field: string, all: Tech[]): string {
     cfg.extraPrereqs.value = t.prereqs.filter((p) => !ids.has(p)).join(", ");
     return {
       id: t.id, type: "code", nodeId: "Tech", source: { type: "file", data: NODE_IMPORT },
-      inputConfig: {}, config: cfg, pos: pos.get(t.id)!, displayName: t.name,
+      inputConfig: {}, visibleInputs: ["requires"], visibleOutputs: ["unlocks"], config: cfg, pos: pos.get(t.id)!, displayName: t.name,
     };
   });
   const connections = mine.flatMap((t) => t.prereqs.filter((p) => ids.has(p)).map((p) => ({
