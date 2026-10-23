@@ -8,8 +8,9 @@
 
 import {
   MAX_NEW_SLIPWAYS, MILITARY_YARD_COST, YARD_KIND_BLURB, YARD_KIND_NAMES, abandonYard, addSlipways, canBuildMilitary,
-  convertYard, createYard, isMilitaryDesign, pendingSlipways, syncYards, yardFor, yardLimit, type YardKind,
+  convertYard, createYard, pendingSlipways, syncYards, yardLimit, type YardKind,
 } from "../../sim/economy/shipyards";
+import { renderShipOrders, shipOrderCount } from "./shipOrders";
 import { SHIPYARD_TONS } from "../../sim/economy/installations";
 import { FACTIONS } from "../../sim/politics";
 import { GOODS, POP_BY_ID, computeMarket, fertility, popStability } from "../../sim/economy/goods";
@@ -56,7 +57,7 @@ import {
 import { POLICY_BLURBS, POLICY_NAMES, type GovernorPolicy } from "../../sim/governors";
 import { fullName, type Officer } from "../../sim/people/officers";
 import { compact, describeEffect, el, formatPressure, num, population } from "../format";
-import { button, emptyNote, numberInput, progressBar, section, select, stat } from "../widgets";
+import { button, emptyNote, levelTone, numberInput, progressBar, section, select, stat } from "../widgets";
 
 export class EconomyView {
   private list: HTMLElement;
@@ -313,6 +314,7 @@ export class EconomyView {
         expenses: this.game.empire.snapshot.expenses, effect: this.game.empire.effectFactor("stability", colony.bodyId),
         administration: governor ? governor.skills.administration ?? 0 : null,
         pops: popStability(colony),
+        bonus: this.game.empire.stats.stabilityBonus,
       });
       const sign = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(0)}`;
       const note = el("p", "muted small",
@@ -530,22 +532,12 @@ export class EconomyView {
     }), "primary-btn");
     found.append(create);
 
-    // --- hulls in the queue and where they will be laid down
-    const ships = colony.buildQueue.filter((o) => o.designId);
-    if (ships.length) {
-      const sec = section(parent, "Hulls on order");
-      for (const order of ships) {
-        const design = empire.design(order.designId);
-        const stats = empire.statsOf(order.designId);
-        if (!design || !stats) continue;
-        const military = isMilitaryDesign(empire, design.id);
-        const yard = yardFor(colony, stats.tons, military);
-        const row = el("div", "queue-row pop-row");
-        row.append(el("span", undefined, `${order.quantity} x ${design.name} (${num(stats.tons)} t${military ? ", military" : ""})`));
-        row.append(el("span", `chip ${yard ? "good" : "bad"}`, yard ? yard.name : military && !colony.yards.some((y) => y.kind === "military") ? "needs a military yard" : "no slipway big enough"));
-        sec.append(row);
-      }
-    }
+    // --- hulls in the queue: hold, reorder, pin to a yard, cancel
+    const ships = section(parent, `Hulls on order (${shipOrderCount(this.game, colony.bodyId)})`);
+    renderShipOrders(ships, this.game, {
+      bodyId: colony.bodyId,
+      onChange: () => { this.game.emit(); this.render(); },
+    });
   }
 
   private renderPeople(parent: HTMLElement, body: Body, colony: Colony): void {
@@ -560,7 +552,7 @@ export class EconomyView {
       const sat = Math.round(g.satisfaction);
       row.append(el("span", `chip ${sat >= 60 ? "good" : sat >= 40 ? "warn" : "bad"}`, `Content ${sat}`));
       if (g.radicalism >= 20) row.append(el("span", `chip ${g.radicalism >= 50 ? "bad" : "warn"}`, `Radical ${Math.round(g.radicalism)}`));
-      row.append(progressBar(g.satisfaction / 100));
+      row.append(progressBar(g.satisfaction / 100, levelTone(g.satisfaction / 100)));
       row.append(el("span", "muted small", `${def.blurb} Lean towards ${leaningText(def.leaning)}. Content ${def.boosts}.`));
       groups.append(row);
     }

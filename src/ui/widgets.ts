@@ -77,6 +77,11 @@ export function button(
   return btn;
 }
 
+/** good / warn / bad for a fraction where more is better: contentment, support, staffing. */
+export function levelTone(fraction: number): "good" | "warn" | "bad" {
+  return fraction < 0.35 ? "bad" : fraction < 0.6 ? "warn" : "good";
+}
+
 /** A labelled progress bar, `fraction` in 0..1. */
 export function progressBar(fraction: number, className = ""): HTMLElement {
   const wrap = el("span", `progress ${className}`.trim());

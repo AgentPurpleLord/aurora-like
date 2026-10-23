@@ -203,6 +203,7 @@ export class App {
       () => this.openDigest(),
     );
     this.fleetsView = new FleetsView(roots.views.fleets, this.game, {
+      notify: (text) => this.toasts.push({ text, category: "fleet", link: { view: "fleets" } }),
       openDesigner: (classId) => {
         this.designView.focusClass(classId);
         this.setView("design");

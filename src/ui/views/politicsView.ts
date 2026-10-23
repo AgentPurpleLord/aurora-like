@@ -7,7 +7,7 @@
 
 import type { Game } from "../../state/game";
 import {
-  COURT_COST, COURT_GAIN, FACTIONS, FUND_GAIN, POLICIES, POLICY_BY_ID, POLICY_SLOTS, REJECT_COST, REJECT_PENALTY, REPEAL_COST,
+  COURT_COST, COURT_GAIN, FACTIONS, FUND_GAIN, POLICIES, POLICY_BY_ID, policySlots, REJECT_COST, REJECT_PENALTY, REPEAL_COST,
   WIN_APPROVAL, approval, capitalIncome, capitalUpkeep, courtFaction, demandProgress, enactPolicy, fundFaction, judge,
   moodEffect, moodLabel, rejectDemand, repealPolicy,
 } from "../../sim/politics";
@@ -15,7 +15,7 @@ import { POP_BY_ID, summarisePops } from "../../sim/economy/goods";
 import { programmeCost } from "../../sim/economy/finance";
 import { formatShortDate } from "../../sim/clock";
 import { el, num, population, themed } from "../format";
-import { button, emptyNote, progressBar, section, stat } from "../widgets";
+import { button, emptyNote, levelTone, progressBar, section, stat } from "../widgets";
 
 const YEAR = 365.25 * 86_400;
 
@@ -80,7 +80,7 @@ export class PoliticsView {
       const sat = Math.round(g.satisfaction);
       row.append(el("span", `chip ${sat >= 60 ? "good" : sat >= 40 ? "warn" : "bad"}`, `Content ${sat}`));
       if (g.radicalism >= 20) row.append(el("span", `chip ${g.radicalism >= 50 ? "bad" : "warn"}`, `Radical ${Math.round(g.radicalism)}`));
-      row.append(progressBar(g.satisfaction / 100));
+      row.append(progressBar(g.satisfaction / 100, levelTone(g.satisfaction / 100)));
       row.append(el("span", "muted small", `${def.blurb} Their politics: ${FACTIONS.filter((f) => def.leaning[f.id] >= 0.2).map((f) => `${f.name} ${Math.round(def.leaning[f.id] * 100)}%`).join(", ")}.`));
       peopleSec.append(row);
     }
@@ -96,7 +96,7 @@ export class PoliticsView {
       title.append(el("span", `chip ${state.support >= 50 ? "good" : state.support >= 35 ? "warn" : "bad"}`, `${moodLabel(state.support)} ${Math.round(state.support)}`));
       card.append(title);
       card.append(el("div", "muted small", `${def.creed} Influence ${Math.round(state.influence * 100)}%.`));
-      card.append(progressBar(state.support / 100));
+      card.append(progressBar(state.support / 100, levelTone(state.support / 100)));
       const mood = moodEffect(state.support) * Math.min(2, state.influence * FACTIONS.length);
       if (Math.abs(mood) > 0.001) {
         card.append(el("div", `small ${mood > 0 ? "good" : "bad"}`,
@@ -139,7 +139,7 @@ export class PoliticsView {
     }
 
     // --- laws
-    const laws = section(page, `Laws (${p.policies.length} of ${POLICY_SLOTS})`);
+    const laws = section(page, `Laws (${p.policies.length} of ${policySlots(empire)})`);
     for (const entry of p.policies) {
       const def = POLICY_BY_ID.get(entry.id)!;
       const row = el("div", "event-card good");
@@ -164,7 +164,7 @@ export class PoliticsView {
       row.append(el("div", "muted small", def.blurb));
       row.append(el("div", "muted small", reaction(def.likes)));
       const enact = button(`Enact (${def.cost} capital)`, act(() => enactPolicy(empire, def.id, now)));
-      enact.disabled = p.policies.length >= POLICY_SLOTS || p.capital < def.cost;
+      enact.disabled = p.policies.length >= policySlots(empire) || p.capital < def.cost;
       enact.setAttribute("aria-label", `Enact ${def.name}`);
       row.append(enact);
       laws.append(row);

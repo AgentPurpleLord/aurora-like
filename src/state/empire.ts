@@ -5,7 +5,7 @@
  * The per-cycle economic simulation itself lives in sim/economy/production.
  */
 
-import { syncYards } from "../sim/economy/shipyards";
+import { orderRefund, shipBuildProblem, syncYards } from "../sim/economy/shipyards";
 import { defaultPops } from "../sim/economy/goods";
 import { defaultPolitics, politicalFactors, type PoliticsState } from "../sim/politics";
 import { OfficerPool, type Assignment, type Branch, type Officer } from "../sim/people/officers";
@@ -403,9 +403,52 @@ export class Empire {
     });
   }
 
-  /** Lay down hulls of a class at a colony with a shipyard. */
-  queueShip(bodyId: string, designId: string, quantity: number): void {
-    this.queueBuild(bodyId, SHIP_ORDER, quantity, null, false, designId);
+  /**
+   * Lay down hulls of a class at a colony's shipyards, optionally at one yard
+   * in particular. Returns why it cannot be done, or null once it is queued.
+   */
+  queueShip(bodyId: string, designId: string, quantity: number, yardId: string | null = null): string | null {
+    const problem = shipBuildProblem(this, bodyId, designId, yardId);
+    if (problem) return problem;
+    this.queueBuild(bodyId, SHIP_ORDER, quantity, null, false, designId, yardId);
+    return null;
+  }
+
+  /**
+   * Cancel an order. What has been spent on the unit in progress is lost,
+   * except that half its minerals are salvaged back into the stockpile.
+   * Returns the minerals handed back.
+   */
+  cancelBuild(bodyId: string, orderId: string): Partial<Record<MineralName, number>> {
+    const colony = this.colonies.get(bodyId);
+    const order = colony?.buildQueue.find((o) => o.id === orderId);
+    if (!colony || !order) return {};
+    const refund = orderRefund(this, order);
+    for (const [mineral, tons] of Object.entries(refund) as [MineralName, number][]) colony.stockpile[mineral] += tons;
+    colony.buildQueue = colony.buildQueue.filter((o) => o.id !== orderId);
+    return refund;
+  }
+
+  pauseOrder(bodyId: string, orderId: string, paused: boolean): void {
+    const order = this.colonies.get(bodyId)?.buildQueue.find((o) => o.id === orderId);
+    if (order) order.paused = paused;
+  }
+
+  /** Change how many are still to be built. Never below one: cancel instead. */
+  setOrderQuantity(bodyId: string, orderId: string, quantity: number): void {
+    const order = this.colonies.get(bodyId)?.buildQueue.find((o) => o.id === orderId);
+    if (order && Number.isFinite(quantity)) order.quantity = Math.max(1, Math.floor(quantity));
+  }
+
+  /** Pin a hull order to one yard, or release it to any suitable yard. */
+  setOrderYard(bodyId: string, orderId: string, yardId: string | null): string | null {
+    const colony = this.colonies.get(bodyId);
+    const order = colony?.buildQueue.find((o) => o.id === orderId);
+    if (!colony || !order || !order.designId) return "Not a hull order.";
+    const problem = shipBuildProblem(this, bodyId, order.designId, yardId);
+    if (problem) return problem;
+    order.yardId = yardId;
+    return null;
   }
 
   cancelOrder(bodyId: string, orderId: string): void {

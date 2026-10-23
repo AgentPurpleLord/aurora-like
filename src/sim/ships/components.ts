@@ -124,21 +124,82 @@ export const ENGINE_TYPES: EngineType[] = [
   { id: "nuclear-pulse", name: "Nuclear Pulse", tech: "nuclear-pulse", powerPerHS: 24, fuelPerPower: 4, costPerHS: 6.4, crewPerHS: 0.6 },
   { id: "ion", name: "Ion Drive", tech: "ion-drive", powerPerHS: 40, fuelPerPower: 3.5, costPerHS: 9.6, crewPerHS: 0.8 },
   { id: "magneto-plasma", name: "Magneto-Plasma", tech: "magneto-plasma", powerPerHS: 64, fuelPerPower: 3, costPerHS: 14, crewPerHS: 1 },
+  { id: "fusion-magnetic", name: "Magnetic Confinement Fusion", tech: "fusion-magnetic", powerPerHS: 85, fuelPerPower: 2.7, costPerHS: 20, crewPerHS: 1 },
+  { id: "fusion-inertial", name: "Inertial Confinement Fusion", tech: "fusion-inertial", powerPerHS: 110, fuelPerPower: 2.3, costPerHS: 28, crewPerHS: 1.1 },
+  { id: "antimatter-solid", name: "Solid-Core Anti-Matter", tech: "antimatter-solid", powerPerHS: 140, fuelPerPower: 2, costPerHS: 38, crewPerHS: 1.2 },
+  { id: "antimatter-gas", name: "Gas-Core Anti-Matter", tech: "antimatter-gas", powerPerHS: 180, fuelPerPower: 1.7, costPerHS: 52, crewPerHS: 1.3 },
+  { id: "photonic", name: "Photonic Drive", tech: "photonic-drive", powerPerHS: 240, fuelPerPower: 1.2, costPerHS: 80, crewPerHS: 1.5 },
 ];
 
 export const ENGINE_BY_ID = new Map(ENGINE_TYPES.map((e) => [e.id, e]));
 
+/**
+ * Fuel burned per power-hour, relative to the raw engine figure. With ships
+ * slowed by SPEED_SCALE a journey takes longer, so this keeps a plain hauler
+ * to a range of a few AU: far enough for the inner system, not the outer.
+ */
+export const FUEL_BURN_SCALE = 0.42;
+
 /** Overdriving an engine costs fuel with the square of the modifier. */
 export const MODIFIER_FUEL_EXPONENT = 2;
 
+/**
+ * Technologies that improve parts, as ladders of [tech, value]: the highest
+ * value among the researched techs applies, to every part - new and already
+ * built - since part statistics are always derived from what is researched.
+ */
+export type Ladder = [techId: string, value: number][];
+
+export function ladderValue(researched: ReadonlySet<string>, ladder: Ladder, base: number, pick: "max" | "min" = "max"): number {
+  let value = base;
+  for (const [tech, v] of ladder) {
+    if (researched.has(tech)) value = pick === "max" ? Math.max(value, v) : Math.min(value, v);
+  }
+  return value;
+}
+
+export const POWER_MODIFIER_LADDER: Ladder = [["engine-power-125", 1.25], ["engine-power-150", 1.5], ["engine-power-175", 1.75], ["engine-power-200", 2]];
+export const FUEL_USE_LADDER: Ladder = [
+  ["fuel-consumption-08", 0.8], ["fuel-consumption-07", 0.7], ["fuel-consumption-06", 0.6], ["fuel-consumption-05", 0.5], ["fuel-consumption-04", 0.4],
+];
+export const TANK_LADDER: Ladder = [["tank-efficiency-1", 1.25], ["tank-efficiency-2", 1.5], ["tank-efficiency-3", 2]];
+export const QUARTERS_LADDER: Ladder = [["compact-quarters-1", 1.25], ["compact-quarters-2", 1.5], ["compact-quarters-3", 2]];
+export const CARGO_LADDER: Ladder = [["cargo-handling", 1.25], ["cargo-handling-2", 1.5], ["cargo-handling-3", 2]];
+export const COLONIST_LADDER: Ladder = [["cryogenic-berths-1", 1.25], ["cryogenic-berths-2", 1.5], ["cryogenic-berths-3", 2]];
+export const GEO_SURVEY_LADDER: Ladder = [["geo-survey-strength-1", 1.5], ["geo-survey-strength-2", 2], ["geo-survey-strength-3", 3]];
+export const GRAV_SURVEY_LADDER: Ladder = [["grav-survey-strength-1", 1.5], ["grav-survey-strength-2", 2], ["grav-survey-strength-3", 3]];
+export const JUMP_LADDER: Ladder = [["jump-efficiency-1", 1.25], ["jump-efficiency-2", 1.5], ["jump-efficiency-3", 2]];
+export const GATE_LADDER: Ladder = [["gate-construction-2", 1.5], ["gate-construction-3", 2], ["gate-construction-4", 3]];
+
+/** What a part-improving tech does, in words, for the technology screen. */
+export function partTechNote(techId: string): string | null {
+  const notes: [Ladder, (v: number) => string][] = [
+    [POWER_MODIFIER_LADDER, (v) => `Engine power modifier ceiling ${v}`],
+    [FUEL_USE_LADDER, (v) => `Every engine burns ${Math.round((1 - v) * 100)}% less fuel, existing ships included`],
+    [TANK_LADDER, (v) => `Fuel tanks hold ${v}x as much`],
+    [QUARTERS_LADDER, (v) => `Crew quarters berth ${v}x as many`],
+    [CARGO_LADDER, (v) => `Cargo holds carry ${v}x as much`],
+    [COLONIST_LADDER, (v) => `Colony modules carry ${v}x as many colonists`],
+    [GEO_SURVEY_LADDER, (v) => `Geological survey sensors work ${v}x as fast`],
+    [GRAV_SURVEY_LADDER, (v) => `Gravitational survey sensors work ${v}x as fast`],
+    [JUMP_LADDER, (v) => `Jump drives carry ${v}x the tonnage`],
+    [GATE_LADDER, (v) => `Gate construction modules build ${v}x as fast`],
+  ];
+  for (const [ladder, text] of notes) {
+    const hit = ladder.find(([id]) => id === techId);
+    if (hit) return `${text(hit[1])} (applies to ships already built)`;
+  }
+  return null;
+}
+
 export function maxPowerModifier(researched: ReadonlySet<string>): number {
-  return researched.has("engine-power-125") ? 1.25 : 1.0;
+  return ladderValue(researched, POWER_MODIFIER_LADDER, 1.0);
 }
 
 export const MIN_POWER_MODIFIER = 0.25;
 
 export function fuelEfficiency(researched: ReadonlySet<string>): number {
-  return researched.has("fuel-consumption-08") ? 0.8 : 1;
+  return ladderValue(researched, FUEL_USE_LADDER, 1, "min");
 }
 
 // ------------------------------------------------------- sensors and the rest
@@ -399,7 +460,7 @@ export function componentStats(
       const modifier = Number(params.modifier);
       result.power = size * type.powerPerHS * modifier * g.power;
       result.fuelPerHour =
-        result.power * type.fuelPerPower * g.fuel * Math.pow(modifier, MODIFIER_FUEL_EXPONENT) * fuelEfficiency(researched);
+        result.power * type.fuelPerPower * g.fuel * Math.pow(modifier, MODIFIER_FUEL_EXPONENT) * fuelEfficiency(researched) * FUEL_BURN_SCALE;
       result.cost = Math.round(size * type.costPerHS * modifier * g.cost * 10) / 10;
       result.crew = Math.ceil(size * type.crewPerHS * g.crew);
       mineral("Gallicite", 0.5);
@@ -412,21 +473,21 @@ export function componentStats(
       break;
     }
     case "fuel-tank": {
-      result.fuel = size * 10_000;
+      result.fuel = size * 10_000 * ladderValue(researched, TANK_LADDER, 1);
       result.cost = size * 1;
       mineral("Duranium", 0.6);
       result.lines.push(["Capacity", `${fmt(result.fuel)} l`]);
       break;
     }
     case "crew-quarters": {
-      result.berths = size * 10;
+      result.berths = size * 10 * ladderValue(researched, QUARTERS_LADDER, 1);
       result.cost = size * 2.5;
       mineral("Duranium", 0.6);
       result.lines.push(["Berths", fmt(result.berths)]);
       break;
     }
     case "cargo-hold": {
-      result.cargo = size * 1250;
+      result.cargo = size * 1250 * ladderValue(researched, CARGO_LADDER, 1);
       result.cost = size * 1.25;
       result.crew = Math.ceil(size * 0.1);
       mineral("Duranium", 0.8);
@@ -434,7 +495,7 @@ export function componentStats(
       break;
     }
     case "colony-module": {
-      result.colonists = size * 2500;
+      result.colonists = size * 2500 * ladderValue(researched, COLONIST_LADDER, 1);
       result.cost = size * 1.5;
       result.crew = Math.ceil(size * 0.2);
       mineral("Duranium", 0.5);
@@ -449,7 +510,8 @@ export function componentStats(
         break;
       }
       if (!researched.has(type.tech)) problems.push(`${type.name} Sensors have not been researched.`);
-      const rate = size * type.ratePerHS * g.output;
+      const rate = size * type.ratePerHS * g.output *
+        ladderValue(researched, type.id === "geological" ? GEO_SURVEY_LADDER : GRAV_SURVEY_LADDER, 1);
       result.survey = { type: type.id, rate };
       result.cost = size * type.costPerHS * g.cost;
       result.crew = Math.ceil(size * 1 * g.crew);
@@ -461,7 +523,7 @@ export function componentStats(
       break;
     }
     case "jump-drive": {
-      result.jump = size * JUMP_TONS_PER_HS * g.output;
+      result.jump = size * JUMP_TONS_PER_HS * g.output * ladderValue(researched, JUMP_LADDER, 1);
       result.cost = size * 15 * g.cost;
       result.crew = Math.ceil(size * 0.8 * g.crew);
       mineral("Corbomite", 0.5);
@@ -474,7 +536,7 @@ export function componentStats(
       break;
     }
     case "gate-module": {
-      result.gate = size * GATE_POINTS_PER_HS * g.output;
+      result.gate = size * GATE_POINTS_PER_HS * g.output * ladderValue(researched, GATE_LADDER, 1);
       result.cost = size * 12 * g.cost;
       result.crew = Math.ceil(size * 0.5 * g.crew);
       mineral("Tritanium", 0.4);

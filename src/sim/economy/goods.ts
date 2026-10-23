@@ -22,6 +22,7 @@ import { employmentRatio } from "./production";
 import { moraleFactor, NEUTRAL_TAX } from "./finance";
 import { tradeLines } from "./trade";
 import type { MineralName } from "../minerals";
+import type { EmpireStats } from "../research/techs";
 import type { FactionId } from "../politics";
 
 export type GoodId = "food" | "consumer" | "luxury";
@@ -122,9 +123,6 @@ export function targetShares(colony: Colony): Record<PopId, number> {
 
 /** A good world feeds itself and then some. */
 export const NATURAL_FOOD = 1.25;
-export const FARM_OUTPUT = 100;
-export const CONSUMER_OUTPUT = 100;
-export const LUXURY_OUTPUT = 40;
 /** Tons of mineral consumed per unit made. */
 export const CONSUMER_INPUT: [MineralName, number] = ["Corundium", 0.2];
 export const LUXURY_INPUT: [MineralName, number] = ["Gallicite", 0.5];
@@ -175,11 +173,11 @@ export function demandOf(colony: Colony, good: GoodId): number {
 }
 
 /** Supply at one colony, limited by the minerals its plants need. */
-function supplyOf(system: Galaxy, colony: Colony): { supply: Record<GoodId, number>; inputs: Partial<Record<MineralName, number>> } {
+function supplyOf(system: Galaxy, colony: Colony, stats: EmpireStats): { supply: Record<GoodId, number>; inputs: Partial<Record<MineralName, number>> } {
   const body = system.byId.get(colony.bodyId);
   const employment = employmentRatio(colony);
   const morale = moraleFactor(colony.stability);
-  const farms = installationCount(colony, "hydroponic-farm") * FARM_OUTPUT * employment * morale;
+  const farms = installationCount(colony, "hydroponic-farm") * stats.farmOutput * employment * morale;
   const natural = body ? colony.population * NATURAL_FOOD * fertility(body.colonyCost) : 0;
   const inputs: Partial<Record<MineralName, number>> = {};
 
@@ -194,8 +192,8 @@ function supplyOf(system: Galaxy, colony: Colony): { supply: Record<GoodId, numb
   return {
     supply: {
       food: farms + natural,
-      consumer: plantOutput(installationCount(colony, "consumer-plant"), CONSUMER_OUTPUT, CONSUMER_INPUT),
-      luxury: plantOutput(installationCount(colony, "luxury-workshop"), LUXURY_OUTPUT, LUXURY_INPUT),
+      consumer: plantOutput(installationCount(colony, "consumer-plant"), stats.consumerOutput, CONSUMER_INPUT),
+      luxury: plantOutput(installationCount(colony, "luxury-workshop"), stats.luxuryOutput, LUXURY_INPUT),
     },
     inputs,
   };
@@ -232,7 +230,7 @@ export function computeMarket(empire: Empire, system: Galaxy): Market {
   const colonies = new Map<string, ColonyMarket>();
   for (const colony of empire.colonies.values()) {
     if (colony.population <= 0.1) continue;
-    const { supply, inputs } = supplyOf(system, colony);
+    const { supply, inputs } = supplyOf(system, colony, empire.stats);
     const goods = { food: emptyFlow(), consumer: emptyFlow(), luxury: emptyFlow() } as Record<GoodId, GoodFlow>;
     for (const good of GOODS) {
       goods[good.id].supply = supply[good.id];
@@ -254,7 +252,7 @@ export function computeMarket(empire: Empire, system: Galaxy): Market {
     for (const ids of bySystem.values()) {
       if (ids.length < 2) continue;
       for (const good of GOODS) {
-        let budget = CIVILIAN_FLOW * ids.length;
+        let budget = CIVILIAN_FLOW * ids.length * empire.stats.freightFlow;
         const givers = ids.filter((id) => colonies.get(id)!.goods[good.id].supply > colonies.get(id)!.goods[good.id].demand);
         const takers = ids.filter((id) => colonies.get(id)!.goods[good.id].supply < colonies.get(id)!.goods[good.id].demand);
         for (const taker of takers) {
@@ -272,7 +270,7 @@ export function computeMarket(empire: Empire, system: Galaxy): Market {
   // Freight lines, in both directions, as far as their holds allow.
   for (const line of tradeLines(empire).sort((a, b) => a.fleetId.localeCompare(b.fleetId))) {
     if (!colonies.has(line.fromId) || !colonies.has(line.toId)) continue;
-    const cap = LINK_FLOW * line.strength;
+    const cap = LINK_FLOW * line.strength * empire.stats.freightFlow;
     for (const good of GOODS) {
       for (const [from, to] of [[line.fromId, line.toId], [line.toId, line.fromId]] as const) {
         tradedValue += ship(colonies, good.id, from, to, cap) * value(good.id);
@@ -287,7 +285,7 @@ export function computeMarket(empire: Empire, system: Galaxy): Market {
     }
   }
 
-  const market: Market = { colonies, tradedValue, levy: tradedValue * TRADE_LEVY };
+  const market: Market = { colonies, tradedValue, levy: tradedValue * TRADE_LEVY * (1 + empire.stats.tradeBonus) };
   memo.set(empire, market);
   return market;
 }

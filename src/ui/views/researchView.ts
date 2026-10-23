@@ -37,7 +37,7 @@ import { TECHS, TECH_BY_ID, type Tech } from "../../sim/research/techs";
 import { assignIdleLabs, describeAssignment, labReport } from "../../sim/research/labs";
 import { fullName, labCapacity } from "../../sim/people/officers";
 import { compact, el, num } from "../format";
-import { button, emptyNote, numberInput, progressBar, section, select, stat } from "../widgets";
+import { button, emptyNote, levelTone, numberInput, progressBar, section, select, stat } from "../widgets";
 import { formatYears } from "./economyView";
 import { saveSettings, settings } from "../settings";
 
@@ -191,7 +191,7 @@ export class ResearchView {
       const row = el("div", "lab-row");
       const name = this.game.galaxy.byId.get(c.colonyId)?.name ?? c.colonyId;
       row.append(el("span", "lab-name", name));
-      row.append(progressBar(c.built > 0 ? c.working / c.built : 0));
+      row.append(progressBar(c.built > 0 ? c.working / c.built : 0, levelTone(c.built > 0 ? c.working / c.built : 0)));
       row.append(el("span", `lab-count${c.idle ? " warn" : ""}`, `${num(c.working)} working / ${num(c.built)} built${c.idle ? ` - ${num(c.idle)} idle` : ""}`));
       if (c.blocker) row.append(el("span", "muted small lab-blocker", c.blocker));
       sec.append(row);

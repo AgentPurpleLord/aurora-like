@@ -82,7 +82,10 @@ export const POLICIES: PolicyDef[] = [
 
 export const POLICY_BY_ID = new Map(POLICIES.map((p) => [p.id, p]));
 
-export const POLICY_SLOTS = 3;
+/** Laws that can be in force at once: three, and more with administration techs. */
+export function policySlots(empire: Empire): number {
+  return empire.stats.policySlots;
+}
 export const REPEAL_COST = 5;
 export const BASE_UPKEEP = 0.5;
 export const CAPITAL_CAP = 100;
@@ -274,7 +277,7 @@ export function approval(politics: PoliticsState): number {
 
 export function capitalIncome(empire: Empire, now: number): number {
   const p = empire.politics;
-  const base = 4 + (approval(p) - 50) * 0.12;
+  const base = 4 + (approval(p) - 50) * 0.12 + empire.stats.capitalBonus;
   const caretaker = p.caretakerUntil > now ? 0.5 : 1;
   return Math.max(0, base * caretaker);
 }
@@ -307,7 +310,7 @@ export function enactPolicy(empire: Empire, id: string, now: number): string | n
   const p = empire.politics;
   if (!def) return "No such law.";
   if (p.policies.some((e) => e.id === id)) return `${def.name} is already law.`;
-  if (p.policies.length >= POLICY_SLOTS) return "No free slot: repeal a law first.";
+  if (p.policies.length >= policySlots(empire)) return "No free slot: repeal a law first.";
   if (p.capital < def.cost) return `Needs ${def.cost} political capital.`;
   p.capital -= def.cost;
   p.policies.push({ id, since: now });

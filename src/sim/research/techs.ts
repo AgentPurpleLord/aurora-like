@@ -11,6 +11,7 @@
  */
 
 import type { ResearchField } from "./fields";
+import { EXTENDED_TECHS } from "./techsExtended";
 
 export interface EmpireStats {
   /** Tons per mine per year at accessibility 1.0. */
@@ -37,6 +38,24 @@ export interface EmpireStats {
   infrastructureEfficiency: number;
   /** Added to wealth income as a multiplier. */
   wealthBonus: number;
+  /** Added to commerce (trade income and the levy on traded goods) as a multiplier. */
+  tradeBonus: number;
+  /** Points added to every colony's stability target. */
+  stabilityBonus: number;
+  /** Political capital per year, on top of what approval earns. */
+  capitalBonus: number;
+  /** Laws that can be in force at once. */
+  policySlots: number;
+  /** Officers each Military Academy trains per year. */
+  academyOutput: number;
+  /** Units of food a hydroponic farm grows per year. */
+  farmOutput: number;
+  /** Units of consumer goods a consumer plant makes per year. */
+  consumerOutput: number;
+  /** Units of luxuries a luxury workshop makes per year. */
+  luxuryOutput: number;
+  /** Multiplier on how much freight lines and civilian shipping can move. */
+  freightFlow: number;
   unlocked: Set<string>;
 }
 
@@ -47,7 +66,7 @@ export type TechEffect =
   | { kind: "add"; stat: NumericStat; value: number }
   | { kind: "unlock"; installation: string };
 
-type NumericStat = {
+export type NumericStat = {
   [K in keyof EmpireStats]: EmpireStats[K] extends number ? K : never;
 }[keyof EmpireStats];
 
@@ -69,6 +88,12 @@ const add = (stat: NumericStat, value: number): TechEffect => ({ kind: "add", st
 const unlock = (installation: string): TechEffect => ({ kind: "unlock", installation });
 
 export const TECHS: Tech[] = [
+  ...CORE_TECHS(),
+  ...EXTENDED_TECHS,
+];
+
+function CORE_TECHS(): Tech[] {
+  return [
   // ------------------------------------------- construction and production
   {
     id: "trans-newtonian", name: "Trans-Newtonian Technology", field: "construction",
@@ -374,10 +399,11 @@ export const TECHS: Tech[] = [
   },
   {
     id: "cargo-handling", name: "Improved Cargo Handling Systems", field: "logistics",
-    cost: 2500, prereqs: ["trans-newtonian"], future: true,
-    description: "Halves the time a freighter spends loading and unloading.",
+    cost: 2500, prereqs: ["trans-newtonian"],
+    description: "Containerised handling: every cargo hold carries 25% more, existing freighters included.",
   },
-];
+  ];
+}
 
 export const TECH_BY_ID = new Map(TECHS.map((t) => [t.id, t]));
 
@@ -395,6 +421,15 @@ export function baseStats(): EmpireStats {
     colonyCostReduction: 0,
     infrastructureEfficiency: 1,
     wealthBonus: 0,
+    tradeBonus: 0,
+    stabilityBonus: 0,
+    capitalBonus: 0,
+    policySlots: 3,
+    academyOutput: 2,
+    farmOutput: 100,
+    consumerOutput: 100,
+    luxuryOutput: 40,
+    freightFlow: 1,
     unlocked: new Set<string>([
       "infrastructure",
       "mine",

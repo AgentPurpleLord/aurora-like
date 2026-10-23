@@ -23,7 +23,7 @@ import { MINERALS, type MineralName } from "../minerals";
 import { DAYS_PER_YEAR } from "../orbit";
 import { INSTALLATION_BY_ID } from "./installations";
 import { MILITARY_TECH } from "../ships/components";
-import { hullCapacity, isMilitaryDesign, syncYards, yardFor } from "./shipyards";
+import { hullCapacity, isMilitaryDesign, syncYards, yardFor, yardLimit } from "./shipyards";
 import { recomputeEnvironment } from "../system";
 import {
   GAS_BY_ID,
@@ -169,7 +169,7 @@ export function colonyOutput(
   const taxes = colony.population * GDP_PER_MILLION * empire.taxRate * wealthFactor;
   const trade =
     colony.population * TRADE_PER_MILLION * connectionFactor(links) *
-    tradeFactor(empire.taxRate, colony.stability) * wealthFactor;
+    tradeFactor(empire.taxRate, colony.stability) * wealthFactor * (1 + stats.tradeBonus);
   const centres =
     installationCount(colony, "financial-centre") * WEALTH_PER_FINANCIAL_CENTRE *
     empire.effectFactor("wealth", colony.bodyId);
@@ -310,6 +310,7 @@ export function runCycle(empire: Empire, system: Galaxy, now: number, days: numb
       effect: empire.effectFactor("stability", colony.bodyId),
       administration: empire.governorOf(colony.bodyId)?.skills.administration ?? (empire.governorOf(colony.bodyId) ? 0 : null),
       pops: popStability(colony),
+      bonus: stats.stabilityBonus,
     });
     colony.stability = before + (target - before) * Math.min(1, STABILITY_DRIFT * year);
     announceMood(empire, body.name, colony.bodyId, before, colony.stability, now);
@@ -586,7 +587,7 @@ function academyRate(empire: Empire): number {
   for (const colony of empire.colonies.values()) {
     academies += installationCount(colony, "military-academy");
   }
-  return academies * 2;
+  return academies * empire.stats.academyOutput;
 }
 
 /**
@@ -608,13 +609,16 @@ function buildFromQueue(
   for (const order of [...colony.buildQueue]) {
     if (remaining <= 0) break;
     const buildable = empire.buildableOf(order);
-    if (!buildable) continue;
+    if (!buildable || order.paused) continue;
 
     // A hull needs a yard of the right kind with slipways long enough to lay it down in.
     if (buildable.isShip) {
       const tons = empire.statsOf(order.designId)?.tons ?? 0;
       const military = isMilitaryDesign(empire, order.designId);
-      const fits = colony.yards.length ? yardFor(colony, tons, military) !== null : tons <= shipyardCapacity(colony);
+      const pinned = order.yardId ? colony.yards.find((y) => y.id === order.yardId) : undefined;
+      const fits = pinned
+        ? pinned.slipways > 0 && tons <= yardLimit(pinned) && (!military || pinned.kind === "military")
+        : colony.yards.length ? yardFor(colony, tons, military) !== null : tons <= shipyardCapacity(colony);
       if (!fits) {
         order.starved = true;
         continue;
