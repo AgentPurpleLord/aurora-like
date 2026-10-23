@@ -18,6 +18,7 @@ import { bonus } from "../people/officers";
 import { SURVEY_POINTS_NEEDED } from "./components";
 import { planProgram } from "./programs";
 import { routeFor } from "./routing";
+import { conditionSpeed } from "./maintenance";
 import { GATE_POINTS_NEEDED, JUMP_SURVEY_POINTS } from "./components";
 
 export interface Ship {
@@ -28,6 +29,8 @@ export interface Ship {
   /** Litres aboard. */
   fuel: number;
   built: number;
+  /** Mechanical condition, 100 as new down to 0. Wears with use; services restore it. */
+  condition: number;
 }
 
 export type FleetOrder =
@@ -183,7 +186,7 @@ export function fleetStats(empire: Empire, fleet: Fleet): FleetStats {
     const stats = ship && empire.statsOf(ship.designId);
     if (!ship || !stats) continue;
     tons += stats.tons;
-    speed = Math.min(speed, stats.speed);
+    speed = Math.min(speed, stats.speed * conditionSpeed(ship.condition));
     fuel += ship.fuel;
     fuelCapacity += stats.fuelCapacity;
     fuelPerHour += stats.fuelPerHour;

@@ -346,6 +346,104 @@ stay red, lightness and transparency are kept), and writes
 `tools/terminal-extra.css`. After changing `style.css`, run it again so the two
 themes stay in step.
 
+## Commercial and military parts, and maintenance
+
+**Specification.** Every powered component - engines, survey sensors, jump drives and
+gate modules - is designed as *commercial* or *military*. Commercial is the civilian
+pattern: the plain figures, the lowest cost, the fewest crew, gentle on maintenance.
+Military is built to a harder standard: engines push 30% harder (at 15% more fuel per
+unit of power), sensors survey and gate modules build 30% faster, jump drives carry
+25% more - at 70% more cost, half as many again in crew, and 2.2 times the wear.
+Holds, tanks, berths and colony modules have no military pattern. The military
+specification has to be researched (*Military Specification Components*); until then it
+is hidden in the designer. Military parts are named as such, a class made of any of them
+is a military class, and a part designed before this existed counts as commercial, so
+nothing already built changes.
+
+**Condition.** Every ship has a condition, 100% when new. Ships wear with use - fully
+when under way or surveying, at 40% when parked away from a colony, at 15% when parked
+at one - at 28 points a year times the class's wear (tonnage-weighted: engines and
+sensors count, tanks and holds hardly do). A worn ship is slower, down to 60% speed at
+nothing, and below 30% it can break down: a decision asks whether to pay for field
+repairs or to limp on, losing condition and fuel. An overdue fleet is raised on the
+attention rail.
+
+**Servicing.** A colony services the ships parked at it: 1,500 t of ship per shipyard
+and 4,000 t per maintenance facility (8,000 with *Maintenance Bay Efficiency*). Ships
+beyond that share the capacity and are restored more slowly - up to 4 points a day at
+full capacity - and it costs 15% of the ship's build cost for a complete overhaul, so a
+military hull is dear to keep and a freighter is not. Colonies show their capacity and
+how much is in dock. Survey and exploration programmes go to a servicing colony when
+a fleet is worn out, and wait to be serviced before setting out again.
+
+## Hull types and class names
+
+As in Aurora, a class has a **name of its own** ("Kestrel") and a **hull type** chosen
+from a list ("Destroyer"). Commercial hulls - Courier, Survey Ship, Explorer, Freighter,
+Tanker, Colony Ship, Jump Tender, Construction Ship - take only commercial parts.
+Military hulls - Corvette, Frigate, Destroyer, Cruiser, Battleship - need the Military
+Specification and military engines. Each hull has a tonnage range; a class outside it
+cannot be built. Role advice (a freighter wants a hold, a tanker mostly fuel) is shown
+as a warning only. *Suggest* offers an unused class name, and an unclassed design offers
+the hull that fits. Classes made before hulls existed stay unclassed, with no limits.
+
+## Money and stability
+
+Wealth now has consequences, managed from the **Finance** panel on the Empire screen.
+
+- **Tax rate** (30% is neutral). Income is taxes on output plus **trade**, which grows
+  with population and the number of colonies to trade with and shrinks under heavy taxes
+  or unrest, plus financial centres.
+- **Stability** (0-100, 70 neutral) is tracked per colony. Heavy taxes, debt and low
+  reserves pull it down; light taxes, **welfare** (a share of tax revenue) and a
+  comfortable treasury push it up. It drifts slowly towards its target.
+- Stability scales output (down to 60% in the worst unrest, slightly above 100% when
+  people are content) and population growth. Below 40 a colony is in unrest, below 20 it
+  riots; both raise an issue and a log entry.
+- **Trade follows freight.** A colony's trade scales with its *links*: each working freight
+  line (a fleet on a freight programme whose ships are in fair condition) counts as a link
+  at both ends, in proportion to its hold (2,000 t is a full link, up to four). Civilian
+  shipping, if on, supplies a modest baseline of up to two links; with neither, trade runs
+  at half rate. The Finance panel lists your lines.
+- **Governors keep the peace.** A governor's administration rating shifts stability by
+  (rating - 3) x 2, so a skilled one is worth up to +10 and a poor one costs 4; a colony
+  with nobody in charge loses 2. The colony view shows what its stability is heading for.
+- **Hoards erode.** Reserves above three years' spending (and at least 1,000) lose 4% of the
+  excess a year to inflation, so a full treasury is worth spending on programmes.
+- **Debt** charges 6% a year in interest, halves industry and drags stability down.
+- **Programmes** spend the treasury: Industrial subsidy, Research grant, Mining
+  incentives, Settlement drive (each +25-40% for three years) and Public festival
+  (stability, two years). They cost most of a year's takings and run as timed effects.
+
+## Politics
+
+The **Politics** screen (key `P`) is the part of the game that is never finished with.
+
+- **Five factions** - Industrial Combine, Academy of Sciences, Colonial League, Civic Union
+  and the Admiralty - each judge the empire by what they care about (taxes and factory
+  output; busy laboratories and research trend; new worlds, freight lines and governed
+  colonies; stability and welfare; a fleet that is large and in good repair). Their
+  support drifts towards that judgement; the screen lists every reason, term by term.
+- **Moods have teeth.** A loyal faction adds up to 4% to its corner of the economy
+  (industry and mining, research, growth, stability, fuel); a hostile one takes 8% and a
+  faction in revolt 15%, scaled by its influence. Influence itself drifts towards
+  whoever is doing best.
+- **Political capital** accrues from approval (about 4 a year at 50%) and is spent on
+  **laws** (three slots, each with benefits and costs, faction reactions and upkeep -
+  Emergency Powers lapses after four years), on **courting** a faction (+12 support, once
+  every half year) and on turning demands down. Money buys favour too: **Fund** a faction's
+  projects for +18.
+- **Demands** arrive every year or two from a faction weighted by influence - more
+  factories, labs, a new colony, higher stability, more ships - with a two-year
+  deadline. Meet one for +15 support and +5 capital; ignore it and lose 12.
+- **Elections** every four years. Approval is support weighted by influence; 50% wins. A
+  win earns capital (a landslide at 65% earns more). A defeat installs a one-year
+  caretaker government that scraps your laws, empties your capital, imposes the least
+  contented faction's favourite law and costs 5% stability. Issues warn when a faction
+  turns hostile or an election looks close.
+
+An empire left alone drifts to roughly 50% approval, so neglect makes elections a coin flip.
+
 ## Terraforming
 
 ![a terraforming programme](docs/terraforming.png)

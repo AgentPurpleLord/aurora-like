@@ -1048,6 +1048,78 @@ async function eventSuite(browser) {
   await page.close();
 }
 
+async function maintenanceSuite(browser) {
+  console.log("\nMilitary parts and maintenance");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.goto(`${BASE}?debug&new&seed=sol-1&events=off`);
+  await page.waitForSelector("#view-tabs");
+  await page.evaluate(() => { window.__game.empire.research("nuclear-thermal"); window.__game.emit(); });
+
+  await nav(page, "Design").click();
+  await page.getByRole("button", { name: "New component", exact: true }).click();
+  await page.locator("#view-design select").first().selectOption("engine");
+  await page.waitForTimeout(150);
+  const spec = page.locator("#view-design .field-row", { hasText: "Specification" }).locator("select");
+  await check("an engine has a specification, commercial by default", async () =>
+    (await spec.inputValue()) === "commercial");
+  await check("military is hidden until it is researched", async () =>
+    (await spec.locator("option").count()) === 1);
+
+  await page.evaluate(() => { window.__game.empire.research("military-specification"); window.__game.emit(); });
+  await nav(page, "Design").click();
+  await page.getByRole("button", { name: "New component", exact: true }).click();
+  await page.locator("#view-design select").first().selectOption("engine");
+  await page.waitForTimeout(150);
+  const spec2 = page.locator("#view-design .field-row", { hasText: "Specification" }).locator("select");
+  await check("researching it offers the military specification", async () =>
+    (await spec2.locator("option").count()) === 2);
+  const derived = () => page.locator("#view-design .derived-host").innerText();
+  await check("a commercial 5 HS engine makes 60 power", async () => /Power\s+60\.0/.test(await derived()));
+  await spec2.selectOption("military");
+  await page.waitForTimeout(150);
+  await check("a military one makes 78", async () => /Power\s+78\.0/.test(await derived()));
+  await check("is marked and described as hard on maintenance", async () =>
+    /Military/.test(await derived()) && /hard on maintenance/.test(await derived()));
+  await check("and is named as military", async () =>
+    (await page.locator("#view-design .name-input").inputValue()).startsWith("Military "));
+
+  // A worn fleet.
+  await page.evaluate(() => {
+    const g = window.__game, e = g.empire;
+    e.addStandardComponents(0); e.addStandardClasses(0);
+    const hauler = e.designs.find((d) => d.name === "Hauler");
+    const f = e.createFleet("Old Faithful", { x: 0, y: 0, z: 0 }, "earth");
+    const ship = e.commissionShip(hauler.id, f, "Old 1", 0);
+    ship.fuel = 1e5; ship.condition = 22;
+    g.selectFleet(f.id); g.emit();
+  });
+  await nav(page, "Fleets").click();
+  await page.locator("#view-fleets .panel-left .tree-row", { hasText: "Old Faithful" }).click();
+  await check("a fleet shows its condition and that it is overdue", async () =>
+    /Condition\s+22%\s+overdue/i.test(await page.locator("#view-fleets .fleet-detail").innerText()));
+  await check("each ship shows its own", async () =>
+    /22%/.test(await page.locator("#view-fleets .install-row", { hasText: "Old 1" }).innerText()));
+  await check("the attention rail raises it", async () =>
+    (await page.locator("#triage-rail", { hasText: "overdue for servicing" }).count()) === 1);
+
+  // Servicing capacity on the colony.
+  await nav(page, "Colonies").click();
+  await check("a colony shows what it can service", async () =>
+    /Servicing capacity\s+3,000 t of ship/.test(await page.locator("#view-colonies").innerText()));
+
+  // Time at a colony with a shipyard restores it.
+  await page.evaluate(() => { for (let i = 0; i < 40; i++) window.__game.step(5 * 86400); window.__game.emit(); });
+  await check("and time in dock restores it", async () =>
+    (await page.evaluate(() => [...window.__game.empire.ships.values()].find((s) => s.name === "Old 1").condition)) >= 99);
+
+  await check("no console errors", () => errors.length === 0);
+  if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
+  await page.close();
+}
+
 async function mobileSuite(browser) {
   console.log("\nMobile (Pixel 7)");
   const context = await browser.newContext({ ...devices["Pixel 7"], hasTouch: true, isMobile: true });
@@ -1151,7 +1223,7 @@ async function mobileSuite(browser) {
   await page.evaluate(() => { document.documentElement.dataset.theme = "terminal"; });
   await page.waitForTimeout(200);
   await check("the terminal theme does not make a phone scroll sideways", async () => (await overflow()) <= 1);
-  for (const name of ["Empire", "Map", "Colonies", "Fleets", "Design", "Research", "Officers", "Events", "Galaxy"]) {
+  for (const name of ["Empire", "Map", "Colonies", "Fleets", "Design", "Research", "Officers", "Politics", "Events", "Galaxy"]) {
     await mobileGo(page, name);
     await page.waitForTimeout(250);
     await check(`and neither does the ${name} screen`, async () => (await overflow()) <= 1);
@@ -1167,6 +1239,64 @@ async function mobileSuite(browser) {
   await context.close();
 }
 
+async function financeSuite(browser) {
+  console.log("\nFinance");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.goto(`${BASE}?debug&new&seed=sol-1&events=off`);
+  await page.waitForSelector("#view-tabs");
+  await nav(page, "Empire").click();
+  const fin = page.locator("#view-empire .section", { hasText: "Finance" }).first();
+  await check("the Empire screen has a Finance panel", async () => (await fin.count()) > 0);
+  await check("it shows stability", async () => /stability/i.test(await fin.innerText()));
+  await page.locator('[data-field="tax-rate"] input.number-input').fill("45");
+  await page.locator('[data-field="tax-rate"] input.number-input').dispatchEvent("change");
+  await page.waitForTimeout(150);
+  await check("the tax rate can be set", async () =>
+    (await page.evaluate(() => window.__game.empire.taxRate)) === 0.45);
+  await page.evaluate(() => { window.__game.empire.treasury = 1e6; window.__game.emit(); });
+  await page.waitForTimeout(150);
+  await page.getByRole("button", { name: "Fund Industrial subsidy" }).click();
+  await check("funding a programme starts it", async () =>
+    (await page.evaluate(() => window.__game.empire.effects.some((e) => e.label === "Industrial subsidy"))));
+  await check("no console errors", () => errors.length === 0);
+  if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
+  await page.close();
+}
+
+async function politicsSuite(browser) {
+  console.log("\nPolitics");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.goto(`${BASE}?debug&new&seed=sol-1&events=off`);
+  await page.waitForSelector("#view-tabs");
+  await nav(page, "Politics").click();
+  const view = page.locator("#view-politics");
+  await check("the Politics screen shows five factions", async () => (await view.locator(".politics-faction").count()) === 5);
+  await check("and the political capital", async () => /Political capital/i.test(await view.innerText()));
+  await page.getByRole("button", { name: "Enact Research Charter" }).click();
+  await page.waitForTimeout(150);
+  await check("a law can be enacted from the screen", async () =>
+    (await page.evaluate(() => window.__game.empire.politics.policies.some((p) => p.id === "research-charter"))));
+  await page.evaluate(() => { window.__game.empire.politics.capital = 50; window.__game.emit(); });
+  await page.waitForTimeout(150);
+  await page.getByRole("button", { name: "Court Civic Union" }).click();
+  await page.waitForTimeout(150);
+  await check("a faction can be courted", async () =>
+    (await page.evaluate(() => window.__game.empire.politics.courted.civic !== undefined)));
+  await page.getByRole("button", { name: "Repeal Research Charter" }).click();
+  await page.waitForTimeout(150);
+  await check("and a law repealed", async () =>
+    (await page.evaluate(() => window.__game.empire.politics.policies.length)) === 0);
+  await check("no console errors", () => errors.length === 0);
+  if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
+  await page.close();
+}
+
 const browser = await chromium.launch(launch);
 try {
   await desktopSuite(browser);
@@ -1176,6 +1306,9 @@ try {
   await programSuite(browser);
   await explorationSuite(browser);
   await eventSuite(browser);
+  await maintenanceSuite(browser);
+  await financeSuite(browser);
+  await politicsSuite(browser);
   await mobileSuite(browser);
 } finally {
   await browser.close();

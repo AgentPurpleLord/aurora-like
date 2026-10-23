@@ -13,6 +13,7 @@ import { installationCount } from "../../state/colony";
 import { MINERALS, type MineralName } from "../minerals";
 import { TECH_BY_ID } from "../research/techs";
 import { fullName } from "../people/officers";
+import { FAILING } from "../ships/maintenance";
 import type { EffectKind } from "../../state/empire";
 import type { EventContext, EventDef, EventOption, EventParams } from "./types";
 
@@ -42,7 +43,7 @@ function destroy(colony: Colony, id: string, count: number): number {
 }
 
 const KIND_TEXT: Record<EffectKind, string> = {
-  industry: "Industry", mining: "Mining", fuel: "Fuel production", research: "Research", wealth: "Income", growth: "Population growth",
+  industry: "Industry", mining: "Mining", fuel: "Fuel production", research: "Research", wealth: "Income", growth: "Population growth", stability: "Stability",
 };
 const span = (days: number) => (days >= 330 ? `${Math.round(days / 365 * 10) / 10} years` : days >= 45 ? `${Math.round(days / 30)} months` : `${days} days`);
 const pct = (factor: number) => `${factor >= 1 ? "+" : "-"}${Math.round(Math.abs(factor - 1) * 100)}%`;
@@ -676,6 +677,56 @@ export const EVENTS: EventDef[] = [
         },
       },
       { id: "decline", label: "Politely decline", detail: "Free. Nothing changes.", apply: () => "The delegation goes home, a little puzzled." },
+    ],
+  },
+  {
+    id: "ship-failure",
+    tone: "bad",
+    decision: true,
+    fallback: "limp",
+    weight: (ctx) => ([...ctx.empire.ships.values()].some((sh) => sh.condition < FAILING) ? 2 : 0),
+    build: (ctx) => {
+      const worn = [...ctx.empire.ships.values()].filter((sh) => sh.condition < FAILING);
+      if (!worn.length) return null;
+      const ship = ctx.rng.pick(worn);
+      const cost = Math.max(400, Math.round((ctx.empire.statsOf(ship.designId)?.buildCost ?? 200) * 0.12));
+      return { ship: ship.id, cost };
+    },
+    describe: (p, ctx) => {
+      const ship = ctx.empire.ships.get(String(p.ship));
+      return {
+        title: "Breakdown",
+        text: `${ship?.name ?? "A ship"} is badly overdue for servicing and has lost main drive power. The engineers say they can patch it here - or you can ask them to keep going.`,
+        link: { view: "fleets", fleetId: ship?.fleetId },
+      };
+    },
+    valid: (p, ctx) => ctx.empire.ships.has(String(p.ship)),
+    options: (p, ctx) => [
+      {
+        id: "repair",
+        label: "Field repairs",
+        detail: `Costs ${fmt(Number(p.cost))}. Restores about a third of its condition on the spot.`,
+        disabled: ctx.empire.treasury < Number(p.cost) ? "The treasury cannot cover it." : undefined,
+        apply: () => {
+          const ship = ctx.empire.ships.get(String(p.ship));
+          ctx.empire.treasury -= Number(p.cost);
+          if (ship) ship.condition = Math.min(100, ship.condition + 35);
+          return `The crew patch the drive for ${fmt(Number(p.cost))}. Condition rises to ${Math.round(ship?.condition ?? 0)}%.`;
+        },
+      },
+      {
+        id: "limp",
+        label: "Keep going",
+        detail: "Free, but the drive degrades further and some fuel is lost.",
+        apply: () => {
+          const ship = ctx.empire.ships.get(String(p.ship));
+          if (ship) {
+            ship.condition = Math.max(0, ship.condition - 8);
+            ship.fuel *= 0.85;
+          }
+          return `The drive limps on. Condition falls to ${Math.round(ship?.condition ?? 0)}% and 15% of the fuel is lost.`;
+        },
+      },
     ],
   },
   {

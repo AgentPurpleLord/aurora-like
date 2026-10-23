@@ -2006,8 +2006,8 @@ kbd {
 
 /* ------------------------------------------------------------------ events */
 
-.view-events { display: none; overflow-y: auto; height: 100%; }
-.view-events.active { display: block; }
+.view-events, .view-politics { display: none; overflow-y: auto; height: 100%; }
+.view-events.active, .view-politics.active { display: block; }
 .events-page { max-width: 880px; margin: 0 auto; padding: 16px 20px 40px; }
 .events-head h2 { margin: 0 0 4px; font-size: 16px; color: #e7f0fa; font-weight: 600; }
 .events-filters { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }

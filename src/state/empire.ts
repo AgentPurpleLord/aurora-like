@@ -5,6 +5,7 @@
  * The per-cycle economic simulation itself lives in sim/economy/production.
  */
 
+import { defaultPolitics, politicalFactors, type PoliticsState } from "../sim/politics";
 import { OfficerPool, type Assignment, type Branch, type Officer } from "../sim/people/officers";
 import { Random } from "../sim/rng";
 import { TECH_BY_ID, statsFor, type EmpireStats } from "../sim/research/techs";
@@ -38,7 +39,7 @@ export type LogCategory = "research" | "construction" | "people" | "colony" | "e
 
 /** Where an event can take you, so a notification is a doorway, not a dead end. */
 export interface LogLink {
-  view: "empire" | "map" | "galaxy" | "events" | "colonies" | "fleets" | "design" | "research" | "officers";
+  view: "empire" | "map" | "galaxy" | "events" | "politics" | "colonies" | "fleets" | "design" | "research" | "officers";
   bodyId?: string;
   fleetId?: string;
   techId?: string;
@@ -120,7 +121,7 @@ export interface ReviewMark {
 }
 
 /** What a timed effect changes. */
-export type EffectKind = "industry" | "mining" | "fuel" | "research" | "wealth" | "growth";
+export type EffectKind = "industry" | "mining" | "fuel" | "research" | "wealth" | "growth" | "stability";
 
 /**
  * A lasting change, applied as a multiplier for a while: a work-to-rule at one
@@ -161,6 +162,10 @@ export interface EmpireState {
   snapshot: EmpireSnapshot;
   capital: string;
   austerity: boolean;
+  taxRate?: number;
+  welfare?: number;
+  politics?: PoliticsState;
+  politicsRng?: number;
   dismissed: [string, number][];
   standingOrders: StandingOrder[];
   componentDesigns: ComponentDesign[];
@@ -207,6 +212,15 @@ export class Empire {
   capital = "earth";
   /** Set when the treasury is in deficit; halves industrial output. */
   austerity = false;
+  /** Share of taxable output the government takes. 0.3 is neutral. */
+  taxRate = 0.3;
+  /** Share of tax revenue spent on public welfare, which buys stability. */
+  welfare = 0;
+  /** Factions, laws, capital and the election clock. */
+  politics: PoliticsState = defaultPolitics();
+  readonly politicsRng = new Random("politics");
+  /** What politics currently does to each kind of output; see refreshPolitics. */
+  private politicsFactors = politicalFactors(defaultPolitics(), 0);
   /** Issue id -> simulation time at which the dismissal lapses. */
   readonly dismissed = new Map<string, number>();
   /** Rules that top colonies up without being asked each time. */
@@ -430,13 +444,14 @@ export class Empire {
 
   // ----------------------------------------------------------------- ships
 
-  addDesign(name: string, components: DesignComponent[], now: number): ShipDesign {
+  addDesign(name: string, components: DesignComponent[], now: number, hullId?: string): ShipDesign {
     const design: ShipDesign = {
       id: `design-${this.nextDesignId++}`,
       name,
       components,
       created: now,
     };
+    if (hullId) design.hullId = hullId;
     this.designs.push(design);
     this.designIndex.set(design.id, design);
     this.revision++;
@@ -454,10 +469,12 @@ export class Empire {
   }
 
   /** Rename or re-equip a class, invalidating everything derived from it. */
-  updateDesign(id: string, name: string, components: DesignComponent[]): void {
+  updateDesign(id: string, name: string, components: DesignComponent[], hullId?: string): void {
     const design = this.designIndex.get(id);
     if (!design) return;
     design.name = name;
+    if (hullId) design.hullId = hullId;
+    else delete design.hullId;
     design.components = components;
     this.revision++;
   }
@@ -591,24 +608,24 @@ export class Empire {
     const cargo = standard("cargo-hold", { size: 20 });
     const colony = standard("colony-module", { size: 20 });
     const sensor = sensorType && standard("survey-sensor", { type: sensorType.id, size: 4 });
-    const specs: [string, DesignComponent[] | null | undefined][] = [
-      ["Hauler", cargo && [
+    const specs: [string, string, DesignComponent[] | null | undefined][] = [
+      ["Hauler", "freighter", cargo && [
         { componentId: engine.id, count: 2 }, { componentId: tank.id, count: 4 },
         { componentId: cargo.id, count: 4 }, { componentId: quarters.id, count: 2 },
       ]],
-      ["Pioneer", colony && [
+      ["Pioneer", "colony-ship", colony && [
         { componentId: engine.id, count: 2 }, { componentId: tank.id, count: 4 },
         { componentId: colony.id, count: 4 }, { componentId: quarters.id, count: 2 },
       ]],
-      ["Surveyor", sensor && [
+      ["Surveyor", "survey-ship", sensor && [
         { componentId: engine.id, count: 1 }, { componentId: tank.id, count: 3 },
         { componentId: sensor.id, count: 1 }, { componentId: quarters.id, count: 1 },
       ]],
     ];
     const made: ShipDesign[] = [];
-    for (const [name, components] of specs) {
+    for (const [name, hullId, components] of specs) {
       if (!components || this.designs.some((d) => d.name === name)) continue;
-      made.push(this.addDesign(name, components, now));
+      made.push(this.addDesign(name, components, now, hullId));
     }
     return made;
   }
@@ -657,6 +674,7 @@ export class Empire {
       fleetId: fleet.id,
       fuel: 0,
       built: now,
+      condition: 100,
     };
     this.ships.set(ship.id, ship);
     fleet.shipIds.push(ship.id);
@@ -776,9 +794,14 @@ export class Empire {
     return effect;
   }
 
+  /** Recompute what laws and faction moods do to output. Call after changing politics. */
+  refreshPolitics(now: number): void {
+    this.politicsFactors = politicalFactors(this.politics, now);
+  }
+
   /** The combined multiplier on one kind of output at a colony. 1 when nothing applies. */
   effectFactor(kind: EffectKind, colonyId: string): number {
-    let factor = 1;
+    let factor = this.politicsFactors[kind];
     for (const effect of this.effects) {
       if (effect.kind === kind && (effect.target === colonyId || effect.target === "empire")) {
         factor *= effect.factor;
@@ -847,6 +870,10 @@ export class Empire {
       snapshot: this.snapshot,
       capital: this.capital,
       austerity: this.austerity,
+      taxRate: this.taxRate,
+      welfare: this.welfare,
+      politics: this.politics,
+      politicsRng: this.politicsRng.state,
       dismissed: [...this.dismissed],
       standingOrders: this.standingOrders,
       componentDesigns: this.componentDesigns,
@@ -901,6 +928,11 @@ export class Empire {
     this.snapshot = { ...emptySnapshot(), ...data.snapshot };
     this.capital = data.capital;
     this.austerity = data.austerity;
+    this.taxRate = data.taxRate ?? 0.3;
+    this.welfare = data.welfare ?? 0;
+    this.politics = { ...defaultPolitics(), ...data.politics };
+    if (data.politicsRng !== undefined) this.politicsRng.state = data.politicsRng;
+    this.refreshPolitics(data.lastTick);
     this.dismissed.clear();
     for (const [id, until] of data.dismissed) this.dismissed.set(id, until);
     this.standingOrders = data.standingOrders;
@@ -920,9 +952,12 @@ export class Empire {
     this.reviewMark = Object.assign({ time: 0, seq: 0, treasury: 0, population: 0, techs: 0, colonies: 0, ships: 0 }, data.reviewMark);
 
     this.colonies.clear();
-    for (const colony of data.colonies) this.colonies.set(colony.bodyId, colony);
+    for (const colony of data.colonies) {
+      colony.stability ??= 70;
+      this.colonies.set(colony.bodyId, colony);
+    }
     this.ships.clear();
-    for (const ship of data.ships) this.ships.set(ship.id, ship);
+    for (const ship of data.ships) this.ships.set(ship.id, Object.assign({ condition: 100 }, ship));
     this.fleets.clear();
     for (const fleet of data.fleets) {
       // Fields added after the first release default sensibly for old saves.

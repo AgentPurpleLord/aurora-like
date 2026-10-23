@@ -19,7 +19,11 @@ import { hintFor } from "../glossary";
 import { deriveGoals } from "../../sim/goals";
 import { saveSettings, settings } from "../settings";
 import type { HistoryPoint, LogLink } from "../../state/empire";
-import { button, emptyNote, progressBar, section, select, stat } from "../widgets";
+import { button, emptyNote, numberInput, progressBar, section, select, stat } from "../widgets";
+import { budgetOf } from "../../sim/economy/budget";
+import {
+  MAX_TAX, MAX_WELFARE, NEUTRAL_TAX, PROGRAMMES, activeProgramme, buyProgramme, programmeCost, stabilityLabel,
+} from "../../sim/economy/finance";
 import { formatShortDate, formatYears } from "./economyView";
 
 type SortKey = keyof Pick<
@@ -74,6 +78,7 @@ export class EmpireView {
     this.renderLedger(split);
     const stack = el("div", "dashboard-stack");
     split.append(stack);
+    this.renderFinance(stack);
     this.renderResearch(stack);
     this.renderLogistics(stack);
 
@@ -490,6 +495,81 @@ export class EmpireView {
    * Civilian shipping is the stand-in that moves installations and colonists
    * without ships. Once there are freighters, it can be switched off.
    */
+  private renderFinance(parent: HTMLElement): void {
+    const { empire } = this.game;
+    const b = budgetOf(empire, this.game.galaxy);
+    const sec = section(parent, "Finance");
+    const signed = (v: number) => `${v >= 0 ? "+" : "-"}${num(Math.abs(v))}`;
+
+    stat(sec, "Treasury", num(empire.treasury), empire.treasury < 0 ? "bad" : undefined);
+    stat(sec, "Net / yr", signed(b.net), b.net < 0 ? "bad" : "good");
+    if (b.runwayYears !== null) {
+      stat(sec, "Reserves last", `${b.runwayYears.toFixed(1)} years`, b.runwayYears < 2 ? "warn" : undefined);
+    }
+    if (empire.treasury < 0) {
+      sec.append(el("p", "project-warning", "In debt: interest is charged, industry is halved and the people grow restless."));
+    }
+
+    const lines: [string, number][] = [
+      ["Taxes", b.taxes], ["Trade", b.trade], ["Financial centres", b.centres],
+      ["Construction", -b.construction], ["Research", -b.research], ["Upkeep", -b.upkeep],
+      ["Welfare", -b.welfare], ["Debt interest", -b.interest], ["Idle reserves lost", -b.erosion], ["Ships and other", -b.other],
+    ];
+    for (const [label, value] of lines) {
+      if (Math.abs(value) < 0.05) continue;
+      stat(sec, label, signed(value), undefined);
+    }
+
+    const effective = b.lines.reduce((sum, l) => sum + l.strength, 0);
+    stat(sec, "Freight lines", b.lines.length ? `${b.lines.length} (${effective.toFixed(1)} links)` : "none",
+      b.lines.length ? "good" : "warn");
+    if (!b.lines.length) {
+      sec.append(el("p", "muted small",
+        "Trade follows freight: set a fleet to a freight line between two colonies to raise commerce. Civilian shipping gives only a modest baseline."));
+    }
+    sec.append(el("label", "muted small", `Tax rate - ${Math.round(empire.taxRate * 100)}% (${Math.round(NEUTRAL_TAX * 100)}% is neutral)`));
+    const tax = numberInput(Math.round(empire.taxRate * 100), (v) => {
+      empire.taxRate = v / 100;
+      this.game.emit();
+    }, 0, Math.round(MAX_TAX * 100));
+    tax.setAttribute("data-field", "tax-rate");
+    sec.append(tax);
+    sec.append(el("label", "muted small", `Welfare - ${Math.round(empire.welfare * 100)}% of taxes`));
+    const welfare = numberInput(Math.round(empire.welfare * 100), (v) => {
+      empire.welfare = v / 100;
+      this.game.emit();
+    }, 0, Math.round(MAX_WELFARE * 100));
+    welfare.setAttribute("data-field", "welfare");
+    sec.append(welfare);
+    sec.append(
+      el("p", "muted small",
+        "Heavy taxes raise income but wear down stability and trade; light taxes and welfare keep the people content, and content people work harder and settle faster."),
+    );
+    stat(sec, "Stability", `${Math.round(b.meanStability)} - ${stabilityLabel(b.meanStability)}`,
+      b.meanStability < 40 ? "bad" : b.meanStability < 60 ? "warn" : undefined);
+
+    const cost = programmeCost(b.income);
+    const prog = section(parent, `Programmes - ${num(cost)} each`);
+    for (const programme of PROGRAMMES) {
+      const running = activeProgramme(empire, programme);
+      const row = el("div", "queue-row");
+      row.append(el("span", undefined, programme.name), el("span", "muted small", programme.blurb));
+      if (running) {
+        const left = Math.max(0, (running.until - this.game.clock.seconds) / (365.25 * 86_400));
+        row.append(el("span", "chip good", `${left.toFixed(1)} yrs left`));
+      } else {
+        const buy = button("Fund", () => {
+          buyProgramme(empire, programme.id, this.game.clock.seconds);
+          this.game.emit();
+        });
+        buy.disabled = empire.treasury < cost;
+        buy.setAttribute("aria-label", `Fund ${programme.name}`);
+        row.append(buy);
+      }
+      prog.append(row);
+    }
+  }
+
   private renderLogistics(parent: HTMLElement): void {
     const { empire } = this.game;
     const sec = section(parent, "Logistics");

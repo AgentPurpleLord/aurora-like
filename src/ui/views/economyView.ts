@@ -6,11 +6,14 @@
  * event log.
  */
 
+import { stabilityLabel, stabilityTarget } from "../../sim/economy/finance";
 import { formatShortDate } from "../../sim/clock";
 import type { Game } from "../../state/game";
 import type { Body } from "../../sim/system";
 import { classLabel } from "../../sim/system";
 import { settleBlocker } from "../../sim/exploration";
+import { servicingCapacity } from "../../sim/ships/maintenance";
+import { fleetStats } from "../../sim/ships/fleet";
 import type { Colony } from "../../state/colony";
 import { installationCount } from "../../state/colony";
 import {
@@ -286,6 +289,20 @@ export class EconomyView {
       output.employment < 0.999 ? "warn" : undefined,
     );
     stat(summary, "Wealth", `${num(output.wealth)} / year`);
+    stat(summary, "Stability", `${Math.round(colony.stability)} - ${stabilityLabel(colony.stability)}`,
+      colony.stability < 40 ? "bad" : colony.stability < 60 ? "warn" : undefined);
+    {
+      const governor = this.game.empire.governorOf(colony.bodyId);
+      const why = stabilityTarget({
+        taxRate: this.game.empire.taxRate, welfare: this.game.empire.welfare, treasury: this.game.empire.treasury,
+        expenses: this.game.empire.snapshot.expenses, effect: this.game.empire.effectFactor("stability", colony.bodyId),
+        administration: governor ? governor.skills.administration ?? 0 : null,
+      });
+      const sign = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(0)}`;
+      const note = el("p", "muted small",
+        `Heading for ${Math.round(why.target)}: taxes ${sign(why.tax)}, welfare ${sign(why.welfare)}, treasury ${sign(why.treasury)}, ${governor ? "governor" : "no governor"} ${sign(why.governor)}.`);
+      summary.append(note);
+    }
     const governor = game.empire.governorOf(colony.bodyId);
     stat(summary, "Governor", governor ? fullName(governor) : "vacant", governor ? undefined : "warn");
     const inflow = migrationInflow(game.empire, body, colony, game.galaxy);
@@ -1011,6 +1028,17 @@ export class EconomyView {
 
   private renderInstallations(parent: HTMLElement, colony: Colony): void {
     const sec = section(parent, "Installations");
+    const servicing = servicingCapacity(this.game.empire, colony);
+    if (servicing > 0) {
+      const docked = [...this.game.empire.fleets.values()]
+        .filter((f) => f.anchorId === colony.bodyId)
+        .reduce((sum, f) => sum + fleetStats(this.game.empire, f).tons, 0);
+      stat(
+        sec, "Servicing capacity",
+        `${num(servicing)} t of ship  (${num(docked)} t in dock)`,
+        docked > servicing ? "warn" : undefined,
+      );
+    }
     const entries = Object.entries(colony.installations).filter(([, n]) => n > 0);
     if (!entries.length) {
       emptyNote(sec, "Nothing built here yet.");

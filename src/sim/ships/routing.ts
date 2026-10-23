@@ -99,11 +99,12 @@ export function nearestHome(
   fromSystem: string,
   tons: number,
   jumpCapacity: number,
+  accept?: (colonyBodyId: string) => boolean,
 ): { body: Body; distanceAu: number } | null {
   let best: { body: Body; distanceAu: number } | null = null;
   for (const colony of empire.colonies.values()) {
     const body = galaxy.byId.get(colony.bodyId);
-    if (!body) continue;
+    if (!body || (accept && !accept(colony.bodyId))) continue;
     const route = findRoute(empire, galaxy, fromSystem, body.systemId, (id) => canCross(empire, id, tons, jumpCapacity));
     if (!route) continue;
     const distanceAu = routeLengthAu(galaxy, from, body, route);

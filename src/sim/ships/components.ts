@@ -25,6 +25,42 @@ export type ComponentKind =
   | "jump-drive"
   | "gate-module";
 
+/**
+ * Specification of a powered component. Commercial parts are the civilian
+ * pattern: cheap, thrifty, light on crew and gentle on maintenance. Military
+ * parts are built to a harder specification - more power, more output - and
+ * cost, crew and wear accordingly. Holds, tanks, berths and colony modules
+ * have no military pattern; they are what they are.
+ */
+export type Grade = "commercial" | "military";
+
+export interface GradeFactors {
+  cost: number;
+  crew: number;
+  /** Wear multiplier: how fast the part uses itself up. */
+  wear: number;
+  /** Engine thrust per hull space. */
+  power: number;
+  /** Engine fuel per unit of power. */
+  fuel: number;
+  /** Sensor survey rate, jump capacity and gate rate. */
+  output: number;
+}
+
+export const GRADE_FACTORS: Record<Grade, GradeFactors> = {
+  commercial: { cost: 1, crew: 1, wear: 1, power: 1, fuel: 1, output: 1 },
+  military: { cost: 1.7, crew: 1.5, wear: 2.2, power: 1.3, fuel: 1.15, output: 1.3 },
+};
+
+/** Technology that allows the military specification. */
+export const MILITARY_TECH = "military-specification";
+
+/** Kinds that come in both grades. */
+export const GRADED_KINDS: ReadonlySet<string> = new Set(["engine", "survey-sensor", "jump-drive", "gate-module"]);
+
+/** Wear of a part that does not move or fire: it hardly wears at all. */
+export const PASSIVE_WEAR = 0.4;
+
 export type ParamValue = number | string;
 export type ParamSet = Record<string, ParamValue>;
 
@@ -58,6 +94,10 @@ export interface ComponentStats {
   jump?: number;
   /** Gate construction points per day. */
   gate?: number;
+  /** How hard the part wears under way, as a multiple of a plain commercial one. */
+  wear: number;
+  /** Specification: commercial or military. Passive parts are always commercial. */
+  grade: Grade;
 
   /** Figures for the designer to show, in reading order. */
   lines: [string, string][];
@@ -166,6 +206,7 @@ export const KINDS: KindDef[] = [
     lockedReason: "Research Nuclear Thermal Engine Technology.",
     params: [
       { id: "type", label: "Engine type", type: "choice" },
+      { id: "grade", label: "Specification", type: "choice", help: "Military engines push 30% harder and cost 70% more; they need more crew and wear faster." },
       sizeParam(50, "Bigger engines push harder but weigh more."),
       {
         id: "modifier", label: "Power modifier", type: "number",
@@ -214,6 +255,7 @@ export const KINDS: KindDef[] = [
     lockedReason: "Research Geological Survey Sensors.",
     params: [
       { id: "type", label: "Sensor type", type: "choice" },
+      { id: "grade", label: "Specification", type: "choice", help: "Military sensors work 30% faster, at a higher price." },
       sizeParam(20),
     ],
   },
@@ -223,7 +265,10 @@ export const KINDS: KindDef[] = [
     blurb: "Carries a ship (and any others in its fleet) through a jump point without a gate. Rated in tons of ship.",
     available: (r) => r.has("jump-point-theory"),
     lockedReason: "Research Jump Point Theory.",
-    params: [sizeParam(40, "Each hull space can carry 200 tons through.")],
+    params: [
+      { id: "grade", label: "Specification", type: "choice", help: "Military drives carry 25% more." },
+      sizeParam(40, "Each hull space can carry 200 tons through."),
+    ],
   },
   {
     kind: "gate-module",
@@ -231,7 +276,10 @@ export const KINDS: KindDef[] = [
     blurb: "Stabilises a jump point the fleet has crossed, so any ship can use it. Bigger modules finish sooner.",
     available: (r) => r.has("jump-gate-construction"),
     lockedReason: "Research Jump Gate Construction.",
-    params: [sizeParam(60, "Each hull space adds 8 construction points a day.")],
+    params: [
+      { id: "grade", label: "Specification", type: "choice", help: "Military modules build gates 30% faster." },
+      sizeParam(60, "Each hull space adds 8 construction points a day."),
+    ],
   },
 ];
 
@@ -243,6 +291,12 @@ export function choiceOptions(
   paramId: string,
   researched: ReadonlySet<string>,
 ): { value: string; label: string; locked: boolean }[] {
+  if (paramId === "grade") {
+    return [
+      { value: "commercial", label: "Commercial", locked: false },
+      { value: "military", label: "Military", locked: !researched.has(MILITARY_TECH) },
+    ];
+  }
   if (paramId !== "type") return [];
   if (kind === "engine") {
     return ENGINE_TYPES.map((e) => ({ value: e.id, label: e.name, locked: !researched.has(e.tech) }));
@@ -258,7 +312,7 @@ export function defaultParams(kind: ComponentKind, researched: ReadonlySet<strin
   switch (kind) {
     case "engine": {
       const best = [...ENGINE_TYPES].reverse().find((e) => researched.has(e.tech)) ?? ENGINE_TYPES[0];
-      return { type: best.id, size: 5, modifier: 1 };
+      return { type: best.id, grade: "commercial", size: 5, modifier: 1 };
     }
     case "fuel-tank": return { size: 5 };
     case "crew-quarters": return { size: 2 };
@@ -266,10 +320,10 @@ export function defaultParams(kind: ComponentKind, researched: ReadonlySet<strin
     case "colony-module": return { size: 20 };
     case "survey-sensor": {
       const best = SENSOR_TYPES.find((s) => researched.has(s.tech)) ?? SENSOR_TYPES[0];
-      return { type: best.id, size: 4 };
+      return { type: best.id, grade: "commercial", size: 4 };
     }
-    case "jump-drive": return { size: 10 };
-    case "gate-module": return { size: 20 };
+    case "jump-drive": return { grade: "commercial", size: 10 };
+    case "gate-module": return { grade: "commercial", size: 20 };
   }
 }
 
@@ -313,15 +367,23 @@ export function componentStats(
   const tons = size * TONS_PER_HS;
   const problems: string[] = [];
 
+  const graded = GRADED_KINDS.has(kind);
+  const grade: Grade = graded && params.grade === "military" ? "military" : "commercial";
+  const g = GRADE_FACTORS[grade];
   const result: ComponentStats = {
     tons,
     hullSpaces: size,
     cost: 0,
     minerals: {},
     crew: 0,
+    wear: graded ? g.wear : PASSIVE_WEAR,
+    grade,
     lines: [],
     problems,
   };
+  if (grade === "military" && !researched.has(MILITARY_TECH)) {
+    problems.push("The military specification has not been researched.");
+  }
   const mineral = (name: MineralName, share: number) => {
     result.minerals[name] = Math.round(result.cost * share * 10) / 10;
   };
@@ -335,11 +397,11 @@ export function componentStats(
       }
       if (!researched.has(type.tech)) problems.push(`${type.name} has not been researched.`);
       const modifier = Number(params.modifier);
-      result.power = size * type.powerPerHS * modifier;
+      result.power = size * type.powerPerHS * modifier * g.power;
       result.fuelPerHour =
-        result.power * type.fuelPerPower * Math.pow(modifier, MODIFIER_FUEL_EXPONENT) * fuelEfficiency(researched);
-      result.cost = Math.round(size * type.costPerHS * modifier * 10) / 10;
-      result.crew = Math.ceil(size * type.crewPerHS);
+        result.power * type.fuelPerPower * g.fuel * Math.pow(modifier, MODIFIER_FUEL_EXPONENT) * fuelEfficiency(researched);
+      result.cost = Math.round(size * type.costPerHS * modifier * g.cost * 10) / 10;
+      result.crew = Math.ceil(size * type.crewPerHS * g.crew);
       mineral("Gallicite", 0.5);
       result.lines.push(
         ["Power", fmt(result.power, 1)],
@@ -387,10 +449,10 @@ export function componentStats(
         break;
       }
       if (!researched.has(type.tech)) problems.push(`${type.name} Sensors have not been researched.`);
-      const rate = size * type.ratePerHS;
+      const rate = size * type.ratePerHS * g.output;
       result.survey = { type: type.id, rate };
-      result.cost = size * type.costPerHS;
-      result.crew = Math.ceil(size * 1);
+      result.cost = size * type.costPerHS * g.cost;
+      result.crew = Math.ceil(size * 1 * g.crew);
       mineral("Uridium", 0.5);
       result.lines.push(
         ["Survey rate", `${fmt(rate)} points/day`],
@@ -399,9 +461,9 @@ export function componentStats(
       break;
     }
     case "jump-drive": {
-      result.jump = size * JUMP_TONS_PER_HS;
-      result.cost = size * 15;
-      result.crew = Math.ceil(size * 0.8);
+      result.jump = size * JUMP_TONS_PER_HS * g.output;
+      result.cost = size * 15 * g.cost;
+      result.crew = Math.ceil(size * 0.8 * g.crew);
       mineral("Corbomite", 0.5);
       mineral("Gallicite", 0.2);
       result.lines.push(
@@ -412,9 +474,9 @@ export function componentStats(
       break;
     }
     case "gate-module": {
-      result.gate = size * GATE_POINTS_PER_HS;
-      result.cost = size * 12;
-      result.crew = Math.ceil(size * 0.5);
+      result.gate = size * GATE_POINTS_PER_HS * g.output;
+      result.cost = size * 12 * g.cost;
+      result.crew = Math.ceil(size * 0.5 * g.crew);
       mineral("Tritanium", 0.4);
       mineral("Duranium", 0.3);
       result.lines.push(
@@ -429,6 +491,8 @@ export function componentStats(
     ["Size", `${fmt(size)} HS  (${fmt(tons)} t)`],
     ["Build cost", `${fmt(result.cost, 1)} BP`],
   );
+  if (graded) result.lines.splice(1, 0, ["Specification", grade === "military" ? "Military" : "Commercial"]);
+  result.lines.push(["Wear", `${fmt(result.wear, 1)}x ${result.wear <= 0.5 ? "(hardly wears)" : result.wear > 1.5 ? "(hard on maintenance)" : ""}`.trim()]);
   if (result.crew > 0) result.lines.push(["Crew", fmt(result.crew)]);
   return result;
 }
@@ -437,12 +501,13 @@ export function componentStats(
 export function suggestName(kind: ComponentKind, rawParams: ParamSet, researched: ReadonlySet<string>): string {
   const params = normaliseParams(kind, rawParams, researched);
   const size = `${params.size}HS`;
+  const military = GRADED_KINDS.has(kind) && params.grade === "military" ? "Military " : "";
   switch (kind) {
     case "engine": {
       const type = ENGINE_BY_ID.get(String(params.type));
       const modifier = Number(params.modifier);
       const tuned = Math.abs(modifier - 1) > 0.001 ? ` x${modifier.toFixed(2)}` : "";
-      return `${type?.name ?? "Engine"} ${size}${tuned}`;
+      return `${military}${type?.name ?? "Engine"} ${size}${tuned}`;
     }
     case "fuel-tank": return `Fuel Tank ${size}`;
     case "crew-quarters": return `Crew Quarters ${size}`;
@@ -450,10 +515,10 @@ export function suggestName(kind: ComponentKind, rawParams: ParamSet, researched
     case "colony-module": return `Cryogenic Berths ${size}`;
     case "survey-sensor": {
       const type = SENSOR_BY_ID.get(String(params.type) as "geological");
-      return `${type?.name ?? "Survey"} Sensor ${size}`;
+      return `${military}${type?.name ?? "Survey"} Sensor ${size}`;
     }
-    case "jump-drive": return `Jump Drive ${size}`;
-    case "gate-module": return `Gate Construction Module ${size}`;
+    case "jump-drive": return `${military}Jump Drive ${size}`;
+    case "gate-module": return `${military}Gate Construction Module ${size}`;
   }
 }
 

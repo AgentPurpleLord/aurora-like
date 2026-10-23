@@ -9,19 +9,21 @@
 
 import type { Empire } from "../state/empire";
 import type { Galaxy } from "./galaxy";
+import { FAILING, OVERDUE, fleetCondition } from "./ships/maintenance";
 import { installationCount } from "../state/colony";
 import { INSTALLATION_BY_ID } from "./economy/installations";
 import { colonyOutput, populationCapacity } from "./economy/production";
 import { mineralLedger, queuedBuildPoints } from "./economy/ledger";
 import { TECH_BY_ID } from "./research/techs";
 import { labCapacity } from "./people/officers";
+import { FACTION_BY_ID, WIN_APPROVAL, approval } from "./politics";
 import { deriveProposals, proposalLabel } from "./governors";
 import { ENGINE_TYPES } from "./ships/components";
 
 export type Severity = "critical" | "warning" | "info";
 
 /** Where an issue is resolved. Mirrors the view ids the UI uses. */
-export type IssueView = "empire" | "colonies" | "fleets" | "design" | "research" | "officers" | "map";
+export type IssueView = "empire" | "colonies" | "fleets" | "design" | "research" | "officers" | "map" | "politics";
 
 /** A governor's draft order, ready for the player to accept. */
 export interface IssueProposal {
@@ -68,9 +70,57 @@ export function deriveIssues(empire: Empire, system: Galaxy): Issue[] {
       id: "treasury:deficit",
       severity: "critical",
       title: "Treasury in deficit",
-      detail: `Balance ${Math.round(empire.treasury).toLocaleString()}. Industrial output is halved until it recovers.`,
+      detail: `Balance ${Math.round(empire.treasury).toLocaleString()}. Industry is halved, interest accrues and stability suffers until it recovers.`,
       action: { label: "Review economy", view: "empire" },
     });
+  }
+
+  for (const colony of empire.colonies.values()) {
+    if (colony.population <= 0.1 || colony.stability >= 40) continue;
+    const name = system.byId.get(colony.bodyId)?.name ?? colony.bodyId;
+    add({
+      id: `unrest:${colony.bodyId}`,
+      severity: colony.stability < 20 ? "critical" : "warning",
+      title: `${colony.stability < 20 ? "Riots" : "Unrest"} on ${name}`,
+      detail: `Stability ${Math.round(colony.stability)}. Output and growth are reduced. Lower taxes, fund welfare or hold a festival.`,
+      action: { label: "Review economy", view: "empire" },
+    });
+  }
+
+  // ---------------------------------------------------------- politics
+  {
+    const p = empire.politics;
+    for (const f of p.factions) {
+      if (f.support >= 35) continue;
+      const name = FACTION_BY_ID.get(f.id)!.name;
+      add({
+        id: `politics:faction:${f.id}`,
+        severity: f.support < 15 ? "critical" : "warning",
+        title: `${name} is ${f.support < 15 ? "in revolt" : "hostile"}`,
+        detail: `Support ${Math.round(f.support)}. ${FACTION_BY_ID.get(f.id)!.domainText} is suffering. Court them, fund them, or meet their demands.`,
+        action: { label: "Open Politics", view: "politics" },
+      });
+    }
+    const now = empire.lastTick;
+    const toElection = p.nextElection - now;
+    if (p.nextElection > 0 && toElection < 365.25 * 86_400 && approval(p) < WIN_APPROVAL + 5) {
+      add({
+        id: "politics:election",
+        severity: approval(p) < WIN_APPROVAL ? "critical" : "warning",
+        title: approval(p) < WIN_APPROVAL ? "Heading for election defeat" : "A close election is coming",
+        detail: `Approval ${Math.round(approval(p))}% against ${WIN_APPROVAL}% needed, with the vote in ${Math.max(0, toElection / (365.25 * 86_400)).toFixed(1)} years.`,
+        action: { label: "Open Politics", view: "politics" },
+      });
+    }
+    if (p.capital >= 90) {
+      add({
+        id: "politics:capital",
+        severity: "info",
+        title: "Political capital is going to waste",
+        detail: "The reserve is nearly full. Enact a law, court a faction or settle a demand.",
+        action: { label: "Open Politics", view: "politics" },
+      });
+    }
   }
 
   // ---------------------------------------------------------- minerals
@@ -221,6 +271,21 @@ export function deriveIssues(empire: Empire, system: Galaxy): Issue[] {
           system.byId.get(fleet.anchorId)?.name ?? fleet.anchorId
         }.`,
         action: { label: "Give orders", view: "fleets" },
+      });
+    }
+  }
+
+  // ---------------------------------------------------------- servicing
+  for (const fleet of empire.fleets.values()) {
+    if (!fleet.shipIds.length || fleet.program) continue;
+    const worst = fleetCondition(empire, fleet);
+    if (worst < OVERDUE) {
+      add({
+        id: `fleet:overdue:${fleet.id}`,
+        severity: worst < FAILING ? "critical" : "warning",
+        title: `${fleet.name} is overdue for servicing (${Math.round(worst)}%)`,
+        detail: "Worn ships are slower and may break down. Park the fleet at a colony with a shipyard or maintenance facility.",
+        action: { label: "Open fleet", view: "fleets" },
       });
     }
   }

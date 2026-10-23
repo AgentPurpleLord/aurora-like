@@ -6,6 +6,14 @@
  */
 
 export const GLOSSARY: Record<string, string> = {
+  "Condition":
+    "How worn the fleet's worst ship is: 100% is new. Condition falls as ships work, slows them (down to 60% speed) and below 30% they can break down. Park them at a colony with a shipyard or maintenance facility to restore it.",
+  "Wear":
+    "How fast a class wears out, as a multiple of a plain commercial ship. Military engines, sensors and drives wear more than twice as fast; tanks, holds and berths hardly wear.",
+  "Full overhaul": "What servicing a completely worn ship back to new would cost: a share of its build cost.",
+  "Servicing capacity":
+    "Tons of ship this colony can service at once: 1,500 t per shipyard and 4,000 t per maintenance facility. More ships than that share the capacity, and are serviced more slowly.",
+  "Specification": "Commercial parts are cheap, thrifty and gentle on maintenance. Military parts are stronger but dearer, need more crew and wear faster.",
   "Colony Cost":
     "How hostile a world is to settle: 0 is a garden world, 2 is the floor for any world with unbreathable air. Infrastructure needed per million colonists is about 100 x this.",
   "Unmodified Colony Cost": "The world's colony cost before genetic adaptation research is applied.",
@@ -45,6 +53,9 @@ export const GLOSSARY: Record<string, string> = {
     "A stand-in for freighters: installations built for another colony arrive by themselves and colonists migrate from the capital.",
   "Laboratories": "Research laboratories working, against the number built.",
   "Scientists free": "Scientists not currently leading a project.",
+  "Stability":
+    "How content the people are, 0 to 100 (70 is neutral). Heavy taxes lower it; welfare, reserves and light taxes raise it; debt crushes it. Below 40 output and growth fall, below 20 there are riots.",
+  "Tax rate": "Share of the colonies' taxable output the government takes. Higher is richer now but unhappier, and strangles trade.",
   "Treasury": "Wealth in hand. A deficit halves industrial output.",
 };
 

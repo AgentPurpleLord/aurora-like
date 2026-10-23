@@ -21,7 +21,16 @@ import { BUILT_IN_TEMPLATES, resolveTemplate } from "../src/sim/economy/template
 import { supplyToward } from "../src/sim/economy/standingOrders";
 import { deriveProposals } from "../src/sim/governors";
 import { effectiveColonyCost, shipyardCapacity } from "../src/sim/economy/production";
-import { componentStats, normaliseParams, SURVEY_POINTS_NEEDED } from "../src/sim/ships/components";
+import { componentStats, normaliseParams, suggestName, SURVEY_POINTS_NEEDED } from "../src/sim/ships/components";
+import { maintainShips, servicingCapacity } from "../src/sim/ships/maintenance";
+import { statsFor } from "../src/sim/research/techs";
+import { classTitle } from "../src/sim/ships/hulls";
+import { buyProgramme, programmeCost, moraleFactor, reserveErosion, stabilityTarget } from "../src/sim/economy/finance";
+import {
+  FACTIONS, approval, capitalUpkeep, courtFaction, enactPolicy, repealPolicy, rejectDemand, judge, moodEffect, runPolitics,
+} from "../src/sim/politics";
+import { invalidateTrade, tradeConnections } from "../src/sim/economy/trade";
+import { budgetOf } from "../src/sim/economy/budget";
 import type { Empire } from "../src/state/empire";
 import { Galaxy } from "../src/sim/galaxy";
 import { optionsFor, resolveEvent, rollEvent } from "../src/sim/events/engine";
@@ -1501,7 +1510,7 @@ console.log("");
 
   for (let i = 0; i < 14; i++) g.step(CYCLE_DAYS * SECONDS_PER_DAY);
   assert("effects end when their time is up", e.effects.length === 0);
-  check("and output returns to normal", colonyOutput(e, body, earth, e.stats).buildPoints / baseline.buildPoints, 1, 1e-9);
+  check("and output returns to normal", colonyOutput(e, body, earth, e.stats).buildPoints / baseline.buildPoints, 1, 0.01);  // stability drifts a little with the treasury
   assert("the end of an effect is logged", e.log.some((l) => /Work-to-rule on Earth has ended/.test(l.text)));
 
   // --- an epidemic ignored always has an aftermath
@@ -1556,6 +1565,309 @@ console.log("");
   we.scheduleEvent("derelict-beacon", { cost: 3000 }, w.clock.seconds, 30);
   const copy2 = gameFromSave(parseSave(JSON.stringify(makeSave(w, "ch", "ch", "manual"))));
   assert("and so do scheduled follow-ups", copy2.empire.scheduled.length === 1 && copy2.empire.scheduled[0].defId === "derelict-beacon");
+}
+
+// ==========================================================================
+// Commercial and military parts, and keeping ships serviced
+// ==========================================================================
+
+console.log("");
+
+{
+  const researched = new Set(["trans-newtonian", "nuclear-thermal"]);
+  const withMilitary = new Set([...researched, "military-specification"]);
+  const base = { type: "nuclear-thermal", size: 5, modifier: 1 };
+  const com = componentStats("engine", { ...base, grade: "commercial" }, researched);
+  const old = componentStats("engine", base, researched);
+  const mil = componentStats("engine", { ...base, grade: "military" }, withMilitary);
+
+  check("a part with no grade is commercial, so old designs do not change", old.power!, com.power!, 1e-9);
+  check("a 5 HS nuclear thermal engine still makes 60 power", com.power!, 60, 1e-9);
+  check("military engines push 30% harder", mil.power! / com.power!, 1.3, 1e-9);
+  check("and cost 70% more", mil.cost / com.cost, 1.7, 0.03);
+  check("and need half as many more crew", mil.crew / com.crew, 1.5, 0.35);
+  check("and burn more fuel per unit of power", (mil.fuelPerHour! / mil.power!) / (com.fuelPerHour! / com.power!), 1.15, 1e-9);
+  check("and wear 2.2 times as fast", mil.wear / com.wear, 2.2, 1e-9);
+  assert("the military specification needs research", componentStats("engine", { ...base, grade: "military" }, researched).problems.length > 0);
+  assert("and is fine once researched", mil.problems.length === 0);
+  assert("military parts are named as such", suggestName("engine", { ...base, grade: "military" }, withMilitary).startsWith("Military "));
+  assert("commercial names are unchanged", suggestName("engine", base, researched) === "Nuclear Thermal 5HS");
+  assert("tanks, holds and berths have no military pattern",
+    componentStats("fuel-tank", { size: 5, grade: "military" }, researched).grade === "commercial" &&
+    componentStats("fuel-tank", { size: 5 }, researched).wear === 0.4);
+  const sensorCom = componentStats("survey-sensor", { type: "geological", size: 4 }, new Set([...researched, "geo-survey-sensors"]));
+  const sensorMil = componentStats("survey-sensor", { type: "geological", size: 4, grade: "military" }, new Set([...withMilitary, "geo-survey-sensors"]));
+  check("military sensors survey 30% faster", sensorMil.survey!.rate / sensorCom.survey!.rate, 1.3, 1e-9);
+
+  // --- a class made of them
+  const g = new Game("upkeep");
+  const e = g.empire;
+  e.research("nuclear-thermal");
+  e.research("military-specification");
+  const commercialEngine = e.addComponentDesign("engine", { ...base, grade: "commercial" }, 0);
+  const militaryEngine = e.addComponentDesign("engine", { ...base, grade: "military" }, 0);
+  const tank = e.addComponentDesign("fuel-tank", { size: 5 }, 0);
+  const quarters = e.addComponentDesign("crew-quarters", { size: 4 }, 0);
+  const plain = e.addDesign("Plain", [
+    { componentId: commercialEngine.id, count: 2 }, { componentId: tank.id, count: 4 }, { componentId: quarters.id, count: 2 },
+  ], 0);
+  const hard = e.addDesign("Hard", [
+    { componentId: militaryEngine.id, count: 2 }, { componentId: tank.id, count: 4 }, { componentId: quarters.id, count: 2 },
+  ], 0);
+  const ps = e.statsOf(plain.id)!;
+  const hs = e.statsOf(hard.id)!;
+  assert("a military class is marked, a commercial one is not", hs.military && !ps.military);
+  assert("it is faster", hs.speed > ps.speed * 1.2);
+  assert("it costs more", hs.buildCost > ps.buildCost * 1.2);
+  assert("it wears faster", hs.wear > ps.wear * 1.3);
+
+  // --- wear
+  const fleet = e.createFleet("Test Wing", { x: 0, y: 0, z: 0 }, "earth");
+  const ship = e.commissionShip(plain.id, fleet, "P1", 0);
+  ship.fuel = ps.fuelCapacity;
+  check("a new ship is in perfect condition", ship.condition, 100, 0);
+  fleet.orders.push({ kind: "move", bodyId: "neptune" });
+  const sail = 30;
+  for (let i = 0; i < sail / CYCLE_DAYS; i++) g.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  assert(`a ship under way wears (${ship.condition.toFixed(1)}%)`, fleet.anchorId === null && ship.condition < 100);
+  check("by its wear rate", 100 - ship.condition, 28 * ps.wear * (sail / 365.25), 0.2);
+
+  // --- a ship at a distant, unserviced body wears slowly
+  const mars = g.galaxy.byId.get("mars")!;
+  const idle = e.createFleet("Idle", mars.world, "mars");
+  const idleShip = e.commissionShip(plain.id, idle, "I1", 0);
+  const rate = 28 * ps.wear / 365.25;
+  g.step(CYCLE_DAYS * SECONDS_PER_DAY * 4);
+  assert("a ship parked at an unserviced body wears at 40% of the working rate",
+    Math.abs((100 - idleShip.condition) - rate * 0.4 * CYCLE_DAYS * 4) < 0.3);
+
+  // --- service
+  const earthYard = e.createFleet("Yard", g.galaxy.byId.get("earth")!.world, "earth");
+  const serviced = e.commissionShip(plain.id, earthYard, "S1", 0);
+  serviced.condition = 40;
+  const capacity = servicingCapacity(e, e.colony("earth")!);
+  assert(`a colony with shipyards has servicing capacity (${capacity} t)`, capacity === 2 * 1500);
+  const result = maintainShips(e, g.galaxy, CYCLE_DAYS);
+  assert("a parked ship at it is restored", serviced.condition > 45);
+  const gained = serviced.condition - 40;
+  check("servicing costs a share of the ship's price, in proportion to the work",
+    result.cost, ps.buildCost * 0.15 * gained / 100, 1e-6);
+  for (let i = 0; i < 20; i++) g.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  check("and it gets all the way back", serviced.condition, 100, 0);
+  e.research("maintenance-facilities");
+  e.research("maintenance-bays-2");
+  e.colony("earth")!.installations["maintenance"] = 3;
+  check("maintenance facilities add capacity, twice as much with better bays",
+    servicingCapacity(e, e.colony("earth")!), 3 * 8000 + 3000, 0);
+
+  // --- condition slows a ship
+  const slowFleet = e.createFleet("Slow", { x: 0, y: 0, z: 0 }, "earth");
+  const slowShip = e.commissionShip(plain.id, slowFleet, "W1", 0);
+  slowShip.fuel = ps.fuelCapacity;
+  const fast = fleetStats(e, slowFleet).speed;
+  slowShip.condition = 0;
+  check("a ship in ruins still limps at 60% speed", fleetStats(e, slowFleet).speed / fast, 0.6, 1e-9);
+  slowShip.condition = 50;
+  check("and half-worn at 80%", fleetStats(e, slowFleet).speed / fast, 0.8, 1e-9);
+
+  // --- raised for attention, and breaking down
+  slowShip.condition = 25;
+  assert("an overdue fleet is raised for attention",
+    deriveIssues(e, g.galaxy).some((i) => i.id === `fleet:overdue:${slowFleet.id}`));
+  const failure = rollEvent({ empire: e, galaxy: g.galaxy, now: g.clock.seconds, rng: e.eventRng }, "ship-failure");
+  assert("a badly worn ship can break down", failure !== null && failure.decision);
+  if (failure) {
+    const worn = e.ships.get(String(failure.params.ship))!;
+    const before = worn.condition;
+    resolveEvent(e, g.galaxy, failure.id, "repair", g.clock.seconds);
+    assert("field repairs restore condition for a price", worn.condition >= before + 34 || worn.condition === 100);
+  }
+
+  // --- a programme fleet goes for service rather than carrying on worn out
+  const sg = new Game("worn");
+  const se = sg.empire;
+  se.research("nuclear-thermal");
+  se.research("geo-survey-sensors");
+  const sp = parts(se);
+  const scout = se.addDesign("Scout", [
+    { componentId: sp.engine("nuclear-thermal").id, count: 2 }, { componentId: sp.tank().id, count: 6 },
+    { componentId: sp.sensor().id, count: 2 }, { componentId: sp.quarters().id, count: 1 },
+  ], 0);
+  const sf = se.createFleet("Wing", sg.galaxy.byId.get("earth")!.world, "earth");
+  const sship = se.commissionShip(scout.id, sf, "W1", 0);
+  sship.fuel = se.statsOf(scout.id)!.fuelCapacity;
+  sship.condition = 55;
+  sf.program = { kind: "survey", maxAu: 0, systemId: "sol" };
+  sg.step(SECONDS_PER_DAY * 2);
+  assert("a survey fleet at a servicing colony waits to be serviced before setting out",
+    sf.orders.length === 0 && /serviced/i.test(sf.programStatus ?? ""));
+  for (let i = 0; i < 30 && sf.orders.length === 0; i++) sg.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  assert("and sets out once it is nearly right", sship.condition >= 90 && sf.orders.length > 0);
+
+  // --- the new techs
+  assert("maintenance bays double a facility's capacity", statsFor(["maintenance-bays-2", "maintenance-facilities", "trans-newtonian"]).serviceTonsPerFacility === 8000);
+
+  // --- hull types
+  {
+    const hg = new Game("hulls");
+    const he = hg.empire;
+    he.research("nuclear-thermal");
+    he.research("geo-survey-sensors");
+    for (const std of he.addStandardClasses(0)) {
+      const hull = std.hullId;
+      assert(`standard ${std.name} has a hull and fits it`, Boolean(hull) && he.statsOf(std.id)!.problems.length === 0);
+    }
+    const hauler = he.designs.find((d) => d.name === "Hauler")!;
+    assert("the Hauler is a freighter", hauler.hullId === "freighter");
+    const tiny = he.addDesign("Tiny", hauler.components.map((c) => ({ ...c, count: 1 })), 0, "destroyer");
+    const tinyProblems = he.statsOf(tiny.id)!.problems.join(" ");
+    assert("a destroyer hull rejects a ship that is too small", /at least/.test(tinyProblems));
+    assert("and commercial engines on a warship", /military specification/.test(tinyProblems));
+    const unclassed = he.addDesign("Free", hauler.components, 0);
+    assert("an unclassed design has no hull problems", he.statsOf(unclassed.id)!.problems.length === 0);
+    assert("class titles read 'Hauler-class Freighter'", classTitle(hauler) === "Hauler-class Freighter");
+    assert("hull id survives export", JSON.stringify(he.exportState()).includes('"hullId":"freighter"'));
+  }
+
+  // --- money has consequences
+  {
+    const fg = new Game("finance");
+    const fe = fg.empire;
+    const earthBody = fg.galaxy.byId.get("earth")!;
+    const earthColony = fe.colony("earth")!;
+    const base = colonyOutput(fe, earthBody, earthColony, fe.stats);
+    assert("neutral taxes give at least the familiar 2.5 per million", base.taxes / earthColony.population >= 2.5);
+    fe.taxRate = 0.6;
+    const heavy = colonyOutput(fe, earthBody, earthColony, fe.stats);
+    assert("heavier taxes raise tax income", heavy.taxes > base.taxes * 1.6);
+    assert("but cut commerce", heavy.trade < base.trade);
+    for (let i = 0; i < 400; i++) fg.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    assert("and wear stability down", earthColony.stability < 60);
+    const after = colonyOutput(fe, earthBody, earthColony, fe.stats);
+    const unrest = earthColony.stability;
+    earthColony.stability = 70;
+    const calm = colonyOutput(fe, earthBody, earthColony, fe.stats);
+    earthColony.stability = unrest;
+    assert("unhappy colonies work less", after.buildPoints < calm.buildPoints * 0.97);
+    assert("and grow slower", after.populationGrowth < base.populationGrowth);
+    check("morale is 1 at neutral", moraleFactor(70), 1, 1e-9);
+    fe.taxRate = 0.1;
+    fe.welfare = 0.1;
+    for (let i = 0; i < 600; i++) fg.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    assert("light taxes and welfare make people content", earthColony.stability > 85);
+    fe.welfare = 0;
+    fe.taxRate = 0.3;
+    // programmes
+    fe.treasury = 0;
+    assert("a programme needs money", buyProgramme(fe, "industrial-subsidy", fg.clock.seconds) !== null);
+    fe.treasury = programmeCost(fe.snapshot.income) + 50;
+    const before = colonyOutput(fe, earthBody, earthColony, fe.stats).buildPoints;
+    assert("a funded programme starts", buyProgramme(fe, "industrial-subsidy", fg.clock.seconds) === null);
+    check("and lifts output by a quarter", colonyOutput(fe, earthBody, earthColony, fe.stats).buildPoints / before, 1.25, 1e-9);
+    assert("it cannot be bought twice", buyProgramme(fe, "industrial-subsidy", fg.clock.seconds) !== null);
+    // debt
+    fe.treasury = -5000;
+    const debt = budgetOf(fe, fg.galaxy);
+    assert("debt costs interest", debt.interest > 0);
+    // save round trip
+    fe.taxRate = 0.42;
+    const reloaded = gameFromSave(parseSave(JSON.stringify(makeSave(fg, "fin", "fin", "manual"))));
+    check("tax rate survives a save", reloaded.empire.taxRate, 0.42, 1e-9);
+    assert("so does stability", reloaded.empire.colony("earth")!.stability === earthColony.stability);
+  }
+
+  // --- trade follows freight; governors keep the peace; hoards erode
+  {
+    const lg = new Game("links");
+    const le = lg.empire;
+    le.research("nuclear-thermal");
+    le.civilianShipping = false;
+    const lmars = le.foundColony("mars", 0);
+    lmars.population = 10;
+    const learth = le.colony("earth")!;
+    const earthB = lg.galaxy.byId.get("earth")!;
+    const none = colonyOutput(le, earthB, learth, le.stats).trade;
+    const lhauler = le.addStandardClasses(0).find((d) => d.name === "Hauler")!;
+    const lfleet = le.createFleet("Line", { x: 0, y: 0, z: 0 }, "earth");
+    const lship = le.commissionShip(lhauler.id, lfleet, "H1", 0);
+    lfleet.program = { kind: "freight", fromId: "earth", toId: "mars", there: null, back: null };
+    invalidateTrade(le);
+    check("a freight line is one link at each end", tradeConnections(le).get("earth") ?? 0, 1, 1e-9);
+    check("and raises trade by half over no links", colonyOutput(le, earthB, learth, le.stats).trade / none, 1.5, 1e-9);
+    lship.condition = 10;
+    invalidateTrade(le);
+    assert("a ship in ruins carries no trade", (tradeConnections(le).get("earth") ?? 0) === 0);
+    lship.condition = 100;
+    le.civilianShipping = true;
+    invalidateTrade(le);
+    assert("civilian shipping adds a modest baseline", (tradeConnections(le).get("earth") ?? 0) > 1);
+
+    const calm = { taxRate: 0.3, welfare: 0, treasury: 0, expenses: 0, effect: 1 };
+    const good = stabilityTarget({ ...calm, administration: 8 }).target;
+    const poor = stabilityTarget({ ...calm, administration: 1 }).target;
+    const none2 = stabilityTarget({ ...calm, administration: null }).target;
+    assert("a good governor beats a poor one beats none", good > 75 && poor < none2 + 1 && poor < 70 && none2 < 70);
+
+    assert("modest reserves are safe", reserveErosion(500, 100) === 0);
+    check("a hoard loses 4% of the excess a year", reserveErosion(100_000, 100), 99_000 * 0.04, 1e-6);
+  }
+
+  // --- politics
+  {
+    const pg = new Game("politics");
+    const pe = pg.empire;
+    const t0 = pg.clock.seconds;
+    assert("five factions", pe.politics.factions.length === FACTIONS.length && FACTIONS.length === 5);
+    check("influence shares sum to one", pe.politics.factions.reduce((s, f) => s + f.influence, 0), 1, 1e-9);
+    // laws
+    pe.politics.capital = 100;
+    const baseIndustry = pe.effectFactor("industry", "earth");
+    assert("a law can be enacted", enactPolicy(pe, "industrial-mobilisation", t0) === null);
+    check("and changes output", pe.effectFactor("industry", "earth") / baseIndustry, 1.12, 1e-9);
+    assert("it cannot be enacted twice", enactPolicy(pe, "industrial-mobilisation", t0) !== null);
+    assert("it costs capital", pe.politics.capital === 75);
+    enactPolicy(pe, "research-charter", t0);
+    enactPolicy(pe, "free-trade", t0);
+    assert("only three laws fit", enactPolicy(pe, "welfare-state", t0) !== null && pe.politics.policies.length === 3);
+    assert("a law can be repealed", repealPolicy(pe, "free-trade", t0) === null && pe.politics.policies.length === 2);
+    check("repealing undoes it", pe.effectFactor("wealth", "earth"), 1, 0.2);
+    assert("laws shift faction judgement",
+      judge(pe, "industrialists", t0).terms.some((t) => /Mobilisation/.test(t.label) && t.value > 0));
+    assert("and laws cost upkeep", capitalUpkeep(pe.politics) >= 1);
+    // courting
+    const before = pe.politics.factions.find((f) => f.id === "civic")!.support;
+    assert("courting a faction raises support", courtFaction(pe, "civic", t0) === null
+      && pe.politics.factions.find((f) => f.id === "civic")!.support > before);
+    assert("but not twice in a row", courtFaction(pe, "civic", t0) !== null);
+    // mood effects
+    check("a loyal faction helps", moodEffect(80), 0.04, 1e-9);
+    assert("an angry one hurts", moodEffect(10) < moodEffect(40) && moodEffect(40) < 0);
+    // demands arrive and expire
+    pe.politics.capital = 50;
+    for (let i = 0; i < 400; i++) pg.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    assert("a demand has been made", pe.log.some((l) => /demands:/.test(l.text)));
+    const open = pe.politics.demands[0];
+    if (open) assert("a demand can be rejected", rejectDemand(pe, open.id, pg.clock.seconds) === null);
+    assert("capital stays within bounds", pe.politics.capital >= 0 && pe.politics.capital <= 100);
+    // elections
+    assert("an election was held", pe.politics.lastElection !== null);
+    // losing one
+    const pe2 = new Game("politics2").empire;
+    pe2.politics.capital = 60;
+    enactPolicy(pe2, "civil-liberties", 0);
+    for (const f of pe2.politics.factions) f.support = 5;
+    pe2.politics.nextElection = 1;
+    runPolitics(pe2, new Game("politics3").galaxy, 100, 5);
+    assert("a lost election brings a caretaker", pe2.politics.caretakerUntil > 100 && pe2.politics.lastElection?.won === false);
+    assert("which scraps the laws and the capital", pe2.politics.capital === 0 && !pe2.politics.policies.some((e) => e.id === "civil-liberties"));
+    assert("and an imposed law cannot be repealed", pe2.politics.policies.every((e) => (e.lockedUntil ?? 0) > 100));
+    // saves
+    pe.politics.capital = 33;
+    const back = gameFromSave(parseSave(JSON.stringify(makeSave(pg, "pol", "pol", "manual"))));
+    check("politics survives a save", back.empire.politics.capital, 33, 1e-9);
+    assert("with its laws in force", back.empire.effectFactor("industry", "earth") === pe.effectFactor("industry", "earth"));
+    assert("approval is a weighted mean", approval(pe.politics) > 0 && approval(pe.politics) <= 100);
+  }
 }
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);
