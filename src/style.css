@@ -2104,3 +2104,16 @@ kbd {
 .lab-count.warn { color: #e8c06a; }
 .research-auto { margin-bottom: 6px; }
 @media (max-width: 860px) { .lab-row { grid-template-columns: 90px minmax(40px, 1fr); } .lab-row .lab-count { grid-column: 1 / -1; } }
+
+/* ------------------------------------------------------------ people rows */
+.queue-row.pop-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 8px 0;
+}
+.pop-row > :first-child { flex: 1 1 200px; font-weight: 600; }
+.pop-row .progress { flex: 0 0 100%; height: 5px; }
+.pop-row .muted { flex: 0 0 100%; line-height: 1.35; }
+.politics-faction .progress, .event-card .progress { width: 100%; }

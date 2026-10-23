@@ -424,12 +424,11 @@ export class EconomyView {
       const def = POP_BY_ID.get(g.id)!;
       const row = el("div", "queue-row pop-row");
       row.append(el("span", undefined, `${def.name} - ${population(colony.population * g.share)} (${Math.round(g.share * 100)}%)`));
-      row.append(el("span", "muted small", def.blurb));
       const sat = Math.round(g.satisfaction);
       row.append(el("span", `chip ${sat >= 60 ? "good" : sat >= 40 ? "warn" : "bad"}`, `Content ${sat}`));
       if (g.radicalism >= 20) row.append(el("span", `chip ${g.radicalism >= 50 ? "bad" : "warn"}`, `Radical ${Math.round(g.radicalism)}`));
       row.append(progressBar(g.satisfaction / 100));
-      row.append(el("span", "muted small", `Lean towards ${leaningText(def.leaning)}. Content ${def.boosts}.`));
+      row.append(el("span", "muted small", `${def.blurb} Lean towards ${leaningText(def.leaning)}. Content ${def.boosts}.`));
       groups.append(row);
     }
 
@@ -440,7 +439,7 @@ export class EconomyView {
     }
     for (const good of GOODS) {
       const f = market.goods[good.id];
-      const row = el("div", "queue-row");
+      const row = el("div", "queue-row pop-row");
       row.append(el("span", undefined, good.name));
       const pct = Math.round(f.met * 100);
       row.append(el("span", `chip ${pct >= 90 ? "good" : pct >= 60 ? "warn" : "bad"}`, `${pct}% met`));
