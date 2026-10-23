@@ -225,8 +225,13 @@ export const TECHS: Tech[] = [
   },
   {
     id: "jump-point-theory", name: "Jump Point Theory", field: "power",
-    cost: 7500, prereqs: ["ion-drive"], future: true,
-    description: "The mathematics of jump points. Required before a ship can survey one, let alone transit it.",
+    cost: 7500, prereqs: ["grav-survey-sensors", "nuclear-pulse"],
+    description: "The mathematics of jump points, and with it the jump drive: a ship carrying one can cross a jump point on its own, bringing along as much tonnage as the drive is rated for.",
+  },
+  {
+    id: "jump-gate-construction", name: "Jump Gate Construction", field: "power",
+    cost: 12000, prereqs: ["jump-point-theory"],
+    description: "Gate construction modules. A ship carrying one can stabilise a jump point it has crossed, after which any ship - jump drive or not - can use the connection. Gates are what turn a discovery into a trade route.",
   },
 
   // -------------------------------------------------- sensors and fire control
@@ -237,8 +242,8 @@ export const TECHS: Tech[] = [
   },
   {
     id: "grav-survey-sensors", name: "Gravitational Survey Sensors", field: "sensors",
-    cost: 2000, prereqs: ["trans-newtonian"], future: true,
-    description: "Detects the gravitational anomalies that mark a jump point.",
+    cost: 2000, prereqs: ["trans-newtonian"],
+    description: "Gravitational survey sensors for the component designer. A ship carrying one that surveys a system will, given time, find the jump points in it.",
   },
   {
     id: "deep-space-tracking", name: "Deep Space Tracking Station", field: "sensors",

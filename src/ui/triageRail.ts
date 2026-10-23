@@ -44,7 +44,7 @@ export class TriageRail {
   }
 
   render(): void {
-    this.issues = activeIssues(this.game.empire, this.game.system, this.game.clock.seconds);
+    this.issues = activeIssues(this.game.empire, this.game.galaxy, this.game.clock.seconds);
     this.root.classList.toggle("collapsed", this.collapsed);
     this.root.textContent = "";
     if (this.collapsed) this.renderStrip();

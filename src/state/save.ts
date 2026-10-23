@@ -256,17 +256,23 @@ export function startingGame(): { game: Game; resumed: SaveMeta | null; error?: 
   const params = new URLSearchParams(window.location.search);
   // A request made in this tab beats the address; `?new` is for a fresh start
   // when nothing was asked for.
-  if (pending === "new" || (!pending && params.has("new"))) return { game: new Game(), resumed: null };
+  const seed = params.get("seed") ?? freshSeed();
+  if (pending === "new" || (!pending && params.has("new"))) return { game: new Game(seed), resumed: null };
 
   const meta = pending ? listSaves().find((m) => m.id === pending) : latestSave();
-  if (!meta) return { game: new Game(), resumed: null };
+  if (!meta) return { game: new Game(seed), resumed: null };
   try {
     const file = readSave(meta.id);
     if (file) return { game: gameFromSave(file), resumed: meta };
   } catch (error) {
-    return { game: new Game(), resumed: null, error: `Could not read "${meta.name}": ${String(error)}` };
+    return { game: new Game(seed), resumed: null, error: `Could not read "${meta.name}": ${String(error)}` };
   }
-  return { game: new Game(), resumed: null, error: `Could not read "${meta.name}".` };
+  return { game: new Game(seed), resumed: null, error: `Could not read "${meta.name}".` };
+}
+
+/** A new campaign rolls a new galaxy; the seed is kept in saves so it can be rebuilt. */
+function freshSeed(): string {
+  return `g${Math.floor(Math.random() * 0xffffff).toString(36)}${Date.now().toString(36).slice(-3)}`;
 }
 
 export function downloadSave(file: SaveFile): void {

@@ -9,7 +9,7 @@
  */
 
 import type { Empire, LogCategory, LogEntry } from "../state/empire";
-import type { StarSystem } from "./system";
+import type { Galaxy } from "./galaxy";
 import { activeIssues, type Issue } from "./issues";
 
 export interface DigestGroup {
@@ -46,7 +46,7 @@ const GROUPS: [LogCategory, string][] = [
   ["people", "People"],
 ];
 
-export function buildDigest(empire: Empire, system: StarSystem, now: number): Digest {
+export function buildDigest(empire: Empire, system: Galaxy, now: number): Digest {
   const mark = empire.reviewMark;
   // Newest first in the log; the report reads oldest first.
   const fresh = empire.logSince(mark.seq);

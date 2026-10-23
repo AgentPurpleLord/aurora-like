@@ -8,6 +8,8 @@ import { AU_KM } from "../sim/orbit";
 
 export class BodyTreePanel {
   private list: HTMLElement;
+  private title = el("span", undefined, "");
+  private count = el("span", "muted", "");
   private filter = "";
   private rows = new Map<string, HTMLElement>();
 
@@ -17,9 +19,7 @@ export class BodyTreePanel {
     private onZoomTo: (body: Body) => void,
   ) {
     const head = el("div", "panel-head");
-    head.append(el("span", undefined, "Sol System"));
-    const count = el("span", "muted", `${game.system.bodies.length} bodies`);
-    head.append(count);
+    head.append(this.title, this.count);
     this.root.append(head);
 
     const search = el("input", "search");
@@ -40,7 +40,11 @@ export class BodyTreePanel {
   private build(): void {
     this.list.textContent = "";
     this.rows.clear();
-    for (const body of this.game.system.tree()) {
+    const { viewSystem, empire } = this.game;
+    this.title.textContent = `${viewSystem.name} System`;
+    const shown = viewSystem.tree().filter((b) => b.cls !== "jump-point" || empire.knownJumpPoints.has(b.id));
+    this.count.textContent = `${shown.length} bodies`;
+    for (const body of shown) {
       if (this.filter && !body.name.toLowerCase().includes(this.filter)) continue;
       const row = el("div", `tree-row depth-${Math.min(body.depth, 3)}`);
       row.dataset.id = body.id;

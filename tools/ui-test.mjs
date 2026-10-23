@@ -18,7 +18,9 @@
 
 import { chromium, devices } from "playwright";
 
-const URL = process.env.UI_TEST_URL ?? "http://localhost:5173/";
+const BASE = process.env.UI_TEST_URL ?? "http://localhost:5173/";
+// A fixed galaxy seed keeps officers, deposits and worlds the same every run.
+const URL = `${BASE}?seed=sol-1`;
 /** Screenshots land here rather than in the working tree. */
 const SHOTS = ".screenshots";
 const launch = process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {};
@@ -557,7 +559,7 @@ async function programSuite(browser) {
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-  await page.goto(`${URL}?debug&new`);
+  await page.goto(`${BASE}?debug&new&seed=sol-1`);
   await page.waitForSelector("#view-tabs");
 
   // A survey ship and a hauler, and a second colony to run between.
@@ -672,6 +674,142 @@ async function programSuite(browser) {
   await page.close();
 }
 
+async function explorationSuite(browser) {
+  console.log("\nGalaxy and exploration");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.goto(`${BASE}?debug&new&seed=demo`);
+  await page.waitForSelector("#view-tabs");
+
+  await nav(page, "Galaxy").click();
+  await check("the galaxy map shows the real neighbours", async () =>
+    (await page.locator(".galaxy-node").count()) === 16);
+  await check("only Sol is known at the start", async () =>
+    (await page.locator(".galaxy-node.known").count()) === 1);
+  await page.locator('[data-system="trappist-1"]').click();
+  await check("an unvisited star shows what is known and what is not", async () => {
+    const text = await page.locator(".galaxy-side").innerText();
+    return /TRAPPIST-1/.test(text) && /Not yet visited/.test(text) && /40.7 ly/.test(text);
+  });
+  await check("its planets are not revealed", async () =>
+    !/Planets \(/.test(await page.locator(".galaxy-side").innerText()));
+
+  // The map tree has no jump points until they are found.
+  await nav(page, "Map").click();
+  await check("no jump points are listed before a survey", async () =>
+    (await page.locator("#system-panel .tree-name", { hasText: "Jump Point" }).count()) === 0);
+
+  // A fleet that can explore.
+  await page.evaluate(() => {
+    const g = window.__game;
+    const e = g.empire;
+    for (const t of ["nuclear-thermal", "geo-survey-sensors", "grav-survey-sensors", "nuclear-pulse", "jump-point-theory", "jump-gate-construction"]) e.research(t);
+    const mk = (kind, params) => e.addComponentDesign(kind, params, 0);
+    const engine = mk("engine", { type: "nuclear-thermal", size: 5, modifier: 1 });
+    const tank = mk("fuel-tank", { size: 5 });
+    const quarters = mk("crew-quarters", { size: 2 });
+    const drive = mk("jump-drive", { size: 30 });
+    const sensor = mk("survey-sensor", { type: "gravitational", size: 4 });
+    const design = e.addDesign("Explorer", [
+      { componentId: engine.id, count: 4 }, { componentId: tank.id, count: 10 },
+      { componentId: sensor.id, count: 1 }, { componentId: drive.id, count: 1 }, { componentId: quarters.id, count: 2 },
+    ], 0);
+    const fleet = e.createFleet("Pathfinder", { x: 0, y: 0, z: 0 }, "earth");
+    e.commissionShip(design.id, fleet, "Pathfinder 1", 0).fuel = e.statsOf(design.id).fuelCapacity;
+    const plain = e.addDesign("Plain", [
+      { componentId: engine.id, count: 2 }, { componentId: tank.id, count: 4 }, { componentId: quarters.id, count: 1 },
+    ], 0);
+    const driveless = e.createFleet("Driveless", { x: 0, y: 0, z: 0 }, "earth");
+    e.commissionShip(plain.id, driveless, "Plain 1", 0).fuel = 1e5;
+    g.emit();
+  });
+
+  await nav(page, "Fleets").click();
+  await page.locator("#view-fleets .panel-left .tree-row", { hasText: "Driveless" }).click();
+  await check("a fleet with no jump drive cannot start exploring", async () => {
+    const form = page.locator("#view-fleets .program-form", { hasText: "Explore" });
+    return (await form.getByRole("button", { name: "Start exploring" }).isDisabled()) &&
+      /no (jump drive|gravitational)/i.test(await form.innerText());
+  });
+  await page.locator("#view-fleets .panel-left .tree-row", { hasText: "Pathfinder" }).click();
+  const explore = page.locator("#view-fleets .program-form", { hasText: "Explore" });
+  await check("an explorer can", async () => await explore.getByRole("button", { name: "Start exploring" }).isEnabled());
+  await explore.getByRole("button", { name: "Start exploring" }).click();
+  await check("it is described as exploring", async () =>
+    /Explore/.test(await page.locator("#view-fleets .program-card").innerText()));
+
+  await page.evaluate(() => { for (let i = 0; i < 400; i++) window.__game.step(86400); window.__game.emit(); });
+  await nav(page, "Galaxy").click();
+  await check("exploring reveals more systems", async () => (await page.locator(".galaxy-node.known").count()) >= 3);
+  await check("and draws the jump links crossed", async () => (await page.locator(".galaxy-link").count()) >= 2);
+  const visited = await page.locator(".galaxy-node.known").evaluateAll((nodes) => nodes.map((n) => n.dataset.system));
+  const away = visited.find((id) => id !== "sol");
+
+  // Switching the map to a visited system.
+  await page.evaluate((id) => { window.__game.empire.fleets.get("fleet-1").program = null; window.__game.setViewSystem(id); }, away);
+  await nav(page, "Map").click();
+  await check("the system list follows the system shown", async () =>
+    /system$/i.test((await page.locator("#system-panel .panel-head span").first().innerText()).trim()) &&
+    !/^Sol System/i.test(await page.locator("#system-panel .panel-head span").first().innerText()));
+  await check("the map's system picker lists the visited systems", async () =>
+    (await page.locator(".tool-select option").count()) >= 3);
+  await check("jump points found appear in the list", async () =>
+    (await page.locator("#system-panel .tree-name", { hasText: "Jump Point" }).count()) >= 1);
+
+  // A jump point's own panel.
+  await page.locator("#system-panel .tree-row", { hasText: "Jump Point" }).first().click();
+  await check("a jump point says where it leads", async () =>
+    /Leads to/.test(await page.locator("#detail-panel").innerText()));
+
+  // The first foothold in a new system needs a colony ship.
+  const planetId = await page.evaluate((id) => {
+    const g = window.__game;
+    return g.galaxy.systemById.get(id).bodies.find((b) => b.cls === "planet" && Number.isFinite(b.colonyCost)).id;
+  }, away);
+  await page.evaluate((id) => window.__game.select(window.__game.galaxy.byId.get(id)), planetId);
+  await check("a new system cannot be settled without a colony ship", async () => {
+    const btn = page.locator("#detail-panel .context-btn", { hasText: "Settle here" });
+    return (await btn.count()) === 1 && (await btn.isDisabled());
+  });
+
+  // Saving keeps the exploration.
+  const before = await page.evaluate(() => ({
+    systems: window.__game.empire.knownSystems.size,
+    jps: window.__game.empire.knownJumpPoints.size,
+    fleet: window.__game.empire.fleets.get("fleet-1").systemId,
+  }));
+  await page.keyboard.press("F5");
+  await page.evaluate(() => { window.__game.empire.knownSystems.add("trappist-1"); });
+  await page.keyboard.press("F9");
+  await page.waitForLoadState("load");
+  await page.waitForSelector("#view-tabs");
+  await check("a loaded game remembers what was explored", async () => {
+    const after = await page.evaluate(() => ({
+      systems: window.__game.empire.knownSystems.size,
+      jps: window.__game.empire.knownJumpPoints.size,
+      fleet: window.__game.empire.fleets.get("fleet-1").systemId,
+    }));
+    return JSON.stringify(after) === JSON.stringify(before);
+  });
+  await check("and the same galaxy", async () =>
+    (await page.evaluate(() => window.__game.galaxy.seed)) === "demo");
+
+  // The palette finds systems.
+  await page.keyboard.press("Control+k");
+  await page.locator(".palette-input").fill("trappist");
+  await check("the palette finds a system by name", async () =>
+    (await page.locator(".palette-row", { hasText: "System: TRAPPIST-1" }).count()) === 1);
+  await page.keyboard.press("Enter");
+  await check("and opens it on the galaxy map", async () =>
+    (await page.locator(".galaxy-node.selected").getAttribute("data-system")) === "trappist-1");
+
+  await check("no console errors", () => errors.length === 0);
+  if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
+  await page.close();
+}
+
 async function mobileSuite(browser) {
   console.log("\nMobile (Pixel 7)");
   const context = await browser.newContext({ ...devices["Pixel 7"], hasTouch: true, isMobile: true });
@@ -777,6 +915,7 @@ try {
   await terraformSuite(browser);
   await refreshSuite(browser);
   await programSuite(browser);
+  await explorationSuite(browser);
   await mobileSuite(browser);
 } finally {
   await browser.close();

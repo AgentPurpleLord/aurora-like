@@ -10,7 +10,8 @@
 import type { Empire } from "../../state/empire";
 import type { Colony } from "../../state/colony";
 import { installationCount } from "../../state/colony";
-import type { Body, StarSystem } from "../system";
+import type { Body } from "../system";
+import type { Galaxy } from "../galaxy";
 import { MINERALS, type MineralName } from "../minerals";
 import { DAYS_PER_YEAR, SECONDS_PER_DAY } from "../orbit";
 import { colonyOutput } from "./production";
@@ -73,7 +74,7 @@ export function queuedBuildPoints(empire: Empire, colony: Colony): number {
   return total;
 }
 
-export function mineralLedger(empire: Empire, system: StarSystem): LedgerRow[] {
+export function mineralLedger(empire: Empire, system: Galaxy): LedgerRow[] {
   const stockpile: Record<string, number> = {};
   const production: Record<string, number> = {};
   const demand: Record<string, number> = {};
@@ -169,7 +170,7 @@ export interface OrderPreview {
  */
 export function previewOrder(
   empire: Empire,
-  system: StarSystem,
+  system: Galaxy,
   colony: Colony,
   installationId: string,
   quantity: number,
@@ -194,7 +195,7 @@ export function previewOrder(
  */
 export function previewItems(
   empire: Empire,
-  system: StarSystem,
+  system: Galaxy,
   colony: Colony,
   items: { installationId: string; quantity: number; designId?: string | null }[],
   name = "Selected items",
@@ -273,7 +274,7 @@ export interface ColonyRow {
   stalled: boolean;
 }
 
-export function colonyRows(empire: Empire, system: StarSystem): ColonyRow[] {
+export function colonyRows(empire: Empire, system: Galaxy): ColonyRow[] {
   const rows: ColonyRow[] = [];
   for (const colony of empire.colonies.values()) {
     const body = system.byId.get(colony.bodyId);

@@ -138,10 +138,12 @@ export function unlocksOf(tech: Tech): Unlocks {
   if (tech.id === "engine-power-125") improves.push("Engine power modifier up to 1.25");
   if (tech.id === "fuel-consumption-08") improves.push("Every engine burns 20% less fuel");
   if (tech.id === "trans-newtonian") {
-    const kinds = KINDS.filter((k) => k.kind !== "engine" && k.kind !== "survey-sensor").map((k) => k.name);
+    const kinds = KINDS.filter((k) => !["engine", "survey-sensor", "jump-drive", "gate-module"].includes(k.kind)).map((k) => k.name);
     gains.push(`${kinds.join(", ")} in the component designer`);
   }
-  if (tech.id === "jump-point-theory") gains.push("Nothing yet - jump points are not built");
+  if (tech.id === "grav-survey-sensors") gains.push("Finds the jump points in a system when a ship carrying one surveys it");
+  if (tech.id === "jump-point-theory") gains.push("Jump Drives in the component designer: ships that can cross a jump point on their own");
+  if (tech.id === "jump-gate-construction") gains.push("Gate Construction Modules: stabilise a jump point so any ship can cross it");
 
   return { gains, improves, opens: dependentsOf(tech.id) };
 }

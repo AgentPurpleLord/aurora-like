@@ -529,7 +529,7 @@ export class ResearchView {
       select(
         sites.map((s) => ({
           value: s.colonyId,
-          label: `${this.game.system.byId.get(s.colonyId)?.name ?? s.colonyId} (${s.free} free)`,
+          label: `${this.game.galaxy.byId.get(s.colonyId)?.name ?? s.colonyId} (${s.free} free)`,
         })),
         this.form.colonyId,
         (value) => {
@@ -597,7 +597,7 @@ export class ResearchView {
     const scientist = empire.officers.get(project.scientistId ?? undefined);
     stat(sec, "Led by", scientist ? fullName(scientist) : "nobody");
     stat(sec, "Rate", `${num(rate)} RP/year`);
-    stat(sec, "At", this.game.system.byId.get(project.colonyId)?.name ?? project.colonyId);
+    stat(sec, "At", this.game.galaxy.byId.get(project.colonyId)?.name ?? project.colonyId);
 
     const colony = empire.colony(project.colonyId);
     const available = colony ? installationCount(colony, "research-lab") : 0;

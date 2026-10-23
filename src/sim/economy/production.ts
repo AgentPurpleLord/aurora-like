@@ -12,7 +12,9 @@ import { emptySnapshot, type Empire, type EmpireSnapshot } from "../../state/emp
 import type { Colony } from "../../state/colony";
 import { installationCount } from "../../state/colony";
 import type { ResearchProject } from "../../state/empire";
-import type { Body, StarSystem } from "../system";
+import type { Body } from "../system";
+import type { Galaxy } from "../galaxy";
+import { gatedConnected } from "../ships/routing";
 import type { EmpireStats } from "../research/techs";
 import { TECH_BY_ID } from "../research/techs";
 import { MINERALS, type MineralName } from "../minerals";
@@ -175,7 +177,7 @@ export function colonyOutput(
  * The empire's figures as they stand, without advancing anything - used to
  * populate the display before the first production cycle has run.
  */
-export function computeSnapshot(empire: Empire, system: StarSystem): EmpireSnapshot {
+export function computeSnapshot(empire: Empire, system: Galaxy): EmpireSnapshot {
   const snapshot = emptySnapshot();
   for (const colony of empire.colonies.values()) {
     const body = system.byId.get(colony.bodyId);
@@ -197,7 +199,7 @@ export function computeSnapshot(empire: Empire, system: StarSystem): EmpireSnaps
  * Advance the economy by `days`. Called once per production cycle; `now` is
  * the simulation time in seconds at the end of the cycle.
  */
-export function runCycle(empire: Empire, system: StarSystem, now: number, days: number): void {
+export function runCycle(empire: Empire, system: Galaxy, now: number, days: number): void {
   const year = days / DAYS_PER_YEAR;
   const stats = empire.stats;
 
@@ -247,7 +249,7 @@ export function runCycle(empire: Empire, system: StarSystem, now: number, days: 
     expenses += (spent * WEALTH_PER_BUILD_POINT) / year;
 
     // --- mass drivers
-    shipMinerals(empire, colony, stats, year);
+    shipMinerals(empire, system, colony, stats, year);
 
     // --- terraforming
     runTerraforming(empire, body, colony, output.employment, year, now);
@@ -306,7 +308,18 @@ export function runCycle(empire: Empire, system: StarSystem, now: number, days: 
  */
 export const MIGRATION_PER_COLONY = 1.0;
 
-function migrate(empire: Empire, system: StarSystem, year: number): void {
+/**
+ * Civilian shipping stands in for freighters, but it only runs where ships
+ * could: within a system, or between systems joined by gates.
+ */
+export function sharesShipping(empire: Empire, system: Galaxy, aBodyId: string, bBodyId: string): boolean {
+  const a = system.byId.get(aBodyId);
+  const b = system.byId.get(bBodyId);
+  if (!a || !b || a.systemId === b.systemId) return true;
+  return gatedConnected(empire, system, a.systemId, b.systemId);
+}
+
+function migrate(empire: Empire, system: Galaxy, year: number): void {
   if (!empire.civilianShipping) return;
   const capital = empire.colonies.get(empire.capital);
   if (!capital || capital.population <= 1) return;
@@ -315,6 +328,7 @@ function migrate(empire: Empire, system: StarSystem, year: number): void {
     if (colony === capital) continue;
     const body = system.byId.get(colony.bodyId);
     if (!body) continue;
+    if (!sharesShipping(empire, system, empire.capital, colony.bodyId)) continue;
 
     const room = populationCapacity(body, colony, empire.stats) - colony.population;
     if (room <= 0) continue;
@@ -327,8 +341,9 @@ function migrate(empire: Empire, system: StarSystem, year: number): void {
 }
 
 /** Colonists per year currently arriving at a colony. */
-export function migrationInflow(empire: Empire, body: Body, colony: Colony): number {
+export function migrationInflow(empire: Empire, body: Body, colony: Colony, system?: Galaxy): number {
   if (!empire.civilianShipping) return 0;
+  if (system && !sharesShipping(empire, system, empire.capital, colony.bodyId)) return 0;
   const capital = empire.colonies.get(empire.capital);
   if (!capital || colony === capital || capital.population <= 1) return 0;
   const room = populationCapacity(body, colony, empire.stats) - colony.population;
@@ -497,7 +512,7 @@ function academyRate(empire: Empire): number {
  */
 function buildFromQueue(
   empire: Empire,
-  system: StarSystem,
+  system: Galaxy,
   colony: Colony,
   budget: number,
   now: number,
@@ -558,7 +573,7 @@ function buildFromQueue(
       if (buildable.isShip && order.designId) {
         commissionShips(empire, system, colony, order.designId, completed, bodyName, now);
       } else {
-        deliver(empire, colony, order.installationId, completed, order.destination, bodyName, now);
+        deliver(empire, system, colony, order.installationId, completed, order.destination, bodyName, now);
       }
 
       if (order.quantity <= 0) {
@@ -589,6 +604,7 @@ export function shipyardCapacity(colony: Colony): number {
  */
 function deliver(
   empire: Empire,
+  system: Galaxy,
   colony: Colony,
   installationId: string,
   count: number,
@@ -601,7 +617,7 @@ function deliver(
     return;
   }
 
-  if (empire.civilianShipping) {
+  if (empire.civilianShipping && sharesShipping(empire, system, colony.bodyId, destination)) {
     const target = empire.colonies.get(destination) ?? colony;
     target.installations[installationId] = (target.installations[installationId] ?? 0) + count;
     return;
@@ -618,7 +634,7 @@ function deliver(
 /** New hulls join the colony's own yard fleet, fuelled from its stores. */
 function commissionShips(
   empire: Empire,
-  system: StarSystem,
+  system: Galaxy,
   colony: Colony,
   designId: string,
   count: number,
@@ -635,7 +651,7 @@ function commissionShips(
   if (!fleet) {
     // Start the fleet where the yard is, or it spends a tick at the origin.
     const where = system.byId.get(colony.bodyId)?.world ?? { x: 0, y: 0, z: 0 };
-    fleet = empire.createFleet(`${bodyName} Yard`, where, colony.bodyId);
+    fleet = empire.createFleet(`${bodyName} Yard`, where, colony.bodyId, system.byId.get(colony.bodyId)?.systemId ?? "sol");
   }
 
   for (let i = 0; i < count; i++) {
@@ -654,11 +670,13 @@ function shipName(empire: Empire, className: string): string {
 }
 
 /** Mass drivers throw minerals to the colony's designated destination. */
-function shipMinerals(empire: Empire, colony: Colony, stats: EmpireStats, year: number): void {
+function shipMinerals(empire: Empire, system: Galaxy, colony: Colony, stats: EmpireStats, year: number): void {
   const drivers = installationCount(colony, "mass-driver");
   if (!drivers || !colony.massDriverTarget) return;
   const target = empire.colonies.get(colony.massDriverTarget);
   if (!target || target === colony) return;
+  // A mass driver throws within its own system only.
+  if (system.byId.get(colony.bodyId)?.systemId !== system.byId.get(target.bodyId)?.systemId) return;
 
   const capacity = drivers * stats.massDriverThroughput * year;
   if (capacity <= 0) return;
@@ -694,7 +712,7 @@ export function projectRate(empire: Empire, project: ResearchProject): number {
 }
 
 /** Apply research points to every active project. Returns RP spent. */
-function advanceResearch(empire: Empire, system: StarSystem, now: number, year: number): number {
+function advanceResearch(empire: Empire, system: Galaxy, now: number, year: number): number {
   let total = 0;
 
   for (const project of [...empire.projects]) {

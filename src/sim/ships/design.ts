@@ -56,6 +56,10 @@ export interface DesignStats {
   colonistCapacity: number;
   /** Survey points per day, by sensor type. */
   survey: { geological: number; gravitational: number };
+  /** Tons of ship the class's own jump drives can carry through a jump point. */
+  jumpCapacity: number;
+  /** Gate construction points per day. */
+  gateRate: number;
   buildCost: number;
   minerals: Partial<Record<MineralName, number>>;
   /** Components by kind, for the designer's summary. */
@@ -77,6 +81,8 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
   let colonistCapacity = 0;
   let buildCost = 0;
   const survey = { geological: 0, gravitational: 0 };
+  let jumpCapacity = 0;
+  let gateRate = 0;
   const minerals: Partial<Record<MineralName, number>> = {};
   const counts: Partial<Record<ComponentKind, number>> = {};
   const problems: string[] = [];
@@ -101,6 +107,8 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
     colonistCapacity += (stats.colonists ?? 0) * n;
     buildCost += stats.cost * n;
     if (stats.survey) survey[stats.survey.type] += stats.survey.rate * n;
+    jumpCapacity += (stats.jump ?? 0) * n;
+    gateRate += (stats.gate ?? 0) * n;
     counts[component.kind] = (counts[component.kind] ?? 0) + n;
 
     for (const [mineral, amount] of Object.entries(stats.minerals) as [MineralName, number][]) {
@@ -133,6 +141,8 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
     cargoCapacity,
     colonistCapacity,
     survey,
+    jumpCapacity,
+    gateRate,
     buildCost,
     minerals,
     counts,
@@ -147,6 +157,8 @@ export function describeDesign(stats: DesignStats): string {
   if (stats.colonistCapacity > 0) roles.push("colony ship");
   if (stats.survey.geological > 0) roles.push("survey ship");
   if (stats.survey.gravitational > 0) roles.push("jump survey");
+  if (stats.jumpCapacity > 0) roles.push("jump ship");
+  if (stats.gateRate > 0) roles.push("gate builder");
   if (!roles.length) roles.push(stats.speed > 0 ? "scout" : "hulk");
   return roles.join(", ");
 }

@@ -22,7 +22,7 @@ export function openDigestDialog(
   const expanded = new Set<string>();
 
   return showDialog("While you were away", (body, handle) => {
-    const digest = buildDigest(game.empire, game.system, game.clock.seconds);
+    const digest = buildDigest(game.empire, game.galaxy, game.clock.seconds);
     const events = digest.groups.reduce((sum, g) => sum + g.entries.length, 0);
 
     body.append(

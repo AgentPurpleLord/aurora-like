@@ -42,6 +42,9 @@ const ORDER_LABELS: Record<OrderKind, string> = {
   "unload-minerals": "Unload minerals",
   refuel: "Refuel",
   survey: "Survey this body",
+  jump: "Cross this jump point",
+  gravsurvey: "Search for jump points",
+  "build-gate": "Build a gate here",
 };
 
 export class FleetsView {
@@ -104,7 +107,7 @@ export class FleetsView {
       row.append(el("span", "tree-meta", `${stats.ships} ship${stats.ships === 1 ? "" : "s"}`));
       if (fleet.program) {
         const tag = el("span", "chip program-chip", fleet.program.kind === "survey" ? "survey" : "freight");
-        tag.title = describeProgram(fleet.program, (id) => game.system.byId.get(id)?.name ?? id);
+        tag.title = describeProgram(fleet.program, (id) => game.galaxy.byId.get(id)?.name ?? id);
         row.append(tag);
       } else if (fleet.loop) {
         row.append(el("span", "chip program-chip", "repeat"));
@@ -148,7 +151,7 @@ export class FleetsView {
       const bar = el("div", "survey-line");
       bar.append(
         el("span", "muted small",
-          `Surveying ${this.game.system.byId.get(fleet.anchorId)?.name ?? fleet.anchorId}`),
+          `Surveying ${this.game.galaxy.byId.get(fleet.anchorId)?.name ?? fleet.anchorId}`),
         progressBar(fleet.surveyProgress / SURVEY_POINTS_NEEDED),
       );
       body.append(bar);
@@ -178,12 +181,12 @@ export class FleetsView {
   private locationOf(fleet: Fleet): string {
     const { game } = this;
     if (fleet.anchorId) {
-      return `At ${game.system.byId.get(fleet.anchorId)?.name ?? fleet.anchorId}`;
+      return `At ${game.galaxy.byId.get(fleet.anchorId)?.name ?? fleet.anchorId}`;
     }
     const destination = destinationOf(fleet);
     if (destination) {
-      const eta = fleetEta(game.empire, game.system, fleet);
-      const name = game.system.byId.get(destination)?.name ?? destination;
+      const eta = fleetEta(game.empire, game.galaxy, fleet);
+      const name = game.galaxy.byId.get(destination)?.name ?? destination;
       return eta === null
         ? `Under way to ${name}`
         : `Under way to ${name} - ${formatYears(eta / (365.25 * 86400))}`;
@@ -268,13 +271,21 @@ export class FleetsView {
     );
 
     if (this.orderKind === "move") {
-      const bodies = game.system.bodies.filter((b) => b.cls !== "star" || true);
+      // Only places the empire knows about.
+      const bodies = game.galaxy.bodies.filter(
+        (b) =>
+          game.empire.knownSystems.has(b.systemId) &&
+          (b.cls !== "jump-point" || game.empire.knownJumpPoints.has(b.id)),
+      );
       if (!bodies.some((b) => b.id === this.orderBody)) {
         this.orderBody = game.empire.capital;
       }
       form.append(
         select(
-          bodies.map((b) => ({ value: b.id, label: b.name })),
+          bodies.map((b) => ({
+            value: b.id,
+            label: b.systemId === "sol" ? b.name : `${b.name}${b.cls === "star" ? "" : ` - ${game.galaxy.systemById.get(b.systemId)?.name}`}`,
+          })),
           this.orderBody,
           (value) => (this.orderBody = value),
         ),
@@ -347,6 +358,9 @@ export class FleetsView {
       case "unload-minerals": return { kind: "unload-minerals" };
       case "refuel": return { kind: "refuel" };
       case "survey": return { kind: "survey" };
+      case "jump": return { kind: "jump" };
+      case "gravsurvey": return { kind: "gravsurvey" };
+      case "build-gate": return { kind: "build-gate" };
       default: return null;
     }
   }
@@ -354,7 +368,7 @@ export class FleetsView {
   private describeOrder(order: FleetOrder): string {
     switch (order.kind) {
       case "move":
-        return `Move to ${this.game.system.byId.get(order.bodyId)?.name ?? order.bodyId}`;
+        return `Move to ${this.game.galaxy.byId.get(order.bodyId)?.name ?? order.bodyId}`;
       case "load-installation":
         return `Load ${num(order.quantity)} ${
           INSTALLATION_BY_ID.get(order.installationId)?.name ?? order.installationId
@@ -424,7 +438,7 @@ export class FleetsView {
       );
       row.append(
         button("Detach", () => {
-          const split = empire.createFleet(`${ship.name} Group`, fleet.position, fleet.anchorId);
+          const split = empire.createFleet(`${ship.name} Group`, fleet.position, fleet.anchorId, fleet.systemId);
           fleet.shipIds = fleet.shipIds.filter((id) => id !== shipId);
           split.shipIds.push(shipId);
           ship.fleetId = split.id;
@@ -517,7 +531,7 @@ export class FleetsView {
           select(
             yards.map((c) => ({
               value: c.bodyId,
-              label: this.game.system.byId.get(c.bodyId)?.name ?? c.bodyId,
+              label: this.game.galaxy.byId.get(c.bodyId)?.name ?? c.bodyId,
             })),
             this.buildColony,
             (value) => {
@@ -541,7 +555,7 @@ export class FleetsView {
       if (colony && stats.tons > shipyardCapacity(colony)) {
         card.append(
           el("div", "project-warning",
-            `${this.game.system.byId.get(this.buildColony)?.name} can lay down ${num(
+            `${this.game.galaxy.byId.get(this.buildColony)?.name} can lay down ${num(
               shipyardCapacity(colony),
             )} t; this class is ${num(stats.tons)} t. Build more shipyards (${num(
               SHIPYARD_TONS,
@@ -549,13 +563,13 @@ export class FleetsView {
         );
       } else if (colony && !stats.problems.length) {
         const preview = previewOrder(
-          empire, this.game.system, colony, "ship", this.buildQuantity, undefined, design.id,
+          empire, this.game.galaxy, colony, "ship", this.buildQuantity, undefined, design.id,
         );
         if (preview) {
           card.append(
             el("div", "muted small",
               `${num(preview.buildPoints)} BP at ${
-                this.game.system.byId.get(colony.bodyId)?.name
+                this.game.galaxy.byId.get(colony.bodyId)?.name
               } - ${formatYears(preview.years)}`),
           );
           if (!preview.affordable) {
@@ -572,7 +586,7 @@ export class FleetsView {
       if (!count) continue;
       stat(
         yardNote,
-        this.game.system.byId.get(colony.bodyId)?.name ?? colony.bodyId,
+        this.game.galaxy.byId.get(colony.bodyId)?.name ?? colony.bodyId,
         `${count} yards - ${num(shipyardCapacity(colony))} t`,
       );
     }

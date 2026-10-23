@@ -21,7 +21,9 @@ export type ComponentKind =
   | "crew-quarters"
   | "cargo-hold"
   | "colony-module"
-  | "survey-sensor";
+  | "survey-sensor"
+  | "jump-drive"
+  | "gate-module";
 
 export type ParamValue = number | string;
 export type ParamSet = Record<string, ParamValue>;
@@ -52,6 +54,10 @@ export interface ComponentStats {
   cargo?: number;
   colonists?: number;
   survey?: { type: "geological" | "gravitational"; rate: number };
+  /** Tons of ship a jump drive can carry through a jump point, itself included. */
+  jump?: number;
+  /** Gate construction points per day. */
+  gate?: number;
 
   /** Figures for the designer to show, in reading order. */
   lines: [string, string][];
@@ -115,6 +121,14 @@ export const SENSOR_BY_ID = new Map(SENSOR_TYPES.map((s) => [s.id, s]));
 
 /** Survey points a body needs before its deposits are known. */
 export const SURVEY_POINTS_NEEDED = 200;
+/** Gravitational survey points that find one jump point in a system. */
+export const JUMP_SURVEY_POINTS = 1000;
+/** Construction points a jump gate takes to build. */
+export const GATE_POINTS_NEEDED = 6000;
+/** Tons of ship each hull space of jump drive can carry through. */
+export const JUMP_TONS_PER_HS = 200;
+/** Gate construction points per hull space per day. */
+export const GATE_POINTS_PER_HS = 8;
 
 // ------------------------------------------------------------------ kinds
 
@@ -203,6 +217,22 @@ export const KINDS: KindDef[] = [
       sizeParam(20),
     ],
   },
+  {
+    kind: "jump-drive",
+    name: "Jump Drive",
+    blurb: "Carries a ship (and any others in its fleet) through a jump point without a gate. Rated in tons of ship.",
+    available: (r) => r.has("jump-point-theory"),
+    lockedReason: "Research Jump Point Theory.",
+    params: [sizeParam(40, "Each hull space can carry 200 tons through.")],
+  },
+  {
+    kind: "gate-module",
+    name: "Gate Construction Module",
+    blurb: "Stabilises a jump point the fleet has crossed, so any ship can use it. Bigger modules finish sooner.",
+    available: (r) => r.has("jump-gate-construction"),
+    lockedReason: "Research Jump Gate Construction.",
+    params: [sizeParam(60, "Each hull space adds 8 construction points a day.")],
+  },
 ];
 
 export const KIND_BY_ID = new Map(KINDS.map((k) => [k.kind, k]));
@@ -238,6 +268,8 @@ export function defaultParams(kind: ComponentKind, researched: ReadonlySet<strin
       const best = SENSOR_TYPES.find((s) => researched.has(s.tech)) ?? SENSOR_TYPES[0];
       return { type: best.id, size: 4 };
     }
+    case "jump-drive": return { size: 10 };
+    case "gate-module": return { size: 20 };
   }
 }
 
@@ -366,6 +398,31 @@ export function componentStats(
       );
       break;
     }
+    case "jump-drive": {
+      result.jump = size * JUMP_TONS_PER_HS;
+      result.cost = size * 15;
+      result.crew = Math.ceil(size * 0.8);
+      mineral("Corbomite", 0.5);
+      mineral("Gallicite", 0.2);
+      result.lines.push(
+        ["Jump capacity", `${fmt(result.jump)} t`],
+        ["Carries itself?", result.jump >= tons ? "Yes" : "No - too heavy for itself"],
+      );
+      if (result.jump < tons) problems.push("The drive is too heavy to jump itself.");
+      break;
+    }
+    case "gate-module": {
+      result.gate = size * GATE_POINTS_PER_HS;
+      result.cost = size * 12;
+      result.crew = Math.ceil(size * 0.5);
+      mineral("Tritanium", 0.4);
+      mineral("Duranium", 0.3);
+      result.lines.push(
+        ["Gate points", `${fmt(result.gate)} /day`],
+        ["Time per gate", `${fmt(GATE_POINTS_NEEDED / result.gate, 0)} days`],
+      );
+      break;
+    }
   }
 
   result.lines.unshift(
@@ -395,6 +452,8 @@ export function suggestName(kind: ComponentKind, rawParams: ParamSet, researched
       const type = SENSOR_BY_ID.get(String(params.type) as "geological");
       return `${type?.name ?? "Survey"} Sensor ${size}`;
     }
+    case "jump-drive": return `Jump Drive ${size}`;
+    case "gate-module": return `Gate Construction Module ${size}`;
   }
 }
 

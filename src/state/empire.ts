@@ -37,7 +37,7 @@ export type LogCategory = "research" | "construction" | "people" | "colony" | "e
 
 /** Where an event can take you, so a notification is a doorway, not a dead end. */
 export interface LogLink {
-  view: "empire" | "map" | "colonies" | "fleets" | "design" | "research" | "officers";
+  view: "empire" | "map" | "galaxy" | "colonies" | "fleets" | "design" | "research" | "officers";
   bodyId?: string;
   fleetId?: string;
   techId?: string;
@@ -134,6 +134,11 @@ export interface EmpireState {
   ships: Ship[];
   fleets: Fleet[];
   surveyed: string[];
+  knownSystems?: string[];
+  knownJumpPoints?: string[];
+  exploredJumpPoints?: string[];
+  gates?: string[];
+  gravProgress?: Record<string, number>;
   civilianShipping: boolean;
   lastTick: number;
   customTemplates: BuildTemplate[];
@@ -173,6 +178,16 @@ export class Empire {
   readonly fleets = new Map<string, Fleet>();
   /** Bodies whose mineral deposits are known. */
   readonly surveyed = new Set<string>();
+  /** Systems the empire has been to. Only these show their planets. */
+  readonly knownSystems = new Set<string>(["sol"]);
+  /** Jump points a gravitational survey has located. */
+  readonly knownJumpPoints = new Set<string>();
+  /** Jump points a ship has actually gone through, and so knows the far end of. */
+  readonly exploredJumpPoints = new Set<string>();
+  /** Jump points with a stabilised gate. Both ends of a connection are listed. */
+  readonly gates = new Set<string>();
+  /** Gravitational survey points banked, by system, towards the next jump point. */
+  gravProgress: Record<string, number> = {};
   /**
    * Civilian shipping stands in for freighters: installations built for
    * another colony arrive there by themselves and colonists migrate on their
@@ -555,9 +570,11 @@ export class Empire {
     this.revision++;
   }
 
-  createFleet(name: string, position: Vec3, anchorId: string | null): Fleet {
+  createFleet(name: string, position: Vec3, anchorId: string | null, systemId = "sol"): Fleet {
     const fleet: Fleet = {
       id: `fleet-${this.nextFleetId++}`,
+      systemId,
+      gateProgress: 0,
       name,
       shipIds: [],
       position: { ...position },
@@ -726,6 +743,11 @@ export class Empire {
       ships: [...this.ships.values()],
       fleets: [...this.fleets.values()],
       surveyed: [...this.surveyed],
+      knownSystems: [...this.knownSystems],
+      knownJumpPoints: [...this.knownJumpPoints],
+      exploredJumpPoints: [...this.exploredJumpPoints],
+      gates: [...this.gates],
+      gravProgress: this.gravProgress,
       civilianShipping: this.civilianShipping,
       lastTick: this.lastTick,
       customTemplates: this.customTemplates,
@@ -778,10 +800,20 @@ export class Empire {
     this.fleets.clear();
     for (const fleet of data.fleets) {
       // Fields added after the first release default sensibly for old saves.
-      this.fleets.set(fleet.id, Object.assign({ loop: false, program: null, waitUntil: 0, programStatus: null }, fleet));
+      this.fleets.set(fleet.id, Object.assign({ systemId: "sol", gateProgress: 0, loop: false, program: null, waitUntil: 0, programStatus: null }, fleet));
     }
     this.surveyed.clear();
     for (const id of data.surveyed) this.surveyed.add(id);
+    for (const [set, list] of [
+      [this.knownSystems, data.knownSystems ?? ["sol"]],
+      [this.knownJumpPoints, data.knownJumpPoints ?? []],
+      [this.exploredJumpPoints, data.exploredJumpPoints ?? []],
+      [this.gates, data.gates ?? []],
+    ] as [Set<string>, string[]][]) {
+      set.clear();
+      for (const id of list) set.add(id);
+    }
+    this.gravProgress = { ...(data.gravProgress ?? {}) };
 
     this.officers.importState(data.officers);
     this.rng.state = data.rng;

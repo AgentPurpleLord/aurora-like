@@ -648,7 +648,7 @@ export class DesignView {
       const capacity = shipyardCapacity(colony);
       if (capacity > bestYard) {
         bestYard = capacity;
-        bestName = this.game.system.byId.get(colony.bodyId)?.name ?? colony.bodyId;
+        bestName = this.game.galaxy.byId.get(colony.bodyId)?.name ?? colony.bodyId;
       }
     }
     stat(

@@ -15,9 +15,11 @@
 
 import type { Empire } from "../../state/empire";
 import type { Colony } from "../../state/colony";
-import type { Body, StarSystem } from "../system";
+import type { Body } from "../system";
+import type { Galaxy } from "../galaxy";
 import { MINERALS, type MineralName } from "../minerals";
 import { vecLength, vecSub, type Vec3 } from "../orbit";
+import { canCross, findRoute, nearestHome, routeLengthAu } from "./routing";
 import {
   cargoTons,
   fleetStats,
@@ -45,10 +47,14 @@ const MAX_COLONIST_SHARE = 0.2;
 const distanceAu = (a: Vec3, b: Vec3): number => vecLength(vecSub(a, b));
 
 export function describeProgram(program: FleetProgram, nameOf: (bodyId: string) => string): string {
+  if (program.kind === "explore") return "Explore: find jump points and map the network";
   if (program.kind === "survey") {
+    const where = program.systemId && program.systemId !== "sol" ? nameOf(program.systemId) : "the system";
     return program.maxAu > 0
-      ? `Survey every body within ${program.maxAu} AU of the Sun`
-      : "Survey every body in the system";
+      ? `Survey every body within ${program.maxAu} AU of the star in ${where}`
+      : program.systemId && program.systemId !== "sol"
+        ? `Survey every body in ${where}`
+        : "Survey every body in the system";
   }
   const there = program.there ? describeCargo(program.there) : null;
   const back = program.back ? describeCargo(program.back) : null;
@@ -69,16 +75,18 @@ export function describeCargo(spec: CargoSpec): string {
 }
 
 /** Bodies a survey programme will cover, whether or not they are done. */
-export function surveyScope(system: StarSystem, maxAu: number): Body[] {
+export function surveyScope(galaxy: Galaxy, systemId: string, maxAu: number): Body[] {
+  const system = galaxy.systemById.get(systemId);
+  if (!system) return [];
   return system.bodies.filter(
-    (b) => b.cls !== "star" && (maxAu <= 0 || vecLength(b.world) <= maxAu),
+    (b) => b.cls !== "star" && b.cls !== "jump-point" && (maxAu <= 0 || vecLength(b.world) <= maxAu),
   );
 }
 
 // ------------------------------------------------------------------ planning
 
 /** Write the fleet's next orders from its programme, or explain why it cannot. */
-export function planProgram(empire: Empire, system: StarSystem, fleet: Fleet): void {
+export function planProgram(empire: Empire, system: Galaxy, fleet: Fleet): void {
   const program = fleet.program;
   if (!program) return;
 
@@ -92,6 +100,7 @@ export function planProgram(empire: Empire, system: StarSystem, fleet: Fleet): v
   }
 
   if (program.kind === "survey") planSurvey(empire, system, fleet, program, stats);
+  else if (program.kind === "explore") planExplore(empire, system, fleet, stats);
   else planFreight(empire, system, fleet, program, stats);
 }
 
@@ -99,18 +108,6 @@ function wait(empire: Empire, fleet: Fleet, status: string, problem?: string): v
   fleet.waitUntil = empire.lastTick + RECHECK_SECONDS;
   fleet.programStatus = status;
   fleet.note = problem ?? null;
-}
-
-/** The colony nearest a point, among those that can refuel (or any if none can). */
-function nearestColony(empire: Empire, system: StarSystem, point: Vec3): { body: Body; colony: Colony; distance: number } | null {
-  let best: { body: Body; colony: Colony; distance: number } | null = null;
-  for (const colony of empire.colonies.values()) {
-    const body = system.byId.get(colony.bodyId);
-    if (!body) continue;
-    const distance = distanceAu(body.world, point);
-    if (!best || distance < best.distance) best = { body, colony, distance };
-  }
-  return best;
 }
 
 function fuelShare(stats: FleetStats): number {
@@ -136,7 +133,7 @@ function claimedTargets(empire: Empire, self: Fleet): Set<string> {
 
 function planSurvey(
   empire: Empire,
-  system: StarSystem,
+  system: Galaxy,
   fleet: Fleet,
   program: Extract<FleetProgram, { kind: "survey" }>,
   stats: FleetStats,
@@ -146,10 +143,19 @@ function planSurvey(
     return;
   }
 
-  const scope = surveyScope(system, program.maxAu);
+  const targetSystem = program.systemId ?? "sol";
+  const targetStar = system.systemById.get(targetSystem)?.root;
+  const scope = surveyScope(system, targetSystem, program.maxAu);
   const pending = scope.filter((b) => !empire.surveyed.has(b.id));
   if (!pending.length) {
     finishSurvey(empire, system, fleet, scope.length);
+    return;
+  }
+
+  // Assigned to a system the fleet is not in: go there first.
+  if (fleet.systemId !== targetSystem && targetStar) {
+    fleet.orders.push({ kind: "move", bodyId: targetStar.id });
+    fleet.programStatus = `Heading to ${system.systemById.get(targetSystem)?.name}`;
     return;
   }
 
@@ -175,7 +181,7 @@ function planSurvey(
   // Nearest first, but only what the fuel aboard can reach and come home from.
   for (const target of open) {
     const out = distanceAu(fleet.position, target.world);
-    const home = nearestColony(empire, system, target.world)?.distance ?? 0;
+    const home = nearestHome(empire, system, target.world, fleet.systemId, stats.tons, stats.jumpCapacity)?.distanceAu ?? 0;
     if (stats.speed > 0 && stats.rangeAu >= (out + home) * RANGE_MARGIN) {
       fleet.orders.push({ kind: "move", bodyId: target.id }, { kind: "survey" });
       fleet.programStatus = `Surveying ${target.name} (${pending.length} to go)`;
@@ -201,41 +207,176 @@ function planSurvey(
   }
 
   // Out in the dark: head for the nearest colony and fill up.
-  const home = nearestColony(empire, system, fleet.position);
-  if (!home || stats.speed <= 0 || stats.rangeAu < home.distance) {
+  goHomeToRefuel(empire, system, fleet, stats);
+}
+
+/** Send a fleet to the nearest colony it can reach, to refuel. */
+function goHomeToRefuel(empire: Empire, system: Galaxy, fleet: Fleet, stats: FleetStats): boolean {
+  const home = nearestHome(empire, system, fleet.position, fleet.systemId, stats.tons, stats.jumpCapacity);
+  if (!home || stats.speed <= 0 || stats.rangeAu < home.distanceAu) {
     wait(empire, fleet, "Stranded", stats.fuel <= 0 ? "Out of fuel" : "Cannot reach a colony to refuel");
-    return;
+    return false;
   }
   fleet.orders.push({ kind: "move", bodyId: home.body.id }, { kind: "refuel" });
   fleet.programStatus = `Returning to ${home.body.name} to refuel`;
+  return true;
 }
 
-function finishSurvey(empire: Empire, system: StarSystem, fleet: Fleet, count: number): void {
+function finishSurvey(empire: Empire, system: Galaxy, fleet: Fleet, count: number): void {
   const program = fleet.program;
   fleet.program = null;
   fleet.programStatus = null;
   const where = program?.kind === "survey" && program.maxAu > 0 ? `within ${program.maxAu} AU` : "in the system";
-  const found = system.bodies
+  const systemId = program?.kind === "survey" ? (program.systemId ?? "sol") : fleet.systemId;
+  const found = (system.systemById.get(systemId)?.bodies ?? [])
     .filter((b) => empire.surveyed.has(b.id))
     .reduce((sum, b) => sum + b.minerals.length, 0);
   empire.addLog(
     empire.lastTick,
     "fleet",
     `${fleet.name} has finished its survey programme: all ${count} bodies ${where} are surveyed (${found} deposits known in total).`,
-    { view: "map" },
+    { view: "map", bodyId: system.systemById.get(systemId)?.root.id },
   );
   // Send the ship home rather than leaving it adrift between the planets.
-  const home = nearestColony(empire, system, fleet.position);
+  const stats = fleetStats(empire, fleet);
+  const home = nearestHome(empire, system, fleet.position, fleet.systemId, stats.tons, stats.jumpCapacity);
   if (home && fleet.anchorId !== home.body.id) {
     fleet.orders.push({ kind: "move", bodyId: home.body.id });
   }
+}
+
+// ------------------------------------------------------------------ explore
+
+/** Systems the empire knows with something still to find or cross. */
+function unfinishedSystems(empire: Empire, system: Galaxy): string[] {
+  const out: string[] = [];
+  for (const id of empire.knownSystems) {
+    const jps = system.jumpPointsIn(id);
+    if (jps.some((jp) => !empire.knownJumpPoints.has(jp.id) || !empire.exploredJumpPoints.has(jp.id))) {
+      out.push(id);
+    }
+  }
+  return out;
+}
+
+function planExplore(empire: Empire, system: Galaxy, fleet: Fleet, stats: FleetStats): void {
+  if (stats.gravRate <= 0) {
+    wait(empire, fleet, "No gravitational sensors aboard", "No gravitational sensors aboard");
+    return;
+  }
+  if (stats.jumpCapacity < stats.tons) {
+    wait(
+      empire, fleet,
+      "Needs jump drives for the whole fleet",
+      `Jump drives carry ${Math.round(stats.jumpCapacity).toLocaleString()} t; the fleet is ${Math.round(stats.tons).toLocaleString()} t`,
+    );
+    return;
+  }
+
+  const here = fleet.anchorId ? empire.colonies.get(fleet.anchorId) : undefined;
+  const sysName = (id: string) => system.systemById.get(id)?.name ?? id;
+
+  // Fuel first. Below the threshold, or unable to afford the way home, go back.
+  const home = nearestHome(empire, system, fleet.position, fleet.systemId, stats.tons, stats.jumpCapacity);
+  const low = fuelShare(stats) < 0.5;
+  if (here) {
+    if (fuelShare(stats) < FULL_TANK && here.fuel > 0) {
+      fleet.orders.push({ kind: "refuel" });
+      fleet.programStatus = "Refuelling";
+      return;
+    }
+    if (fuelShare(stats) < FULL_TANK && here.fuel <= 0) {
+      wait(empire, fleet, "No fuel at this colony", "No fuel at this colony");
+      return;
+    }
+  } else if (low && home) {
+    if (stats.speed > 0 && stats.rangeAu >= home.distanceAu) {
+      fleet.orders.push({ kind: "move", bodyId: home.body.id }, { kind: "refuel" });
+      fleet.programStatus = `Fuel is low: returning to ${home.body.name}`;
+      return;
+    }
+  }
+
+  const jps = system.jumpPointsIn(fleet.systemId);
+
+  // 1. Look for jump points here.
+  if (jps.some((jp) => !empire.knownJumpPoints.has(jp.id)) && fleet.anchorId) {
+    fleet.orders.push({ kind: "gravsurvey" });
+    fleet.programStatus = `Searching ${sysName(fleet.systemId)} for jump points`;
+    return;
+  }
+
+  // 2. Cross one nobody has been through, if the fuel allows the trip.
+  const unexplored = jps
+    .filter((jp) => empire.knownJumpPoints.has(jp.id) && !empire.exploredJumpPoints.has(jp.id))
+    .sort((a, b) => distanceAu(a.world, fleet.position) - distanceAu(b.world, fleet.position));
+  for (const jp of unexplored) {
+    const out = distanceAu(fleet.position, jp.world);
+    const back = nearestHome(empire, system, jp.world, fleet.systemId, stats.tons, stats.jumpCapacity)?.distanceAu ?? 0;
+    if (stats.speed > 0 && stats.rangeAu >= (out + back) * RANGE_MARGIN) {
+      fleet.orders.push({ kind: "move", bodyId: jp.id }, { kind: "jump" });
+      fleet.programStatus = `Crossing ${jp.name}`;
+      return;
+    }
+  }
+  if (unexplored.length) {
+    // Something is waiting but the fuel will not stretch to it.
+    if (home && !here && stats.speed > 0 && stats.rangeAu >= home.distanceAu) {
+      fleet.orders.push({ kind: "move", bodyId: home.body.id }, { kind: "refuel" });
+      fleet.programStatus = `Out of range of the next jump point: returning to ${home.body.name}`;
+      return;
+    }
+    const stuck = !home || stats.rangeAu < home.distanceAu;
+    const why = stuck
+      ? "Far from home: neither the next jump point nor the way back is within the fuel left. It needs a colony or tanker nearby"
+      : "The next jump point is beyond this fleet's range";
+    wait(empire, fleet, why, why);
+    return;
+  }
+
+  // 3. Nothing left here: go where there is something.
+  const elsewhere = unfinishedSystems(empire, system)
+    .filter((id) => id !== fleet.systemId)
+    .map((id) => {
+      const star = system.systemById.get(id)!.root;
+      const route = findRoute(empire, system, fleet.systemId, id, (jp) => canCross(empire, jp, stats.tons, stats.jumpCapacity));
+      return route ? { id, star, length: routeLengthAu(system, fleet.position, star, route) } : null;
+    })
+    .filter((x): x is { id: string; star: Body; length: number } => x !== null)
+    .sort((a, b) => a.length - b.length);
+  const next = elsewhere[0];
+  if (next && stats.rangeAu >= next.length * 0.9) {
+    fleet.orders.push({ kind: "move", bodyId: next.star.id });
+    fleet.programStatus = `Heading to ${sysName(next.id)} to continue`;
+    return;
+  }
+  if (next) {
+    if (home && !here && stats.rangeAu >= home.distanceAu) {
+      fleet.orders.push({ kind: "move", bodyId: home.body.id }, { kind: "refuel" });
+      fleet.programStatus = `Refuelling before ${sysName(next.id)}`;
+      return;
+    }
+    wait(empire, fleet, "Too far from the unexplored systems for the fuel left", "Too far from the unexplored systems for the fuel left");
+    return;
+  }
+
+  // 4. Done.
+  fleet.program = null;
+  fleet.programStatus = null;
+  empire.addLog(
+    empire.lastTick,
+    "fleet",
+    `${fleet.name} has finished exploring: every jump point in the ${empire.knownSystems.size} known systems is found and charted.`,
+    { view: "fleets", fleetId: fleet.id },
+  );
+  if (home && fleet.anchorId !== home.body.id) fleet.orders.push({ kind: "move", bodyId: home.body.id });
 }
 
 // ------------------------------------------------------------------- freight
 
 function planFreight(
   empire: Empire,
-  system: StarSystem,
+  system: Galaxy,
   fleet: Fleet,
   line: Extract<FleetProgram, { kind: "freight" }>,
   stats: FleetStats,
@@ -277,7 +418,17 @@ function planFreight(
   if (fleet.cargo.colonists > 0) orders.push({ kind: "unload-colonists" });
 
   // 2. Fuel for the leg, topped up while here if it is short.
-  const leg = distanceAu(hereBody.world, otherBody.world);
+  let leg = distanceAu(hereBody.world, otherBody.world);
+  if (hereBody.systemId !== otherBody.systemId) {
+    const route = findRoute(empire, system, hereBody.systemId, otherBody.systemId,
+      (id) => canCross(empire, id, stats.tons, stats.jumpCapacity));
+    if (!route) {
+      fleet.orders.push(...orders);
+      wait(empire, fleet, "No known route to the other end of the line", "No known route to the other end of the line");
+      return;
+    }
+    leg = routeLengthAu(system, hereBody.world, otherBody, route);
+  }
   const needFuel = fuelShare(stats) < REFUEL_BELOW || stats.speed <= 0 || stats.rangeAu < leg * RANGE_MARGIN;
   if (needFuel && here.fuel > 0 && fuelShare(stats) < FULL_TANK) {
     orders.push({ kind: "refuel" });
@@ -358,7 +509,7 @@ function loadOrders(colony: Colony, spec: CargoSpec, stats: FleetStats): FleetOr
  */
 export function freightForecast(
   empire: Empire,
-  system: StarSystem,
+  system: Galaxy,
   fleet: Fleet,
   fromId: string,
   toId: string,
@@ -375,7 +526,13 @@ export function freightForecast(
     if (design) speed = Math.min(speed, design.speed);
   }
   if (!Number.isFinite(speed) || speed <= 0) return null;
-  const distance = distanceAu(a.world, b.world);
+  let distance = distanceAu(a.world, b.world);
+  if (a.systemId !== b.systemId) {
+    const route = findRoute(empire, system, a.systemId, b.systemId,
+      (id) => canCross(empire, id, stats.tons, stats.jumpCapacity));
+    if (!route) return null;
+    distance = routeLengthAu(system, a.world, b, route);
+  }
   const AU_KM = 149_597_870.7;
   const oneWayDays = (distance * AU_KM) / speed / 86_400;
   const roundTripDays = oneWayDays * 2 + 0.5;

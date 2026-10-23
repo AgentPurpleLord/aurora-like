@@ -8,7 +8,7 @@
  */
 
 import type { Empire } from "../state/empire";
-import type { StarSystem } from "./system";
+import type { Galaxy } from "./galaxy";
 import { installationCount } from "../state/colony";
 import { INSTALLATION_BY_ID } from "./economy/installations";
 import { colonyOutput, populationCapacity } from "./economy/production";
@@ -59,7 +59,7 @@ const DEPLETION_WARNING_YEARS = 5;
 /** Idle fleets are listed individually only up to this many. */
 const IDLE_FLEET_LIMIT = 4;
 
-export function deriveIssues(empire: Empire, system: StarSystem): Issue[] {
+export function deriveIssues(empire: Empire, system: Galaxy): Issue[] {
   const issues: Issue[] = [];
   const add = (issue: Issue) => issues.push(issue);
 
@@ -335,7 +335,7 @@ export function deriveIssues(empire: Empire, system: StarSystem): Issue[] {
 }
 
 /** Issues the player has not dismissed, newest dismissals having expired. */
-export function activeIssues(empire: Empire, system: StarSystem, now: number): Issue[] {
+export function activeIssues(empire: Empire, system: Galaxy, now: number): Issue[] {
   return deriveIssues(empire, system).filter((issue) => {
     const until = empire.dismissed.get(issue.id);
     return until === undefined || until <= now;

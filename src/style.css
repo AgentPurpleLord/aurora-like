@@ -1962,3 +1962,44 @@ kbd {
 .program-form .add-order { flex-wrap: wrap; }
 .program-form .add-order .select, .program-form .add-order .select:last-of-type { flex: 1 1 130px; min-width: 0; }
 .program-form .number-input { width: 90px; }
+
+/* ------------------------------------------------------------ galaxy view */
+
+.view-galaxy { display: none; grid-template-columns: minmax(0, 1fr) 340px; height: 100%; min-height: 0; }
+.view-galaxy.active { display: grid; }
+.galaxy-map { padding: 14px 18px; overflow: auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.galaxy-head h2 { margin: 0 0 4px; font-size: 16px; color: #e7f0fa; font-weight: 600; }
+.galaxy-head p { margin: 0; max-width: 70ch; }
+.galaxy-svg { width: 100%; max-height: calc(100vh - 230px); min-height: 360px; background: #05070d; border: 1px solid #1c2e42; border-radius: 6px; }
+.galaxy-ring { fill: none; stroke: rgba(80, 120, 160, 0.16); stroke-width: 1; }
+.galaxy-ring-label { fill: rgba(120, 160, 200, 0.4); font: 9px ui-monospace, monospace; }
+.galaxy-link { stroke: #3fb6d6; stroke-width: 1.6; opacity: 0.8; }
+.galaxy-link.gate { stroke: #6fe0a8; stroke-width: 3; opacity: 0.95; }
+.galaxy-stub { stroke: #3fb6d6; stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.7; }
+.galaxy-stub-label { fill: #7fe0ff; font: 11px ui-sans-serif, system-ui, sans-serif; }
+.galaxy-node { cursor: pointer; outline: none; }
+.galaxy-node .galaxy-star { opacity: 0.45; stroke: rgba(255, 255, 255, 0.15); stroke-width: 1; }
+.galaxy-node.known .galaxy-star { opacity: 1; stroke: #fff; stroke-width: 1.4; }
+.galaxy-label { fill: #7d93aa; font: 11px ui-sans-serif, system-ui, sans-serif; }
+.galaxy-node.known .galaxy-label { fill: #e7f0fa; font-weight: 600; }
+.galaxy-fleets { fill: #7fe0d4; font: 10px ui-sans-serif, system-ui, sans-serif; }
+.galaxy-colony { fill: none; stroke: #ffd678; stroke-width: 1.5; stroke-dasharray: 2 2; }
+.galaxy-node.selected .galaxy-star { stroke: #ffd678; stroke-width: 2.5; opacity: 1; }
+.galaxy-node:focus-visible .galaxy-star { stroke: #ffd678; stroke-width: 2.5; }
+.galaxy-legend { max-width: 80ch; }
+.galaxy-side { overflow-y: auto; }
+.galaxy-planet { flex-direction: column; align-items: flex-start; gap: 0; }
+.tool-select {
+  padding: 3px 6px;
+  color: #d8e6f5;
+  background: #0f1a28;
+  border: 1px solid #2a4560;
+  border-radius: 3px;
+  font: 12px ui-sans-serif, system-ui, sans-serif;
+  max-width: 150px;
+}
+@media (max-width: 860px) {
+  .view-galaxy.active { grid-template-columns: 1fr; grid-template-rows: auto auto; overflow-y: auto; align-content: start; }
+  .galaxy-map { overflow: visible; }
+  .galaxy-svg { min-height: 300px; max-height: none; }
+}

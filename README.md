@@ -169,6 +169,67 @@ Routine movements of automated fleets are logged quietly: they never stop
 the clock or raise a toast, and the digest only counts them. Problems - out
 of fuel, a target out of range, no sensors aboard - are still raised.
 
+## The galaxy, jump points and exploration
+
+Sol is not alone. Fifteen real stars within about forty light years - Alpha
+Centauri, Proxima, Barnard's Star, Sirius, Tau Ceti, TRAPPIST-1 and the rest -
+are in the game at their true distances and directions. Their mass,
+luminosity and temperature are catalogue values, and where astronomers have
+actually detected planets (Proxima b, the TRAPPIST-1 seven, Tau Ceti e and f,
+Epsilon Eridani b, Gliese 1061's three...) those keep their measured periods
+and minimum masses, with the orbit following from Kepler's third law.
+
+Everything *unknown* is rolled from the campaign seed: how many more planets
+there are and where, whether each is rocky, icy or gaseous, whether it holds
+an atmosphere (decided by comparing escape velocity with temperature, with
+flaring red dwarfs stripping the air from close-in worlds), what the air is
+made of, how warm it ends up (equilibrium temperature plus the game's own
+greenhouse model), and what is buried in it - each world gets an overall
+richness and a few minerals it is especially rich in. Most worlds are bleak;
+a few are temperate and breathable; many are terraformable. A new campaign
+rolls a new galaxy; the seed is kept in saves, and `?seed=name` in the address
+picks one. Sol itself is never rolled.
+
+**Jump points** link the systems, and the network is not geography: a point
+in Sol may lead to Ross 128 or to TRAPPIST-1. Every system has several, none
+known at the start.
+
+- **Finding them.** A ship with a gravitational survey sensor sits in a system
+  (the *Search for jump points* order) and banks survey points; every 1,000
+  points reveals the next jump point. Points are shared by all fleets working
+  the same system.
+- **Crossing them.** A ship needs a *jump drive* (a component, rated in tons -
+  200 t per hull space - and pooled across the fleet), or the connection needs
+  a gate. The first crossing reveals the far system and its planets; minerals
+  still need a geological survey.
+- **Gates.** A ship with a *gate construction module* sitting at a jump point
+  the empire has already crossed builds a gate in a number of days set by the
+  module's size. After that any ship, drive or not, can use the connection,
+  and civilian shipping (migration, installations delivered between colonies)
+  follows gated routes. Mass drivers still reach only within a system.
+- **Routes are automatic.** A plain *Move to* order for a body in another
+  system is expanded into the crossings along the shortest known route that
+  the fleet can use; "No known route" is reported if there is none.
+- **Settling.** The first colony in a new system needs a ship with cryogenic
+  berths in orbit; after that the system can be settled freely.
+
+**The Explore programme** automates all of it: search each system for jump
+points, cross the ones nobody has been through, and carry on until the known
+network is charted. It checks before each hop that the fuel left covers the
+trip and the way home, turns back to refuel at the nearest reachable colony,
+and says so plainly when it is stranded far from home. Survey programmes now
+belong to a system, and freight lines work across gated connections. Routine
+discoveries are logged quietly; the first visit to a new system is not.
+
+**The Galaxy tab** shows the sky: visited systems bright, the rest dim ink with
+real names and positions, crossed links in cyan, gates in green, and a `?` stub
+for each jump point found but not followed. Pick a star for its facts and, if
+visited, its planets; double-click or *Open in the system map* to switch the
+map to it. The system map has a system picker, view presets that fit each
+system, and shows jump points as diamonds (hollow until crossed, ringed once
+gated). Not yet modelled: companion stars, the jump network changing, and
+anything hostile on the other side.
+
 ## Terraforming
 
 ![a terraforming programme](docs/terraforming.png)
@@ -565,7 +626,7 @@ game.
 
 Ground forces; armour, shields and weapons in the component designer (they need
 combat); sensors, surveying and
-combat and armour; jump points and other star systems; sector administration;
+combat and armour; sector administration;
 ship maintenance and crew grade. Terraforming cannot yet be done from orbit by
 a ship, only by installations on the ground. Ordnance
 factories, maintenance facilities, tracking stations and spaceports can be

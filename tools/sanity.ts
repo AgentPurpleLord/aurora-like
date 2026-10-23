@@ -23,6 +23,9 @@ import { deriveProposals } from "../src/sim/governors";
 import { effectiveColonyCost, shipyardCapacity } from "../src/sim/economy/production";
 import { componentStats, normaliseParams, SURVEY_POINTS_NEEDED } from "../src/sim/ships/components";
 import type { Empire } from "../src/state/empire";
+import { Galaxy } from "../src/sim/galaxy";
+import { STARS } from "../src/data/stars";
+import { sharesShipping } from "../src/sim/economy/production";
 import { surveyScope } from "../src/sim/ships/programs";
 import { fleetStats } from "../src/sim/ships/fleet";
 import { emptyStockpile } from "../src/state/colony";
@@ -183,7 +186,7 @@ console.log("");
 
 const game = new Game("sanity");
 const empire = game.empire;
-const bodies = game.system;
+const bodies = game.galaxy;
 
 function totalMinerals(): number {
   let total = 0;
@@ -350,7 +353,7 @@ const freshEmpire = fresh.empire;
 const freshEarth = freshEmpire.colony("earth")!;
 
 // Ledger totals must agree with the colonies they are summed from.
-const ledger = mineralLedger(freshEmpire, fresh.system);
+const ledger = mineralLedger(freshEmpire, fresh.galaxy);
 const duranium = ledger.find((r) => r.mineral === "Duranium")!;
 check("ledger Duranium stockpile", duranium.stockpile, 50_000, 1e-6);
 assert(`ledger Duranium production is positive (${duranium.production.toFixed(0)} t/yr)`, duranium.production > 0);
@@ -365,11 +368,11 @@ assert("no build demand with an empty queue", ledger.every((r) => r.mineral === 
 // An automated mine costs 240 BP, 120 t Duranium and 120 t Uridium: half a
 // ton of each per build point.
 freshEmpire.queueBuild("earth", "automated-mine", 10);
-const output = colonyOutput(freshEmpire, fresh.system.byId.get("earth")!, freshEarth, freshEmpire.stats);
+const output = colonyOutput(freshEmpire, fresh.galaxy.byId.get("earth")!, freshEarth, freshEmpire.stats);
 const demand = queueDemand(freshEmpire, freshEarth, output.buildPoints);
 check("queue demand for Duranium (t/yr)", demand.Duranium ?? 0, Math.min(output.buildPoints, 2400) * 0.5, 1e-6);
 
-const preview = previewOrder(freshEmpire, fresh.system, freshEarth, "research-lab", 4)!;
+const preview = previewOrder(freshEmpire, fresh.galaxy, freshEarth, "research-lab", 4)!;
 check("preview build points", preview.buildPoints, 3600, 1e-6);
 check("preview queued ahead (BP)", preview.queuedAhead, 2400, 1e-6);
 check(
@@ -380,7 +383,7 @@ check(
 );
 assert("preview is affordable from Earth's stockpile", preview.affordable);
 
-const unaffordable = previewOrder(freshEmpire, fresh.system, freshEarth, "research-lab", 400)!;
+const unaffordable = previewOrder(freshEmpire, fresh.galaxy, freshEarth, "research-lab", 400)!;
 assert("preview flags an order the stockpile cannot cover", !unaffordable.affordable);
 assert(
   "preview names the mineral that is short",
@@ -393,13 +396,13 @@ const freshLuna = freshEmpire.foundColony("luna", fresh.clock.seconds);
 freshLuna.installations["construction-factory"] = 500;
 freshLuna.installations["automated-mine"] = 40;
 freshLuna.population = 30;
-let issues = deriveIssues(freshEmpire, fresh.system);
+let issues = deriveIssues(freshEmpire, fresh.galaxy);
 assert(
   "idle industry is reported",
   issues.some((i) => i.id === "colony:idle-industry:luna"),
 );
 freshEmpire.queueBuild("luna", "automated-mine", 5);
-issues = deriveIssues(freshEmpire, fresh.system);
+issues = deriveIssues(freshEmpire, fresh.galaxy);
 assert(
   "idle industry stops being reported once work is queued",
   !issues.some((i) => i.id === "colony:idle-industry:luna"),
@@ -410,7 +413,7 @@ assert(
 freshLuna.stockpile.Duranium = 0;
 freshLuna.stockpile.Uridium = 0;
 fresh.step(CYCLE_DAYS * SECONDS_PER_DAY);
-issues = deriveIssues(freshEmpire, fresh.system);
+issues = deriveIssues(freshEmpire, fresh.galaxy);
 const stall = issues.find((i) => i.id === "queue:stalled:luna:automated-mine");
 assert("a stalled build queue is reported", stall !== undefined);
 assert("a stalled build queue is critical", stall?.severity === "critical");
@@ -421,13 +424,13 @@ const dismissedAt = fresh.clock.seconds;
 freshEmpire.dismissIssue("queue:stalled:luna:automated-mine", dismissedAt, 2);
 assert(
   "a dismissed issue leaves the active list",
-  !activeIssues(freshEmpire, fresh.system, dismissedAt).some(
+  !activeIssues(freshEmpire, fresh.galaxy, dismissedAt).some(
     (i) => i.id === "queue:stalled:luna:automated-mine",
   ),
 );
 assert(
   "a dismissed issue returns once the dismissal lapses",
-  activeIssues(freshEmpire, fresh.system, dismissedAt + 3 * DAYS_PER_YEAR * SECONDS_PER_DAY).some(
+  activeIssues(freshEmpire, fresh.galaxy, dismissedAt + 3 * DAYS_PER_YEAR * SECONDS_PER_DAY).some(
     (i) => i.id === "queue:stalled:luna:automated-mine",
   ),
 );
@@ -439,7 +442,7 @@ assert(
 // Every issue must be actionable: a body it names has to exist.
 assert(
   "every issue points somewhere real",
-  issues.every((i) => !i.action.bodyId || fresh.system.byId.has(i.action.bodyId)),
+  issues.every((i) => !i.action.bodyId || fresh.galaxy.byId.has(i.action.bodyId)),
 );
 
 // ==========================================================================
@@ -452,7 +455,7 @@ console.log("");
 {
   const auto = new Game("automation");
   const autoEmpire = auto.empire;
-  const callistoBody = auto.system.byId.get("callisto")!;
+  const callistoBody = auto.galaxy.byId.get("callisto")!;
   autoEmpire.foundColony("callisto", auto.clock.seconds);
   const callisto = autoEmpire.colony("callisto")!;
 
@@ -496,7 +499,7 @@ console.log("");
   );
 
   // Applying a template on a world that needs no infrastructure asks for none.
-  const earthBody = auto.system.byId.get("earth")!;
+  const earthBody = auto.galaxy.byId.get("earth")!;
   const earthColony = autoEmpire.colony("earth")!;
   assert(
     "a garden world is not sent infrastructure",
@@ -540,7 +543,7 @@ console.log("");
   callisto.policy = "mine";
   assert(
     "a policy without a governor proposes nothing",
-    deriveProposals(autoEmpire, auto.system).length === 0,
+    deriveProposals(autoEmpire, auto.galaxy).length === 0,
   );
 
   const administrator = autoEmpire.officers.byBranch("civilian")[0];
@@ -553,13 +556,13 @@ console.log("");
   // A governor will not propose mining ground nobody has surveyed.
   assert(
     "mining is not proposed for an unsurveyed world",
-    !deriveProposals(autoEmpire, auto.system).some(
+    !deriveProposals(autoEmpire, auto.galaxy).some(
       (p) => p.colonyId === "callisto" && p.order.installationId === "automated-mine",
     ),
   );
   autoEmpire.surveyed.add("callisto");
 
-  const proposals = deriveProposals(autoEmpire, auto.system);
+  const proposals = deriveProposals(autoEmpire, auto.galaxy);
   assert(
     `a mining governor proposes mines (${proposals.map((p) => p.order.installationId).join(", ")})`,
     proposals.some((p) => p.colonyId === "callisto" && p.order.installationId === "automated-mine"),
@@ -571,7 +574,7 @@ console.log("");
 
   // Proposals reach the player through the attention list, carrying the order
   // they would place.
-  const withProposals = deriveIssues(autoEmpire, auto.system);
+  const withProposals = deriveIssues(autoEmpire, auto.galaxy);
   const proposalIssue = withProposals.find((i) => i.id.startsWith("proposal:callisto"));
   assert("proposals appear in the attention list", proposalIssue !== undefined);
   assert("an attention proposal carries a concrete order", (proposalIssue?.proposal?.quantity ?? 0) > 0);
@@ -580,7 +583,7 @@ console.log("");
   autoEmpire.queueBuild("earth", "automated-mine", 40, "callisto");
   assert(
     "a satisfied policy stops proposing",
-    !deriveProposals(autoEmpire, auto.system).some(
+    !deriveProposals(autoEmpire, auto.galaxy).some(
       (p) => p.colonyId === "callisto" && p.order.installationId === "automated-mine",
     ),
   );
@@ -589,7 +592,7 @@ console.log("");
   callisto.policy = "none";
   assert(
     "a governor with no policy proposes nothing",
-    !deriveProposals(autoEmpire, auto.system).some((p) => p.colonyId === "callisto"),
+    !deriveProposals(autoEmpire, auto.galaxy).some((p) => p.colonyId === "callisto"),
   );
 }
 
@@ -727,10 +730,10 @@ console.log("");
   const ship = [...empire.ships.values()][0];
   ship.fuel = stats.fuelCapacity;
   check("a new fleet is commissioned at its yard, not at the origin",
-    distanceToBody(fleet, navy.system.byId.get("earth")!.world), 0, 1e-9);
+    distanceToBody(fleet, navy.galaxy.byId.get("earth")!.world), 0, 1e-9);
 
   // --- movement: Earth to Mars, at the speed the design says
-  const mars = navy.system.byId.get("mars")!;
+  const mars = navy.galaxy.byId.get("mars")!;
   const distance = distanceToBody(fleet, mars.world);
   fleet.orders.push({ kind: "move", bodyId: "mars" });
   const expectedSeconds = (distance * AU_KM) / stats.speed;
@@ -786,7 +789,7 @@ console.log("");
   colonyShip.fuel = empire.statsOf(pioneer.id)!.fuelCapacity;
   const beforeEmbark = earth.population;
   colonyFleet.orders.push({ kind: "load-colonists", amount: 40_000 });
-  executeArrivalOrders(empire, navy.system, colonyFleet);
+  executeArrivalOrders(empire, navy.galaxy, colonyFleet);
   check("embarking takes the colonists off the planet (millions)",
     beforeEmbark - earth.population, 0.04, 1e-9);
   check("the colonists are aboard", colonyFleet.cargo.colonists, 40_000, 0);
@@ -797,7 +800,7 @@ console.log("");
 
   const beforeLanding = marsColony.population;
   colonyFleet.orders.push({ kind: "unload-colonists" });
-  executeArrivalOrders(empire, navy.system, colonyFleet);
+  executeArrivalOrders(empire, navy.galaxy, colonyFleet);
   check("landing puts the same colonists down (millions)",
     marsColony.population - beforeLanding, 0.04, 1e-9);
   check("the berths are empty again", colonyFleet.cargo.colonists, 0, 0);
@@ -810,7 +813,7 @@ console.log("");
   assert(`a stranded fleet says why ("${fleet.note}")`, fleet.note === "Out of fuel");
   assert(
     "a stranded fleet is raised for attention",
-    deriveIssues(empire, navy.system).some((i) => i.id === `fleet:blocked:${fleet.id}`),
+    deriveIssues(empire, navy.galaxy).some((i) => i.id === `fleet:blocked:${fleet.id}`),
   );
 
   // --- survey
@@ -859,8 +862,8 @@ console.log("");
 // Scoped so these fixtures cannot collide with the campaign above.
 {
   const world = new Game("terraform");
-  const earthBody = world.system.byId.get("earth")!;
-  const marsBody = world.system.byId.get("mars")!;
+  const earthBody = world.galaxy.byId.get("earth")!;
+  const marsBody = world.galaxy.byId.get("mars")!;
 
   // The observed atmospheres read correctly through the gas model.
   check("Earth's atmosphere is one bar", totalPressure(earthBody.atmosphere), 1.0043, 0.001);
@@ -871,7 +874,7 @@ console.log("");
   check("an untouched world reads its observed temperature", marsBody.tempK, 210, 0.5);
   assert(
     "Venus is poisonous as well as hot",
-    toxicGases(world.system.byId.get("venus")!.atmosphere).some((t) => t.gas.id === "carbon-dioxide"),
+    toxicGases(world.galaxy.byId.get("venus")!.atmosphere).some((t) => t.gas.id === "carbon-dioxide"),
   );
 
   // A gas with no greenhouse effect does not warm a world.
@@ -895,7 +898,7 @@ console.log("");
   // Back to where we started, and run a real programme.
   const fresh = new Game("terraform-run");
   const freshEmpire = fresh.empire;
-  const mars = fresh.system.byId.get("mars")!;
+  const mars = fresh.galaxy.byId.get("mars")!;
   freshEmpire.research("terraforming");
   freshEmpire.surveyed.add("mars");
   const colony = freshEmpire.foundColony("mars", fresh.clock.seconds);
@@ -964,7 +967,7 @@ console.log("");
   assert("and the world recovers", isBreathable(mars.atmosphere));
 
   // A world can only hold the air its gravity allows.
-  const luna = fresh.system.byId.get("luna")!;
+  const luna = fresh.galaxy.byId.get("luna")!;
   const lunaColony = freshEmpire.foundColony("luna", fresh.clock.seconds);
   lunaColony.population = 5;
   lunaColony.installations = { infrastructure: 50_000, terraforming: 500 };
@@ -1001,7 +1004,7 @@ console.log("");
   e.commissionShip(ship.id, fleet, "Scout 001", 0).fuel = 1e5;
   fleet.orders.push({ kind: "move", bodyId: "mars" }, { kind: "survey" });
   e.queueBuild("earth", "mine", 5);
-  const mars = original.system.byId.get("mars")!;
+  const mars = original.galaxy.byId.get("mars")!;
   mars.atmosphere["nitrogen"] = (mars.atmosphere["nitrogen"] ?? 0) + 0.2;
   recomputeEnvironment(mars);
   for (let i = 0; i < 40; i++) original.step(CYCLE_DAYS * SECONDS_PER_DAY);
@@ -1016,9 +1019,9 @@ console.log("");
     same(loaded.exportState(), original.exportState()),
   );
   check("the clock comes back", loaded.clock.seconds, original.clock.seconds, 0);
-  check("the changed atmosphere comes back", loaded.system.byId.get("mars")!.atmosphere["nitrogen"] ?? 0,
+  check("the changed atmosphere comes back", loaded.galaxy.byId.get("mars")!.atmosphere["nitrogen"] ?? 0,
     mars.atmosphere["nitrogen"] ?? 0, 1e-12);
-  check("and the colony cost follows from it", loaded.system.byId.get("mars")!.colonyCost, mars.colonyCost, 1e-9);
+  check("and the colony cost follows from it", loaded.galaxy.byId.get("mars")!.colonyCost, mars.colonyCost, 1e-9);
   assert("fleets and ships come back", loaded.empire.fleets.size === 1 && loaded.empire.ships.size === 1);
   assert("derived ship figures work on a loaded game", loaded.empire.statsOf(ship.id)?.speed === e.statsOf(ship.id)?.speed);
 
@@ -1067,8 +1070,8 @@ console.log("");
   // --- survey everything
   const survey = e.createFleet("Survey Wing", { x: 0, y: 0, z: 0 }, "earth");
   e.commissionShip(scout.id, survey, "Scout 001", 0); // arrives with dry tanks
-  survey.program = { kind: "survey", maxAu: 6 };
-  const inScope = surveyScope(game.system, 6);
+  survey.program = { kind: "survey", maxAu: 6, systemId: "sol" };
+  const inScope = surveyScope(game.galaxy, "sol", 6);
   assert(`the survey scope is the bodies within 6 AU (${inScope.length})`, inScope.length > 10);
   for (let day = 0; day < 4000 && survey.program; day++) game.step(SECONDS_PER_DAY);
   assert("a survey programme finishes by itself", survey.program === null);
@@ -1099,8 +1102,8 @@ console.log("");
   const two = e2.createFleet("Two", { x: 0, y: 0, z: 0 }, "earth");
   e2.commissionShip(scout2.id, one, "S1", 0);
   e2.commissionShip(scout2.id, two, "S2", 0);
-  one.program = { kind: "survey", maxAu: 2.5 };
-  two.program = { kind: "survey", maxAu: 2.5 };
+  one.program = { kind: "survey", maxAu: 2.5, systemId: "sol" };
+  two.program = { kind: "survey", maxAu: 2.5, systemId: "sol" };
   game2.step(SECONDS_PER_DAY * 3);
   const targets = (f: typeof one) => f.orders.filter((o) => o.kind === "move").map((o) => (o as { bodyId: string }).bodyId);
   assert("two survey fleets are not sent to the same body",
@@ -1110,7 +1113,7 @@ console.log("");
   const blind = e.createFleet("Blind", { x: 0, y: 0, z: 0 }, "earth");
   const freightShip = e.commissionShip(freighter.id, blind, "F0", 0);
   freightShip.fuel = 1;
-  blind.program = { kind: "survey", maxAu: 0 };
+  blind.program = { kind: "survey", maxAu: 0, systemId: "sol" };
   game.step(SECONDS_PER_DAY * 2);
   assert("a programme that cannot work explains why", blind.note === "No survey sensors aboard");
   blind.program = null;
@@ -1148,7 +1151,7 @@ console.log("");
   assert("with nothing to carry, the line waits",
     /Waiting for duranium/.test(line.programStatus ?? "") && line.note === null);
   assert("and a waiting line is not raised as an idle fleet",
-    !deriveIssues(e, game.system).some((i) => i.id === `fleet:idle:${line.id}`));
+    !deriveIssues(e, game.galaxy).some((i) => i.id === `fleet:idle:${line.id}`));
 
   // --- installations from the store, colonists
   earth.stored["mine"] = 30;
@@ -1178,6 +1181,147 @@ console.log("");
   function empire_fuel(emp: typeof e, designId: string): number {
     return emp.statsOf(designId)!.fuelCapacity;
   }
+}
+
+// ==========================================================================
+// The galaxy, jump points and exploration
+// ==========================================================================
+
+console.log("");
+
+{
+  const a = new Galaxy("alpha");
+  const a2 = new Galaxy("alpha");
+  const b = new Galaxy("beta");
+  assert(`the galaxy has Sol and ${STARS.length} real neighbours`, a.systems.length === STARS.length + 1);
+
+  // --- real data survives
+  const trappist = a.systemById.get("trappist-1")!;
+  const tPlanets = trappist.bodies.filter((x) => x.cls === "planet");
+  assert("TRAPPIST-1 keeps its seven known planets", tPlanets.length === 7);
+  const proxima = a.byId.get("proxima-centauri-b")!;
+  check("Proxima b's orbit comes from its measured 11.19-day period", proxima.def.orbit!.a, 0.0485, 0.001);
+  check("a star's mass is the real one", a.byId.get("tau-ceti")!.def.massKg / 1.989e30, 0.78, 1e-9);
+  check("Alpha Centauri is 4.37 light years from Sol", a.distanceLy("sol", "alpha-centauri"), 4.37, 0.02);
+  check("Sirius is 8.6 light years from Sol", a.distanceLy("sol", "sirius"), 8.6, 0.05);
+
+  // --- the unknown is random, but repeatable
+  const sig = (g: Galaxy) => JSON.stringify(g.bodies.map((x) => [x.id, x.def.massKg, x.def.tempK, x.atmosphere, x.minerals.map((m) => m.amount)]));
+  assert("the same seed makes the same galaxy", sig(a) === sig(a2));
+  assert("a different seed makes a different one", sig(a) !== sig(b));
+  const mismatch = a.bodies.filter((x) => x.systemId !== "sol" && x.cls === "planet" &&
+    JSON.stringify(x.minerals.map((m) => m.amount)) !== JSON.stringify(b.byId.get(x.id)?.minerals.map((m) => m.amount)));
+  assert("the same world holds different minerals in a different campaign", mismatch.length > 10);
+  assert("Sol itself is never rolled", JSON.stringify(a.sol.bodies.filter((x) => x.cls !== "jump-point").map((x) => x.minerals)) ===
+    JSON.stringify(b.sol.bodies.filter((x) => x.cls !== "jump-point").map((x) => x.minerals)));
+
+  // --- the network
+  const adj = new Map<string, Set<string>>();
+  for (const l of a.links) {
+    const x = a.byId.get(l.a)!.systemId;
+    const y = a.byId.get(l.b)!.systemId;
+    if (!adj.has(x)) adj.set(x, new Set());
+    if (!adj.has(y)) adj.set(y, new Set());
+    adj.get(x)!.add(y);
+    adj.get(y)!.add(x);
+  }
+  const seen = new Set(["sol"]);
+  const todo = ["sol"];
+  while (todo.length) for (const n of adj.get(todo.pop()!) ?? []) if (!seen.has(n)) { seen.add(n); todo.push(n); }
+  assert("every system can be reached from Sol", seen.size === a.systems.length);
+  assert("Sol opens onto at least two systems", (adj.get("sol")?.size ?? 0) >= 2);
+  assert("jump points come in linked pairs",
+    a.links.every((l) => a.byId.get(l.a)!.def.jumpTo === l.b && a.byId.get(l.b)!.def.jumpTo === l.a));
+  assert("jump points have no minerals and cannot be settled",
+    a.bodies.filter((x) => x.cls === "jump-point").every((x) => x.minerals.length === 0 && !Number.isFinite(x.colonyCost)));
+
+  // --- exploring, end to end
+  const game = new Game("explore");
+  const e = game.empire;
+  for (const tech of ["nuclear-thermal", "geo-survey-sensors", "grav-survey-sensors", "nuclear-pulse", "jump-point-theory", "jump-gate-construction"]) {
+    e.research(tech);
+  }
+  const pp = parts(e);
+  const jumpDrive = e.addComponentDesign("jump-drive", { size: 30 }, 0);
+  const gateModule = e.addComponentDesign("gate-module", { size: 40 }, 0);
+  const gravSensor = e.addComponentDesign("survey-sensor", { type: "gravitational", size: 4 }, 0);
+  const explorer = e.addDesign("Explorer", [
+    { componentId: pp.engine("nuclear-thermal").id, count: 4 },
+    { componentId: pp.tank().id, count: 10 },
+    { componentId: gravSensor.id, count: 1 },
+    { componentId: jumpDrive.id, count: 1 },
+    { componentId: pp.quarters().id, count: 2 },
+  ], 0);
+  const xs = e.statsOf(explorer.id)!;
+  assert(`the explorer's drive carries its own weight (${num(xs.jumpCapacity)} of ${num(xs.tons)} t)`, xs.jumpCapacity >= xs.tons);
+
+  const fleet = e.createFleet("Pathfinder", { x: 0, y: 0, z: 0 }, "earth");
+  const ship = e.commissionShip(explorer.id, fleet, "Pathfinder 1", 0);
+  ship.fuel = xs.fuelCapacity;
+  assert("Sol's jump points start out hidden", game.galaxy.jumpPointsIn("sol").every((jp) => !e.knownJumpPoints.has(jp.id)));
+  assert("and only Sol is known", e.knownSystems.size === 1);
+
+  // A ship with no drive cannot cross, even to a jump point it knows.
+  const jp0 = game.galaxy.jumpPointsIn("sol")[0];
+  e.knownJumpPoints.add(jp0.id);
+  const blind = e.createFleet("Driveless", { x: 0, y: 0, z: 0 }, "earth");
+  const hauler = e.addDesign("Plain", [
+    { componentId: pp.engine("nuclear-thermal").id, count: 2 },
+    { componentId: pp.tank().id, count: 6 },
+    { componentId: pp.quarters().id, count: 1 },
+  ], 0);
+  const plain = e.commissionShip(hauler.id, blind, "Plain 1", 0);
+  plain.fuel = e.statsOf(hauler.id)!.fuelCapacity;
+  blind.orders.push({ kind: "move", bodyId: jp0.id }, { kind: "jump" });
+  for (let d = 0; d < 400 && blind.anchorId !== jp0.id; d++) game.step(SECONDS_PER_DAY);
+  for (let d = 0; d < 3; d++) game.step(SECONDS_PER_DAY);
+  assert("a ship with no jump drive cannot cross an ungated jump point",
+    blind.systemId === "sol" && /jump drive/i.test(blind.note ?? ""));
+  blind.orders = [];
+  blind.note = null;
+  e.knownJumpPoints.delete(jp0.id);
+
+  fleet.program = { kind: "explore" };
+  const before = e.log.length;
+  let guard = 0;
+  while (e.knownSystems.size < 4 && guard++ < 9000) game.step(SECONDS_PER_DAY);
+  assert(`the explorer found jump points and crossed them (${e.knownSystems.size} systems known after ${guard} days)`, e.knownSystems.size >= 4);
+  assert("it located jump points by survey", e.knownJumpPoints.size > e.exploredJumpPoints.size / 2);
+  assert("it reported each new system loudly, once",
+    e.log.slice(0, e.log.length - before).filter((l) => /for the first time/.test(l.text) && !l.quiet).length === e.knownSystems.size - 1);
+  assert("it never ran dry", ship.fuel > 0);
+  assert("the fleet knows which system it is in", game.galaxy.byId.get(fleet.anchorId ?? "")?.systemId === fleet.systemId || fleet.anchorId === null);
+
+  // --- a gate opens a route to any ship
+  const crossed = [...e.exploredJumpPoints].map((id) => game.galaxy.byId.get(id)!).find((b) => b.systemId === "sol")!;
+  const far = game.galaxy.otherEnd(crossed.id)!;
+  const builder = e.createFleet("Gatewright", crossed.world, crossed.id, "sol");
+  const buildShip = e.addDesign("Gate Layer", [
+    { componentId: pp.engine("nuclear-thermal").id, count: 2 },
+    { componentId: pp.tank().id, count: 4 },
+    { componentId: gateModule.id, count: 1 },
+    { componentId: pp.quarters().id, count: 2 },
+  ], 0);
+  e.commissionShip(buildShip.id, builder, "Gate Layer 1", 0).fuel = 1e5;
+  builder.orders.push({ kind: "build-gate" });
+  assert("a gate is not there before it is built", !e.gates.has(crossed.id));
+  for (let d = 0; d < 200 && builder.orders.length; d++) game.step(SECONDS_PER_DAY);
+  assert("the gate was built, at both ends", e.gates.has(crossed.id) && e.gates.has(far.id));
+  assert("and building it took time, not an instant", e.log.some((l) => /finished a jump gate/.test(l.text)));
+
+  // The driveless ship can now go through, by way of a plain move order.
+  const target = game.galaxy.systemById.get(far.systemId)!.root;
+  blind.orders.push({ kind: "move", bodyId: target.id });
+  for (let d = 0; d < 800 && blind.systemId === "sol"; d++) game.step(SECONDS_PER_DAY);
+  assert("a ship with no drive crosses a gated jump point on an ordinary move order", blind.systemId === far.systemId);
+  for (let d = 0; d < 400 && blind.anchorId !== target.id; d++) game.step(SECONDS_PER_DAY);
+  assert("and carries on to its destination", blind.anchorId === target.id);
+
+  // --- civilian shipping follows the gates
+  assert("civilian shipping runs within a system", sharesShipping(e, game.galaxy, "earth", "mars"));
+  assert("and across a gated connection", sharesShipping(e, game.galaxy, "earth", target.id));
+  const other = [...game.galaxy.systems].find((s) => s.id !== "sol" && s.id !== far.systemId)!;
+  assert("but not to a system without gates", !sharesShipping(e, game.galaxy, "earth", other.root.id));
 }
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);

@@ -14,6 +14,7 @@ function need<T extends HTMLElement>(id: string): T {
 const views: Record<ViewId, HTMLElement> = {
   empire: need("view-empire"),
   map: need("view-map"),
+  galaxy: need("view-galaxy"),
   colonies: need("view-colonies"),
   fleets: need("view-fleets"),
   design: need("view-design"),

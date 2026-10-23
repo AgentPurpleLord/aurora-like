@@ -37,7 +37,7 @@ const game = new Game("bench");
 const empire = game.empire;
 
 // Colonise everything that can be colonised, and give each a busy queue.
-for (const body of game.system.bodies) {
+for (const body of game.galaxy.bodies) {
   if (body.cls === "star" || !Number.isFinite(body.colonyCost)) continue;
   if (!empire.colonies.has(body.id)) {
     const colony = empire.foundColony(body.id, game.clock.seconds);
@@ -67,7 +67,7 @@ const stats = empire.statsOf(design.id)!;
 
 const FLEETS = Number(process.argv[2] ?? 1000);
 const SHIPS_PER_FLEET = 5;
-const bodies = game.system.bodies.filter((b) => b.cls !== "star");
+const bodies = game.galaxy.bodies.filter((b) => b.cls !== "star");
 for (let i = 0; i < FLEETS; i++) {
   const home = bodies[i % bodies.length];
   const fleet = empire.createFleet(`Task Group ${i}`, home.world, home.id);
@@ -83,8 +83,8 @@ for (let i = 0; i < FLEETS; i++) {
 
 console.log(
   `Fixture: ${colonyCount} colonies, ${empire.fleets.size} fleets, ` +
-    `${empire.ships.size} ships, ${game.system.bodies.length} bodies, ` +
-    `${game.system.motes.length} belt objects\n`,
+    `${empire.ships.size} ships, ${game.galaxy.bodies.length} bodies, ` +
+    `${game.galaxy.sol.motes.length} belt objects\n`,
 );
 
 // ------------------------------------------------------------ measurements
@@ -92,23 +92,23 @@ console.log(
 let t = game.clock.days;
 bench("system.update (bodies + belt objects)", 200, "call", () => {
   t += 0.01;
-  game.system.update(t);
+  game.galaxy.update(t);
 });
 
 bench("updateFleets (one frame at 1 day/s)", 200, "call", () => {
-  updateFleets(empire, game.system, SECONDS_PER_DAY / 60);
+  updateFleets(empire, game.galaxy, SECONDS_PER_DAY / 60);
 });
 
 bench("runCycle (one five-day production cycle)", 50, "call", () => {
-  runCycle(empire, game.system, game.clock.seconds, CYCLE_DAYS);
+  runCycle(empire, game.galaxy, game.clock.seconds, CYCLE_DAYS);
 });
 
 bench("mineralLedger (empire-wide)", 100, "call", () => {
-  mineralLedger(empire, game.system);
+  mineralLedger(empire, game.galaxy);
 });
 
 bench("deriveIssues (attention list)", 50, "call", () => {
-  deriveIssues(empire, game.system);
+  deriveIssues(empire, game.galaxy);
 });
 
 bench("designStats (single class, uncached)", 20_000, "call", () => {
@@ -116,7 +116,7 @@ bench("designStats (single class, uncached)", 20_000, "call", () => {
 });
 
 // Raw Kepler throughput, for comparison with anything that might replace it.
-const orbit = game.system.byId.get("mars")!.def.orbit!;
+const orbit = game.galaxy.byId.get("mars")!.def.orbit!;
 const KEPLER_BATCH = 100_000;
 const keplerMs = bench(`Kepler solve x${KEPLER_BATCH.toLocaleString()}`, 5, "batch", () => {
   for (let i = 0; i < KEPLER_BATCH; i++) positionAt(orbit, i * 0.01);

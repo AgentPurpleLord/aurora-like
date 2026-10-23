@@ -126,7 +126,7 @@ export class EmpireView {
   /** The next few things worth doing, derived from where the empire stands. */
   private renderGuide(parent: HTMLElement): void {
     if (!settings.guide) return;
-    const goals = deriveGoals(this.game.empire, this.game.system);
+    const goals = deriveGoals(this.game.empire, this.game.galaxy);
     const remaining = goals.filter((g) => !g.done);
     if (!remaining.length) return;
 
@@ -205,7 +205,7 @@ export class EmpireView {
   // -------------------------------------------------------------- colonies
 
   private renderColonies(parent: HTMLElement): void {
-    const rows = colonyRows(this.game.empire, this.game.system);
+    const rows = colonyRows(this.game.empire, this.game.galaxy);
     // A colony that has gone away should not stay selected.
     for (const id of [...this.selected]) {
       if (!rows.some((r) => r.colony.bodyId === id)) this.selected.delete(id);
@@ -320,7 +320,7 @@ export class EmpireView {
       select(
         sources.map((c) => ({
           value: c.bodyId,
-          label: `built at ${this.game.system.byId.get(c.bodyId)?.name ?? c.bodyId}`,
+          label: `built at ${this.game.galaxy.byId.get(c.bodyId)?.name ?? c.bodyId}`,
         })),
         this.bulkSource,
         (value) => {
@@ -366,7 +366,7 @@ export class EmpireView {
               this.game.clock.seconds,
               "construction",
               `${template.name} applied to ${plans.length} colonies from ${
-                this.game.system.byId.get(source.bodyId)?.name
+                this.game.galaxy.byId.get(source.bodyId)?.name
               }.`,
             );
           }
@@ -397,7 +397,7 @@ export class EmpireView {
   // ---------------------------------------------------------------- ledger
 
   private renderLedger(parent: HTMLElement): void {
-    const rows = mineralLedger(this.game.empire, this.game.system);
+    const rows = mineralLedger(this.game.empire, this.game.galaxy);
     const sec = section(parent, "Mineral Ledger");
 
     const table = el("div", "data-table ledger-table");

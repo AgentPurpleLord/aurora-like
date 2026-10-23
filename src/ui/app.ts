@@ -3,7 +3,7 @@
 import { SystemMapRenderer, formatAu, type FleetMarker, type RenderOptions } from "../render/map";
 import { destinationOf } from "../sim/ships/fleet";
 import type { Game } from "../state/game";
-import { classLabel, type Body } from "../sim/system";
+import { classLabel, type Body, type StarSystem } from "../sim/system";
 import { AU_KM } from "../sim/orbit";
 import { BodyTreePanel } from "./bodyTree";
 import { DetailPanel } from "./detailPanel";
@@ -16,6 +16,7 @@ import { ResearchView } from "./views/researchView";
 import { OfficersView } from "./views/officersView";
 import { FleetsView } from "./views/fleetsView";
 import { DesignView } from "./views/designView";
+import { GalaxyView } from "./views/galaxyView";
 import { distance, el, lightTime, num } from "./format";
 import { CommandPalette } from "./palette";
 import { SettingsMenu } from "./settingsMenu";
@@ -47,11 +48,12 @@ const ZOOM_PRESETS: ZoomPreset[] = [
   { label: "Kuiper", spanAu: 75 },
 ];
 
-export type ViewId = "empire" | "map" | "colonies" | "fleets" | "design" | "research" | "officers";
+export type ViewId = "empire" | "map" | "galaxy" | "colonies" | "fleets" | "design" | "research" | "officers";
 
 const VIEW_TABS: { id: ViewId; label: string; key: string }[] = [
   { id: "empire", label: "Empire", key: "e" },
   { id: "map", label: "Map", key: "m" },
+  { id: "galaxy", label: "Galaxy", key: "x" },
   { id: "colonies", label: "Colonies", key: "c" },
   { id: "fleets", label: "Fleets", key: "f" },
   { id: "design", label: "Design", key: "d" },
@@ -62,6 +64,7 @@ const VIEW_TABS: { id: ViewId; label: string; key: string }[] = [
 /** The rail costs real estate the map wants, so it starts folded there. */
 const RAIL_COLLAPSED_BY_DEFAULT: Record<ViewId, boolean> = {
   empire: false,
+  galaxy: true,
   map: true,
   colonies: false,
   fleets: false,
@@ -99,6 +102,11 @@ export class App {
   private officers: OfficersView;
   private fleetsView: FleetsView;
   private designView: DesignView;
+  private galaxyView: GalaxyView;
+  /** The map-tools controls that depend on which system is showing. */
+  private zoomGroup = el("div", "tool-group");
+  private systemSelect = el("select", "tool-select");
+  private shownSystemId = "";
   private rail: TriageRail;
   private toasts: Toasts;
   private palette: CommandPalette;
@@ -143,7 +151,15 @@ export class App {
     private game: Game,
     startup: { resumed: SaveMeta | null; error?: string } = { resumed: null },
   ) {
-    this.renderer = new SystemMapRenderer(canvas, this.game.system);
+    this.renderer = new SystemMapRenderer(canvas, this.game.viewSystem);
+    this.renderer.setKnowledge(
+      (body) => body.cls !== "jump-point" || this.game.empire.knownJumpPoints.has(body.id),
+      (body) =>
+        this.game.empire.gates.has(body.id)
+          ? "gate"
+          : this.game.empire.exploredJumpPoints.has(body.id) ? "explored" : "unexplored",
+    );
+    this.shownSystemId = this.game.viewSystem.id;
     this.tree = new BodyTreePanel(roots.tree, this.game, (b) => this.zoomTo(b));
     this.detail = new DetailPanel(roots.detail, this.game, {
       zoomTo: (b) => this.zoomTo(b),
@@ -170,6 +186,17 @@ export class App {
     this.designView = new DesignView(roots.views.design, this.game, {
       openFleets: () => this.setView("fleets"),
     });
+    this.galaxyView = new GalaxyView(roots.views.galaxy, this.game, {
+      openSystem: (systemId) => {
+        this.game.setViewSystem(systemId);
+        const star = this.game.galaxy.systemById.get(systemId)?.root;
+        this.game.select(star ?? null);
+        this.setView("map");
+        this.syncSystem(true);
+      },
+      openFleet: (fleetId) => this.navigate({ view: "fleets", fleetId }),
+      showView: () => this.setView("galaxy"),
+    });
     this.rail = new TriageRail(
       roots.rail,
       this.game,
@@ -180,6 +207,7 @@ export class App {
     this.toasts = new Toasts(document.getElementById("app")!, (link) => this.navigate(link));
     this.palette = new CommandPalette(document.getElementById("app")!, this.game, {
       goView: (view) => this.setView(view),
+      openSystem: (systemId) => this.galaxyView.show(systemId),
       openBody: (body) => this.zoomTo(body),
       openColony: (bodyId) => this.openColony(bodyId),
       openFleet: (fleetId) => this.navigate({ view: "fleets", fleetId }),
@@ -228,6 +256,7 @@ export class App {
     this.buildTools(roots.tools);
 
     this.game.subscribe(() => {
+      this.syncSystem();
       this.detail.render();
       this.tree.rebuild();
       this.renderActiveView();
@@ -330,7 +359,7 @@ export class App {
     if (!game.clock.paused || dialogOpen() || this.digestOfferedFor === mark.seq) return;
     // Cheap test first: this runs on every change.
     if (game.clock.seconds - mark.time < 30 * 86_400 || game.empire.logSeq - mark.seq < 3) return;
-    const digest = buildDigest(game.empire, game.system, game.clock.seconds);
+    const digest = buildDigest(game.empire, game.galaxy, game.clock.seconds);
     if (!worthShowing(digest)) return;
     this.digestOfferedFor = mark.seq;
     const events = digest.groups.reduce((sum, g) => sum + g.entries.length, 0);
@@ -481,7 +510,7 @@ export class App {
 
   /** Take the player to wherever an event or notice points. */
   private navigate(link: LogLink): void {
-    const body = link.bodyId ? this.game.system.byId.get(link.bodyId) : undefined;
+    const body = link.bodyId ? this.game.galaxy.byId.get(link.bodyId) : undefined;
     if (link.view === "map" && body) {
       this.zoomTo(body);
       return;
@@ -508,7 +537,7 @@ export class App {
     if (view === "map") {
       this.renderer.resize();
       // First time the map is shown it finally has a size to frame against.
-      if (!this.mapFramed) this.mapFramed = this.setSpan(2.6);
+      if (!this.mapFramed) this.mapFramed = this.setSpan(this.systemSpan(this.game.viewSystem));
     }
   }
 
@@ -547,7 +576,7 @@ export class App {
   }
 
   private openColony(bodyId: string): void {
-    const body = this.game.system.byId.get(bodyId);
+    const body = this.game.galaxy.byId.get(bodyId);
     if (body) this.game.select(body);
     this.setView("colonies");
   }
@@ -555,7 +584,7 @@ export class App {
   /** Jump to wherever an attention item is resolved. */
   private followIssue(issue: Issue): void {
     if (issue.action.bodyId) {
-      const body = this.game.system.byId.get(issue.action.bodyId);
+      const body = this.game.galaxy.byId.get(issue.action.bodyId);
       if (body) this.game.select(body);
     }
     this.setView(issue.action.view as ViewId);
@@ -583,6 +612,7 @@ export class App {
       case "design": this.designView.render(); break;
       case "research": this.research.render(); break;
       case "officers": this.officers.render(); break;
+      case "galaxy": this.galaxyView.render(); break;
       case "map": break;
     }
     this.renderEmpireBar();
@@ -610,29 +640,111 @@ export class App {
 
   // ------------------------------------------------------------- map tools
 
-  private buildTools(root: HTMLElement): void {
-    const zooms = el("div", "tool-group");
-    zooms.append(el("span", "tool-label", "View"));
-    for (const preset of ZOOM_PRESETS) {
-      const btn = el("button", "tool-btn", preset.label);
-      btn.addEventListener("click", () => {
-        if (preset.center) {
-          const body = this.game.system.byId.get(preset.center);
-          if (body) {
-            this.game.select(body);
-            this.game.follow = true;
-            this.renderer.camera.centerOn(body.world.x, body.world.y);
+  /** Switch the map to the system the game is now viewing, and frame it. */
+  private syncSystem(force = false): void {
+    const system = this.game.viewSystem;
+    if (!force && this.shownSystemId === system.id) {
+      this.refreshSystemSelect();
+      return;
+    }
+    this.shownSystemId = system.id;
+    this.renderer.setSystem(system);
+    this.game.follow = false;
+    this.renderer.camera.centerOn(0, 0);
+    this.setSpan(this.systemSpan(system));
+    this.buildZoomButtons();
+    this.refreshSystemSelect();
+    this.tree.rebuild();
+    this.syncToggles();
+  }
+
+  /** Half-width that shows a system's planets and any jump points found in it. */
+  private systemSpan(system: StarSystem): number {
+    if (system.id === "sol") return 2.6;
+    const { empire } = this.game;
+    let reach = 0;
+    for (const body of system.bodies) {
+      if (body.cls === "star" || body.cls === "moon") continue;
+      if (body.cls === "jump-point" && !empire.knownJumpPoints.has(body.id)) continue;
+      const a = body.def.orbit;
+      if (a) reach = Math.max(reach, a.a * (1 + a.e));
+    }
+    return Math.max(0.05, reach * 1.2);
+  }
+
+  private buildZoomButtons(): void {
+    const group = this.zoomGroup;
+    group.textContent = "";
+    group.append(el("span", "tool-label", "View"));
+    const system = this.game.viewSystem;
+    const add = (label: string, run: () => void) => {
+      const btn = el("button", "tool-btn", label);
+      btn.addEventListener("click", run);
+      group.append(btn);
+    };
+    if (system.id === "sol") {
+      for (const preset of ZOOM_PRESETS) {
+        add(preset.label, () => {
+          if (preset.center) {
+            const body = this.game.galaxy.byId.get(preset.center);
+            if (body) {
+              this.game.select(body);
+              this.game.follow = true;
+              this.renderer.camera.centerOn(body.world.x, body.world.y);
+            }
+          } else {
+            this.game.follow = false;
+            this.renderer.camera.centerOn(0, 0);
           }
-        } else {
-          this.game.follow = false;
-          this.renderer.camera.centerOn(0, 0);
-        }
-        this.setSpan(preset.spanAu);
+          this.setSpan(preset.spanAu);
+          this.syncToggles();
+        });
+      }
+      return;
+    }
+    const whole = this.systemSpan(system);
+    const planets = system.bodies.filter((b) => b.cls === "planet");
+    const planetReach = planets.reduce((m, b) => Math.max(m, (b.def.orbit?.a ?? 0) * (1 + (b.def.orbit?.e ?? 0))), 0) || whole / 2;
+    for (const [label, span] of [["Whole system", whole], ["Planets", planetReach * 1.25], ["Inner", planetReach * 0.3]] as [string, number][]) {
+      add(label, () => {
+        this.game.follow = false;
+        this.renderer.camera.centerOn(0, 0);
+        this.setSpan(Math.max(span, 0.004));
         this.syncToggles();
       });
-      zooms.append(btn);
     }
-    root.append(zooms);
+  }
+
+  private refreshSystemSelect(): void {
+    const { empire, galaxy, viewSystem } = this.game;
+    const known = galaxy.systems.filter((s) => empire.knownSystems.has(s.id));
+    const signature = known.map((s) => s.id).join(",") + `|${viewSystem.id}`;
+    if (this.systemSelect.dataset.signature === signature) return;
+    this.systemSelect.dataset.signature = signature;
+    this.systemSelect.textContent = "";
+    for (const system of known) {
+      const option = el("option", undefined, system.name);
+      option.value = system.id;
+      option.selected = system.id === viewSystem.id;
+      this.systemSelect.append(option);
+    }
+  }
+
+  private buildTools(root: HTMLElement): void {
+    const systems = el("div", "tool-group");
+    systems.append(el("span", "tool-label", "System"));
+    this.systemSelect.setAttribute("aria-label", "System shown on the map");
+    this.systemSelect.addEventListener("change", () => this.game.setViewSystem(this.systemSelect.value));
+    systems.append(this.systemSelect);
+    const galaxyButton = el("button", "tool-btn", "Galaxy");
+    galaxyButton.title = "The neighbouring stars and the jump network";
+    galaxyButton.addEventListener("click", () => this.setView("galaxy"));
+    systems.append(galaxyButton);
+    root.append(systems);
+    this.refreshSystemSelect();
+
+    this.buildZoomButtons();
+    root.append(this.zoomGroup);
 
     // --- lenses: recolour the system by the question being asked
     const lenses = el("div", "tool-group lens-group");
@@ -757,6 +869,7 @@ export class App {
   private zoomTo(body: Body): void {
     this.setView("map");
     this.game.select(body);
+    this.syncSystem();
     this.game.follow = true;
     const camera = this.renderer.camera;
     camera.centerOn(body.world.x, body.world.y);
@@ -991,6 +1104,7 @@ export class App {
     this.game.tick(dt);
 
     if (this.view === "map") {
+      this.syncSystem();
       if (this.game.follow && this.game.selected) {
         const target = this.game.selected;
         this.renderer.camera.centerOn(target.world.x, target.world.y);
@@ -1015,9 +1129,10 @@ export class App {
   private fleetMarkers(): FleetMarker[] {
     const markers: FleetMarker[] = [];
     for (const fleet of this.game.empire.fleets.values()) {
+      if (fleet.systemId !== this.game.viewSystem.id) continue;
       const destinationId = destinationOf(fleet);
       const destination = destinationId
-        ? this.game.system.byId.get(destinationId)?.world ?? null
+        ? this.game.galaxy.byId.get(destinationId)?.world ?? null
         : null;
       markers.push({
         id: fleet.id,
@@ -1042,11 +1157,14 @@ export class App {
 
     const focus = this.hovered ?? this.game.selected;
     if (focus) {
-      const fromStar = this.game.system.distance(focus, this.game.system.root);
-      parts.push(`${focus.name}: ${distance(fromStar)} from Sol`);
-      const earth = this.game.system.byId.get("earth");
-      if (earth && earth !== focus) {
-        const d = this.game.system.distance(focus, earth);
+      const root = this.game.viewSystem.root;
+      if (focus !== root) {
+        const fromStar = this.game.galaxy.distance(focus, root);
+        parts.push(`${focus.name}: ${distance(fromStar)} from ${root.name}`);
+      }
+      const earth = this.game.galaxy.byId.get("earth");
+      if (earth && earth !== focus && earth.systemId === focus.systemId) {
+        const d = this.game.galaxy.distance(focus, earth);
         parts.push(`${distance(d)} from Earth (${lightTime(d)} light)`);
       }
     }

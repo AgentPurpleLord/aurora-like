@@ -9,7 +9,7 @@
 import type { Empire, LogLink } from "../state/empire";
 import { ENGINE_TYPES } from "./ships/components";
 import { isBreathable } from "./atmosphere";
-import type { StarSystem } from "./system";
+import type { Galaxy } from "./galaxy";
 
 export interface Goal {
   id: string;
@@ -19,7 +19,7 @@ export interface Goal {
   action: { label: string; link: LogLink };
 }
 
-export function deriveGoals(empire: Empire, system: StarSystem): Goal[] {
+export function deriveGoals(empire: Empire, system: Galaxy): Goal[] {
   const engine = ENGINE_TYPES.some((e) => empire.researched.has(e.tech));
   const hasSurveyor = [...empire.ships.values()].some(
     (ship) => (empire.statsOf(ship.designId)?.survey.geological ?? 0) > 0,
@@ -34,6 +34,13 @@ export function deriveGoals(empire: Empire, system: StarSystem): Goal[] {
     const body = system.byId.get(c.bodyId);
     return body && c.bodyId !== empire.capital && isBreathable(body.atmosphere);
   });
+
+  const jumpShip = [...empire.ships.values()].some(
+    (ship) => (empire.statsOf(ship.designId)?.jumpCapacity ?? 0) > 0,
+  );
+  const abroad = [...empire.colonies.values()].some(
+    (c) => system.byId.get(c.bodyId)?.systemId !== "sol",
+  );
 
   return [
     {
@@ -99,6 +106,38 @@ export function deriveGoals(empire: Empire, system: StarSystem): Goal[] {
         "Research Terraforming Technology, put processors on a settled world, and warm it with a greenhouse gas that is not a poison.",
       done: terraforming || habitable,
       action: { label: "Open research", link: { view: "research", techId: "terraforming" } },
+    },
+    {
+      id: "jump-theory",
+      title: "Find a way out of the system",
+      detail:
+        "Gravitational Survey Sensors locate jump points; Jump Point Theory gives ships a drive that can cross them. Both are a long research road.",
+      done: empire.researched.has("jump-point-theory"),
+      action: { label: "Open research", link: { view: "research", techId: "jump-point-theory" } },
+    },
+    {
+      id: "jump-point",
+      title: "Find a jump point",
+      detail:
+        "Design a ship with a gravitational survey sensor and a jump drive, then set it to explore. It searches each system, crosses what it finds, and turns back to refuel.",
+      done: empire.knownJumpPoints.size > 0,
+      action: { label: "Open the designer", link: { view: "design" } },
+    },
+    {
+      id: "cross",
+      title: jumpShip ? "Cross a jump point" : "Build a ship with a jump drive",
+      detail:
+        "The first crossing opens a new star system to survey. The galaxy map shows what you have charted.",
+      done: empire.knownSystems.size > 1,
+      action: { label: "Open the galaxy map", link: { view: "galaxy" } },
+    },
+    {
+      id: "foothold",
+      title: "Settle another star system",
+      detail:
+        "The first colony in a new system needs a ship with cryogenic berths in orbit. Gates, built by a ship with a gate construction module, make supply lines to it practical.",
+      done: abroad,
+      action: { label: "Open the galaxy map", link: { view: "galaxy" } },
     },
   ];
 }

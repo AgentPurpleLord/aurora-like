@@ -2,6 +2,7 @@
 
 import type { Game } from "../state/game";
 import { classLabel, orbitSummary, type Body } from "../sim/system";
+import { settleBlocker } from "../sim/exploration";
 import { INSTALLATION_BY_ID } from "../sim/economy/installations";
 import {
   colonyOutput,
@@ -119,6 +120,11 @@ export class DetailPanel {
     this.header.append(zoom);
     this.renderContextActions(body);
 
+    if (body.cls === "jump-point") {
+      this.renderJumpPoint(body);
+      return;
+    }
+
     switch (this.tab) {
       case "overview": this.renderOverview(body); break;
       case "environment": this.renderEnvironment(body); break;
@@ -141,19 +147,46 @@ export class DetailPanel {
     if (colony) {
       actions.append(this.action("Open colony", () => this.actions.openEconomy()));
     } else if (Number.isFinite(body.colonyCost)) {
-      actions.append(
-        this.action("Settle here", () => {
+      const blocked = settleBlocker(empire, game.galaxy, body);
+      const settle = this.action("Settle here", () => {
           empire.foundColony(body.id, game.clock.seconds);
           empire.addLog(game.clock.seconds, "colony", `A colony has been established on ${body.name}.`, {
             view: "colonies",
             bodyId: body.id,
           });
           game.emit();
-        }),
-      );
+        });
+      if (blocked) {
+        settle.disabled = true;
+        settle.title = blocked;
+      }
+      actions.append(settle);
     }
 
-    if (fleet && body.cls !== "star") {
+    if (fleet && body.cls === "jump-point" && empire.knownJumpPoints.has(body.id)) {
+      const fs = fleetStats(empire, fleet);
+      const gated = empire.gates.has(body.id);
+      const canJump = gated || fs.jumpCapacity >= fs.tons;
+      const cross = this.action(`Send ${fleet.name} through`, () => {
+        if (fleet.anchorId !== body.id) fleet.orders.push({ kind: "move", bodyId: body.id });
+        fleet.orders.push({ kind: "jump" });
+        game.emit();
+      });
+      if (!canJump) {
+        cross.disabled = true;
+        cross.title = "No jump drive rated for this fleet, and no gate here.";
+      }
+      actions.append(cross);
+      if (fs.gateRate > 0 && empire.exploredJumpPoints.has(body.id) && !gated) {
+        actions.append(
+          this.action(`Build a gate with ${fleet.name}`, () => {
+            if (fleet.anchorId !== body.id) fleet.orders.push({ kind: "move", bodyId: body.id });
+            fleet.orders.push({ kind: "build-gate" });
+            game.emit();
+          }),
+        );
+      }
+    } else if (fleet && body.cls !== "star") {
       actions.append(
         this.action(`Send ${fleet.name} here`, () => {
           fleet.orders.push({ kind: "move", bodyId: body.id });
@@ -173,6 +206,30 @@ export class DetailPanel {
     if (actions.childElementCount) this.header.append(actions);
   }
 
+  /** What is known about a jump point: where it leads, and whether it is gated. */
+  private renderJumpPoint(body: Body): void {
+    const { galaxy } = this.game;
+    const { empire } = this.game;
+    const sec = this.section("Jump point");
+    const far = galaxy.otherEnd(body.id);
+    const explored = empire.exploredJumpPoints.has(body.id);
+    const where = explored && far ? galaxy.systemById.get(far.systemId)?.name ?? "?" : "Unexplored";
+    this.stat(sec, "Leads to", where);
+    this.stat(sec, "Status", empire.gates.has(body.id) ? "Stabilised gate: open to every ship" : "Unstable: jump drives only");
+    const here = galaxy.systemById.get(body.systemId);
+    if (here) this.stat(sec, "In system", here.name);
+    this.stat(sec, "Distance from star", distance(Math.hypot(body.world.x, body.world.y, body.world.z)));
+    sec.append(
+      el(
+        "p",
+        "notes",
+        explored
+          ? "A ship with jump drives rated for the whole fleet can cross, and a gate lets any ship through."
+          : "Nobody has been through this one yet. Send a fleet with jump drives to see where it leads.",
+      ),
+    );
+  }
+
   private action(label: string, run: () => void): HTMLButtonElement {
     const btn = el("button", "ghost-btn context-btn", label);
     btn.addEventListener("click", run);
@@ -189,11 +246,11 @@ export class DetailPanel {
     card.append(title);
 
     const destination = destinationOf(fleet);
-    const eta = fleetEta(game.empire, game.system, fleet);
+    const eta = fleetEta(game.empire, game.galaxy, fleet);
     const where = fleet.anchorId
-      ? `At ${game.system.byId.get(fleet.anchorId)?.name ?? fleet.anchorId}`
+      ? `At ${game.galaxy.byId.get(fleet.anchorId)?.name ?? fleet.anchorId}`
       : destination
-        ? `To ${game.system.byId.get(destination)?.name ?? destination}${
+        ? `To ${game.galaxy.byId.get(destination)?.name ?? destination}${
             eta !== null ? ` - ${formatYears(eta / (365.25 * 86400))}` : ""
           }`
         : "In deep space";
@@ -208,6 +265,16 @@ export class DetailPanel {
     card.append(
       el("p", "muted small", "Right-click a body on the map to send this fleet there."),
     );
+
+    const hidden = game.galaxy.jumpPointsIn(fleet.systemId).filter((b) => !game.empire.knownJumpPoints.has(b.id));
+    if (stats.gravRate > 0 && hidden.length && fleet.anchorId) {
+      const search = el("button", "ghost-btn", `Search for jump points (${hidden.length} unfound)`);
+      search.addEventListener("click", () => {
+        fleet.orders.push({ kind: "gravsurvey" });
+        game.emit();
+      });
+      card.append(search);
+    }
 
     const actions = el("div", "form-actions");
     const open = el("button", "ghost-btn", "Open in Fleets");
@@ -260,12 +327,14 @@ export class DetailPanel {
     }
 
     const nav = this.section("Navigation");
-    const star = this.game.system.root;
-    const earth = this.game.system.byId.get("earth");
-    const fromStar = this.game.system.distance(body, star);
-    this.stat(nav, "Distance from Sol", distance(fromStar));
-    if (earth && earth !== body) {
-      const d = this.game.system.distance(body, earth);
+    const home = this.game.galaxy.systemById.get(body.systemId);
+    const star = home?.root;
+    const earth = this.game.galaxy.byId.get("earth");
+    if (star && star !== body) {
+      this.stat(nav, `Distance from ${star.name}`, distance(this.game.galaxy.distance(body, star)));
+    }
+    if (earth && earth !== body && earth.systemId === body.systemId) {
+      const d = this.game.galaxy.distance(body, earth);
       this.stat(nav, "Distance from Earth", distance(d));
       this.stat(nav, "Signal Delay", lightTime(d));
     }
@@ -385,7 +454,12 @@ export class DetailPanel {
     if (!colony) {
       const cost = effectiveColonyCost(body, empire.stats);
       sec.append(el("p", "muted", `No colony on ${body.name}. Colony cost ${cost.toFixed(2)}.`));
+      const blocked = settleBlocker(empire, this.game.galaxy, body);
       const btn = el("button", "primary-btn", "Establish Colony");
+      if (blocked) {
+        btn.disabled = true;
+        sec.append(el("p", "project-warning", blocked));
+      }
       btn.addEventListener("click", () => {
         empire.foundColony(body.id, this.game.clock.seconds);
         empire.addLog(

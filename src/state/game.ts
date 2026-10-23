@@ -2,7 +2,8 @@
 
 import { GameClock } from "../sim/clock";
 import { SECONDS_PER_DAY } from "../sim/orbit";
-import { StarSystem, type Body } from "../sim/system";
+import type { Body, StarSystem } from "../sim/system";
+import { Galaxy } from "../sim/galaxy";
 import { Random } from "../sim/rng";
 import { CYCLE_DAYS, computeSnapshot, runCycle } from "../sim/economy/production";
 import { MINERALS } from "../sim/minerals";
@@ -31,7 +32,9 @@ const CYCLE_SECONDS = CYCLE_DAYS * SECONDS_PER_DAY;
 const MAX_CYCLES_PER_FRAME = 40;
 
 export class Game {
-  readonly system = new StarSystem();
+  readonly galaxy: Galaxy;
+  /** The system the map and body list are showing. */
+  viewSystem: StarSystem;
   readonly clock = new GameClock();
   readonly empire: Empire;
 
@@ -58,21 +61,24 @@ export class Game {
     readonly seed: string = "sol-1",
     save?: GameState,
   ) {
+    this.galaxy = new Galaxy(seed);
+    this.viewSystem = this.galaxy.sol;
     this.empire = new Empire(new Random(seed));
-    this.system.update(this.clock.days);
+    this.galaxy.update(this.clock.days);
     this.lastCycle = this.clock.seconds;
     if (save) {
       this.restore(save);
     } else {
       this.setUpCampaign();
     }
-    this.selected = this.system.byId.get(save?.selected ?? "earth") ?? null;
+    this.selected = this.galaxy.byId.get(save?.selected ?? "earth") ?? null;
+    this.viewSystem = (this.selected && this.galaxy.systemById.get(this.selected.systemId)) || this.galaxy.sol;
   }
 
   /** Everything needed to carry on from here: plain data, safe for JSON. */
   exportState(): GameState {
     const bodies: GameState["bodies"] = {};
-    for (const body of this.system.bodies) {
+    for (const body of this.galaxy.bodies) {
       bodies[body.id] = {
         atmosphere: { ...body.atmosphere },
         deposits: body.minerals.map((d) => d.amount),
@@ -92,7 +98,7 @@ export class Game {
   private restore(save: GameState): void {
     this.clock.seconds = save.seconds;
     this.lastCycle = save.lastCycle;
-    for (const body of this.system.bodies) {
+    for (const body of this.galaxy.bodies) {
       const saved = save.bodies[body.id];
       if (!saved) continue;
       body.atmosphere = { ...saved.atmosphere };
@@ -102,7 +108,7 @@ export class Game {
       });
       recomputeEnvironment(body);
     }
-    this.system.update(this.clock.days);
+    this.galaxy.update(this.clock.days);
     this.empire.importState(save.empire);
     this.pauseSeq = this.empire.logSeq;
     this.clock.setRate(0);
@@ -169,7 +175,7 @@ export class Game {
       "economy",
       "Trans-Newtonian industry comes online across Earth. No other world has been surveyed.",
     );
-    empire.snapshot = computeSnapshot(empire, this.system);
+    empire.snapshot = computeSnapshot(empire, this.galaxy);
     empire.markReviewed(now);
     empire.recordHistory(now);
   }
@@ -246,11 +252,22 @@ export class Game {
     this.emit();
   }
 
+  /** Systems worth moving every frame: the one shown, and any with our people in. */
+  private activeSystems(): Set<string> {
+    const active = new Set([this.viewSystem.id]);
+    for (const colony of this.empire.colonies.values()) {
+      const system = this.galaxy.byId.get(colony.bodyId)?.systemId;
+      if (system) active.add(system);
+    }
+    for (const fleet of this.empire.fleets.values()) active.add(fleet.systemId);
+    return active;
+  }
+
   /** Move the bodies, then the fleets that are chasing them. */
   private advanceWorld(elapsedSeconds: number): void {
-    this.system.update(this.clock.days);
+    this.galaxy.update(this.clock.days, this.activeSystems());
     this.empire.lastTick = this.clock.seconds;
-    updateFleets(this.empire, this.system, elapsedSeconds);
+    updateFleets(this.empire, this.galaxy, elapsedSeconds);
   }
 
   /**
@@ -261,7 +278,7 @@ export class Game {
     let ran = 0;
     while (this.clock.seconds - this.lastCycle >= CYCLE_SECONDS && ran < MAX_CYCLES_PER_FRAME) {
       this.lastCycle += CYCLE_SECONDS;
-      runCycle(this.empire, this.system, this.lastCycle, CYCLE_DAYS);
+      runCycle(this.empire, this.galaxy, this.lastCycle, CYCLE_DAYS);
       ran++;
     }
     return ran > 0;
@@ -274,6 +291,19 @@ export class Game {
 
   select(body: Body | null): void {
     this.selected = body;
+    // Selecting something in another system brings that system into view.
+    if (body && body.systemId !== this.viewSystem.id) {
+      this.viewSystem = this.galaxy.systemById.get(body.systemId) ?? this.viewSystem;
+    }
+    this.emit();
+  }
+
+  /** Show a different system on the map. Only systems the empire knows. */
+  setViewSystem(systemId: string): void {
+    const system = this.galaxy.systemById.get(systemId);
+    if (!system || system === this.viewSystem) return;
+    this.viewSystem = system;
+    if (this.selected && this.selected.systemId !== systemId) this.selected = null;
     this.emit();
   }
 

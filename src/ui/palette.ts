@@ -18,6 +18,7 @@ import { el } from "./format";
 
 export interface PaletteActions {
   goView(view: ViewId): void;
+  openSystem(systemId: string): void;
   openBody(body: Body): void;
   openColony(bodyId: string): void;
   openFleet(fleetId: string): void;
@@ -44,6 +45,7 @@ interface Entry {
 const VIEWS: [ViewId, string, string][] = [
   ["empire", "Empire", "Dashboard: every colony, the mineral ledger, research"],
   ["map", "System Map", "The system to scale, with fleets and lenses"],
+  ["galaxy", "Galaxy", "The neighbouring stars and the jump network"],
   ["colonies", "Colonies", "Industry, mining, terraforming and automation"],
   ["fleets", "Fleets", "Orders, cargo and building ships"],
   ["design", "Design", "Component designer and ship designer"],
@@ -112,7 +114,7 @@ export class CommandPalette {
 
   private buildEntries(): void {
     const { game, actions } = this;
-    const { empire, system } = game;
+    const { empire, galaxy: system } = game;
     const e: Entry[] = [];
 
     for (const [id, label, hint] of VIEWS) {
@@ -135,12 +137,23 @@ export class CommandPalette {
       },
     );
 
+    for (const star of game.galaxy.systems) {
+      const visited = empire.knownSystems.has(star.id);
+      e.push({
+        label: `System: ${star.name}`,
+        hint: visited ? `${star.meta.spectral} - visited` : `${star.meta.spectral} - ${star.meta.distanceLy} ly, unexplored`,
+        kind: "System",
+        run: () => actions.openSystem(star.id),
+      });
+    }
+
     for (const colony of empire.colonies.values()) {
       const body = system.byId.get(colony.bodyId);
       if (!body) continue;
       e.push({ label: `Colony: ${body.name}`, hint: "Open its industry, mining and automation", kind: "Colony", run: () => actions.openColony(body.id) });
     }
     for (const body of system.bodies) {
+      if (!empire.knownSystems.has(body.systemId)) continue;
       e.push({
         label: body.name,
         hint: `${classLabel(body)}${body.parent ? ` of ${body.parent.name}` : ""} - show on the map`,

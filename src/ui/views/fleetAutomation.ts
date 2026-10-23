@@ -28,9 +28,9 @@ interface CargoDraft {
 
 const RANGES: [number, string][] = [
   [0, "The whole system"],
-  [2, "Inner system (within 2 AU)"],
-  [6, "Out to the asteroid belt and Jupiter (6 AU)"],
-  [35, "Out to Neptune (35 AU)"],
+  [2, "Within 2 AU of the star"],
+  [6, "Within 6 AU of the star"],
+  [35, "Within 35 AU of the star"],
 ];
 
 const emptyDraft = (kind: CargoKind): CargoDraft => ({
@@ -70,7 +70,7 @@ export class FleetAutomation {
 
   render(parent: HTMLElement, fleet: Fleet): void {
     const sec = section(parent, "Standing programme");
-    const nameOf = (id: string) => this.game.system.byId.get(id)?.name ?? id;
+    const nameOf = (id: string) => this.game.galaxy.byId.get(id)?.name ?? id;
 
     if (fleet.program) {
       this.renderActive(sec, fleet, nameOf);
@@ -83,6 +83,7 @@ export class FleetAutomation {
         "A programme keeps the fleet working without orders: it plans its own moves, refuels, and waits when there is nothing to do.",
       ),
     );
+    this.renderExploreForm(sec, fleet);
     this.renderSurveyForm(sec, fleet);
     this.renderFreightForm(sec, fleet);
   }
@@ -97,11 +98,18 @@ export class FleetAutomation {
     card.append(el("div", "muted small", fleet.programStatus ?? "Working"));
 
     if (program.kind === "survey") {
-      const scope = surveyScope(this.game.system, program.maxAu);
+      const scope = surveyScope(this.game.galaxy, program.systemId ?? "sol", program.maxAu);
       const done = scope.filter((b) => this.game.empire.surveyed.has(b.id)).length;
       card.append(el("div", "muted small", `${done} of ${scope.length} bodies surveyed`));
+    } else if (program.kind === "explore") {
+      const { empire } = this.game;
+      const total = this.game.galaxy.links.length * 2;
+      card.append(
+        el("div", "muted small",
+          `${empire.knownSystems.size} systems visited - ${empire.knownJumpPoints.size} of ${total} jump points found - ${empire.exploredJumpPoints.size} crossed`),
+      );
     } else {
-      const forecast = freightForecast(this.game.empire, this.game.system, fleet, program.fromId, program.toId);
+      const forecast = freightForecast(this.game.empire, this.game.galaxy, fleet, program.fromId, program.toId);
       if (forecast) {
         card.append(
           el(
@@ -123,6 +131,43 @@ export class FleetAutomation {
     sec.append(card);
   }
 
+  // ---------------------------------------------------------------- explore
+
+  private renderExploreForm(sec: HTMLElement, fleet: Fleet): void {
+    const stats = fleetStats(this.game.empire, fleet);
+    const block = el("div", "program-form");
+    block.append(el("h4", undefined, "Explore"));
+    const problems: string[] = [];
+    if (stats.gravRate <= 0) problems.push("This fleet has no gravitational survey sensors.");
+    if (stats.jumpCapacity < stats.tons) {
+      problems.push(
+        stats.jumpCapacity > 0
+          ? `Its jump drives carry ${num(stats.jumpCapacity)} t but the fleet weighs ${num(stats.tons)} t.`
+          : "This fleet has no jump drive.",
+      );
+    }
+    const start = button(
+      "Start exploring",
+      () => {
+        fleet.program = { kind: "explore" };
+        fleet.waitUntil = 0;
+        this.game.emit();
+      },
+      "primary-btn",
+    );
+    start.disabled = problems.length > 0;
+    block.append(start);
+    for (const problem of problems) block.append(el("div", "project-warning", problem));
+    block.append(
+      el(
+        "p",
+        "muted small",
+        "Searches each system for jump points, crosses the ones nobody has been through, and keeps going until the known network is charted. It turns back to refuel when the tanks run low.",
+      ),
+    );
+    sec.append(block);
+  }
+
   // ----------------------------------------------------------------- survey
 
   private renderSurveyForm(sec: HTMLElement, fleet: Fleet): void {
@@ -131,7 +176,7 @@ export class FleetAutomation {
     const stats = fleetStats(this.game.empire, fleet);
 
     const pending = (maxAu: number) =>
-      surveyScope(this.game.system, maxAu).filter((b) => !this.game.empire.surveyed.has(b.id)).length;
+      surveyScope(this.game.galaxy, fleet.systemId, maxAu).filter((b) => !this.game.empire.surveyed.has(b.id)).length;
 
     const row = el("div", "add-order");
     row.append(
@@ -147,7 +192,7 @@ export class FleetAutomation {
     const start = button(
       `Survey ${pending(this.surveyRange)} bodies`,
       () => {
-        fleet.program = { kind: "survey", maxAu: this.surveyRange };
+        fleet.program = { kind: "survey", maxAu: this.surveyRange, systemId: fleet.systemId };
         fleet.waitUntil = 0;
         this.game.emit();
       },
@@ -184,7 +229,7 @@ export class FleetAutomation {
     if (!colonies.includes(this.from)) this.from = fleet.anchorId && colonies.includes(fleet.anchorId) ? fleet.anchorId : game.empire.capital;
     if (!colonies.includes(this.to) || this.to === this.from) this.to = colonies.find((c) => c !== this.from) ?? this.from;
 
-    const options = colonies.map((id) => ({ value: id, label: game.system.byId.get(id)?.name ?? id }));
+    const options = colonies.map((id) => ({ value: id, label: game.galaxy.byId.get(id)?.name ?? id }));
     const route = el("div", "add-order");
     route.append(
       el("span", "muted small", "From"),
@@ -194,13 +239,13 @@ export class FleetAutomation {
     );
     block.append(route);
 
-    this.renderCargoDraft(block, this.there, `Carry from ${game.system.byId.get(this.from)?.name} to ${game.system.byId.get(this.to)?.name}`, false);
+    this.renderCargoDraft(block, this.there, `Carry from ${game.galaxy.byId.get(this.from)?.name} to ${game.galaxy.byId.get(this.to)?.name}`, false);
     this.renderCargoDraft(block, this.back, "Bring back", true);
 
     const there = this.specOf(this.there);
     const back = this.specOf(this.back);
     const stats = fleetStats(game.empire, fleet);
-    const forecast = freightForecast(game.empire, game.system, fleet, this.from, this.to);
+    const forecast = freightForecast(game.empire, game.galaxy, fleet, this.from, this.to);
 
     if (forecast) {
       block.append(

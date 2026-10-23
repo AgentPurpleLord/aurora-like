@@ -10,6 +10,7 @@ import { formatShortDate } from "../../sim/clock";
 import type { Game } from "../../state/game";
 import type { Body } from "../../sim/system";
 import { classLabel } from "../../sim/system";
+import { settleBlocker } from "../../sim/exploration";
 import type { Colony } from "../../state/colony";
 import { installationCount } from "../../state/colony";
 import {
@@ -89,7 +90,7 @@ export class EconomyView {
 
     const rows = el("div", "tree");
     for (const colony of game.empire.colonies.values()) {
-      const body = game.system.byId.get(colony.bodyId);
+      const body = game.galaxy.byId.get(colony.bodyId);
       if (!body) continue;
       const row = el("div", "tree-row");
       row.classList.toggle("selected", game.selected?.id === body.id);
@@ -224,7 +225,7 @@ export class EconomyView {
 
   /** Attention items that concern this colony, so problems show where they live. */
   private alertsFor(bodyId: string): Issue[] {
-    return activeIssues(this.game.empire, this.game.system, this.game.clock.seconds).filter(
+    return activeIssues(this.game.empire, this.game.galaxy, this.game.clock.seconds).filter(
       (issue) => issue.action.bodyId === bodyId,
     );
   }
@@ -270,7 +271,7 @@ export class EconomyView {
     stat(summary, "Wealth", `${num(output.wealth)} / year`);
     const governor = game.empire.governorOf(colony.bodyId);
     stat(summary, "Governor", governor ? fullName(governor) : "vacant", governor ? undefined : "warn");
-    const inflow = migrationInflow(game.empire, body, colony);
+    const inflow = migrationInflow(game.empire, body, colony, game.galaxy);
     if (inflow > 0) {
       const row = stat(summary, "Colonists Arriving", `${population(inflow)} / year`, "good");
       row.title = "Civilian shipping from the capital - a stand-in until colony ships exist.";
@@ -291,9 +292,9 @@ export class EconomyView {
     if (!Number.isFinite(cost)) {
       emptyNote(sec, "This body has no surface to build on.");
     } else {
-      emptyNote(sec, `Colony cost ${cost.toFixed(2)}. A colony can be established here.`);
-      sec.append(
-        button(
+      const blocked = settleBlocker(this.game.empire, this.game.galaxy, body);
+      emptyNote(sec, blocked ?? `Colony cost ${cost.toFixed(2)}. A colony can be established here.`);
+      const establish = button(
           "Establish Colony",
           () => {
             this.game.empire.foundColony(body.id, this.game.clock.seconds);
@@ -305,8 +306,9 @@ export class EconomyView {
             this.game.emit();
           },
           "primary-btn",
-        ),
-      );
+        );
+      establish.disabled = blocked !== null;
+      sec.append(establish);
     }
     this.detail.append(scroll);
   }
@@ -394,7 +396,7 @@ export class EconomyView {
       if (!type) continue;
       const row = el("div", "queue-row");
       const destination = order.destination
-        ? this.game.system.byId.get(order.destination)?.name ?? order.destination
+        ? this.game.galaxy.byId.get(order.destination)?.name ?? order.destination
         : null;
       const name = el(
         "span",
@@ -455,7 +457,7 @@ export class EconomyView {
         .filter((c) => c.bodyId !== colony.bodyId)
         .map((c) => ({
           value: c.bodyId,
-          label: `ship to ${this.game.system.byId.get(c.bodyId)?.name ?? c.bodyId}`,
+          label: `ship to ${this.game.galaxy.byId.get(c.bodyId)?.name ?? c.bodyId}`,
         })),
     ];
     add.append(
@@ -492,7 +494,7 @@ export class EconomyView {
     this.previewHost.append(el("p", "muted small", type.blurb));
     const preview = previewOrder(
       this.game.empire,
-      this.game.system,
+      this.game.galaxy,
       colony,
       this.orderInstallation,
       this.orderQuantity,
@@ -595,7 +597,7 @@ export class EconomyView {
       select(
         sources.map((c) => ({
           value: c.bodyId,
-          label: `built at ${this.game.system.byId.get(c.bodyId)?.name ?? c.bodyId}`,
+          label: `built at ${this.game.galaxy.byId.get(c.bodyId)?.name ?? c.bodyId}`,
         })),
         this.templateSource,
         (value) => {
@@ -622,7 +624,7 @@ export class EconomyView {
           empire.addLog(
             this.game.clock.seconds,
             "construction",
-            `${template.name} queued at ${this.game.system.byId.get(source.bodyId)?.name} for ${body.name}.`,
+            `${template.name} queued at ${this.game.galaxy.byId.get(source.bodyId)?.name} for ${body.name}.`,
           );
           this.game.emit();
         },
@@ -667,7 +669,7 @@ export class EconomyView {
 
     this.templateHost.append(el("p", "muted small", template.description));
     const items = resolveTemplate(template, body, colony, empire.stats);
-    const preview = previewItems(empire, this.game.system, source, items, template.name);
+    const preview = previewItems(empire, this.game.galaxy, source, items, template.name);
     if (!preview) return;
 
     const list = el("div", "template-items");
@@ -696,10 +698,10 @@ export class EconomyView {
       const row = el("div", "rule-row");
       const label = describeRule(rule.rule, (id) => INSTALLATION_BY_ID.get(id)?.name ?? id);
       row.append(el("span", "rule-name", label));
-      const sourceName = this.game.system.byId.get(rule.sourceId)?.name ?? rule.sourceId;
+      const sourceName = this.game.galaxy.byId.get(rule.sourceId)?.name ?? rule.sourceId;
       row.append(el("span", "muted small", `built at ${sourceName}`));
 
-      const pending = shortfallFor(empire, this.game.system, rule);
+      const pending = shortfallFor(empire, this.game.galaxy, rule);
       row.append(
         el("span", `rule-state ${pending ? "warn" : "good"}`,
           pending ? `queueing ${num(pending.quantity)}` : "satisfied"),
@@ -762,7 +764,7 @@ export class EconomyView {
       select(
         sources.map((c) => ({
           value: c.bodyId,
-          label: `built at ${this.game.system.byId.get(c.bodyId)?.name ?? c.bodyId}`,
+          label: `built at ${this.game.galaxy.byId.get(c.bodyId)?.name ?? c.bodyId}`,
         })),
         this.templateSource,
         (value) => (this.templateSource = value),
@@ -942,7 +944,7 @@ export class EconomyView {
           .filter((c) => c.bodyId !== colony.bodyId)
           .map((c) => ({
             value: c.bodyId,
-            label: this.game.system.byId.get(c.bodyId)?.name ?? c.bodyId,
+            label: this.game.galaxy.byId.get(c.bodyId)?.name ?? c.bodyId,
           })),
       ];
       const row = el("div", "stat");
