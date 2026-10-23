@@ -616,6 +616,21 @@ async function refreshSuite(browser) {
   await page.evaluate(() => { document.documentElement.dataset.theme = "classic"; });
   await check("and none in Classic", async () => !(await page.locator(".galaxy-radar").isVisible()));
 
+  // --- themed headings and furniture
+  await nav(page, "Empire").click();
+  await check("Classic keeps its own headings", async () =>
+    /suggested next steps/i.test(await page.locator(".guide-title").first().innerText()) &&
+    /attention/i.test(await page.locator("#triage-rail .panel-head").innerText()));
+  await page.evaluate(() => { document.documentElement.dataset.theme = "terminal"; });
+  await check("the terminal renames the main headings", async () =>
+    /Mission objectives/i.test(await page.locator(".guide-title").first().innerText()) &&
+    /Threat board/i.test(await page.locator("#triage-rail .panel-head").innerText()));
+  await page.keyboard.press("Control+k");
+  await check("the palette is a command line in the terminal", async () =>
+    /command line/i.test(await page.locator(".palette").evaluate((n) => getComputedStyle(n, "::before").content)));
+  await page.keyboard.press("Escape");
+  await page.evaluate(() => { document.documentElement.dataset.theme = "classic"; });
+
   // --- the settings popover and the guide
   await check("the status bar offers Next event", async () =>
     (await page.getByRole("button", { name: "Skip to next event" }).count()) === 1);
@@ -1136,6 +1151,11 @@ async function mobileSuite(browser) {
   await page.evaluate(() => { document.documentElement.dataset.theme = "terminal"; });
   await page.waitForTimeout(200);
   await check("the terminal theme does not make a phone scroll sideways", async () => (await overflow()) <= 1);
+  for (const name of ["Empire", "Map", "Colonies", "Fleets", "Design", "Research", "Officers", "Events", "Galaxy"]) {
+    await mobileGo(page, name);
+    await page.waitForTimeout(250);
+    await check(`and neither does the ${name} screen`, async () => (await overflow()) <= 1);
+  }
   await page.evaluate(() => { document.documentElement.dataset.theme = "classic"; });
   await check("controls are big enough to tap", async () =>
     (await page.evaluate(() =>

@@ -200,6 +200,44 @@ export class SystemMapRenderer {
     if (opts.showFleets) this.drawFleets(fleets, selectedFleet, opts.showLabels);
     else this.screenFleets = [];
     this.drawScaleBar();
+    if (this.terminal) this.drawHud();
+  }
+
+  /**
+   * Targeting-display furniture for the terminal theme: corner brackets on the
+   * view, a small crosshair at its centre and ticks along the top and left.
+   */
+  private drawHud(): void {
+    const { ctx, camera } = this;
+    const w = camera.width;
+    const h = camera.height;
+    ctx.save();
+    ctx.strokeStyle = this.c("rgba(110, 255, 160, 0.55)");
+    ctx.lineWidth = 1.5;
+    const arm = 22;
+    const pad = 8;
+    ctx.beginPath();
+    for (const [x, y, dx, dy] of [[pad, pad, 1, 1], [w - pad, pad, -1, 1], [pad, h - pad, 1, -1], [w - pad, h - pad, -1, -1]]) {
+      ctx.moveTo(x + dx * arm, y);
+      ctx.lineTo(x, y);
+      ctx.lineTo(x, y + dy * arm);
+    }
+    ctx.stroke();
+
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = this.c("rgba(110, 255, 160, 0.35)");
+    ctx.beginPath();
+    const cx = w / 2;
+    const cy = h / 2;
+    ctx.moveTo(cx - 9, cy); ctx.lineTo(cx - 3, cy);
+    ctx.moveTo(cx + 3, cy); ctx.lineTo(cx + 9, cy);
+    ctx.moveTo(cx, cy - 9); ctx.lineTo(cx, cy - 3);
+    ctx.moveTo(cx, cy + 3); ctx.lineTo(cx, cy + 9);
+    // Rulers along the top and left edges.
+    for (let x = 40; x < w - 40; x += 40) { ctx.moveTo(x, pad); ctx.lineTo(x, pad + (x % 200 === 0 ? 8 : 4)); }
+    for (let y = 40; y < h - 40; y += 40) { ctx.moveTo(pad, y); ctx.lineTo(pad + (y % 200 === 0 ? 8 : 4), y); }
+    ctx.stroke();
+    ctx.restore();
   }
 
   private drawStarfield(): void {

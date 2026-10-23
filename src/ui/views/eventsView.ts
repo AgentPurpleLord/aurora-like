@@ -11,7 +11,7 @@ import type { GameEvent } from "../../sim/events/types";
 import { optionsFor, resolveEvent } from "../../sim/events/engine";
 import { formatShortDate } from "../../sim/clock";
 import { EVENT_FREQUENCY, settings } from "../settings";
-import { describeEffect, el } from "../format";
+import { describeEffect, el, themed } from "../format";
 import { button, emptyNote, section } from "../widgets";
 
 type Filter = "all" | "good" | "bad" | "decisions";
@@ -36,7 +36,7 @@ export class EventsView {
     this.root.append(page);
 
     const head = el("div", "events-head");
-    head.append(el("h2", undefined, "Events"));
+    { const h = el("h2"); h.append(themed("Events", "Incident log")); head.append(h); }
     const good = empire.events.filter((e) => e.tone === "good").length;
     const bad = empire.events.filter((e) => e.tone === "bad").length;
     const rate = settings.events === "off" || empire.eventFrequency <= 0

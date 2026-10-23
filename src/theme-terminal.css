@@ -1173,3 +1173,239 @@ html[data-theme="terminal"] .galaxy-side .panel-head { gap: 6px; }
   html[data-theme="terminal"] .galaxy-node:hover .galaxy-range { display: none; }
 }
 
+/* ====================================================================
+ * Every other screen
+ * ==================================================================== */
+
+html[data-theme="terminal"] .th-c { display: none; }
+html[data-theme="terminal"] .th-t { display: inline; }
+html[data-theme="terminal"] .terminal-only { display: block; }
+
+/* A calmer sweep: it should be felt, not seen. */
+html[data-theme="terminal"] body::before {
+  background: linear-gradient(180deg, transparent, rgba(110, 255, 160, 0.025) 70%, rgba(110, 255, 160, 0.05));
+}
+
+/* ------------------------------------------------ everywhere: data rows */
+
+/* Label ..... value, as on a printed readout. */
+html[data-theme="terminal"] .stat { align-items: baseline; }
+html[data-theme="terminal"] .stat-label { display: flex; flex: 1; align-items: baseline; min-width: 0; }
+html[data-theme="terminal"] .stat-label::after {
+  content: "";
+  flex: 1;
+  min-width: 12px;
+  margin: 0 6px;
+  border-bottom: 1px dotted rgba(90, 255, 150, 0.28);
+  transform: translateY(-3px);
+}
+html[data-theme="terminal"] .stat-value { font-variant-numeric: tabular-nums; }
+html[data-theme="terminal"] .section > .section-head { border-bottom: 1px solid var(--line); box-shadow: 0 1px 0 rgba(255, 209, 120, 0.12); }
+html[data-theme="terminal"] .detail-head,
+html[data-theme="terminal"] .panel-head { border-bottom: 1px solid var(--line); }
+html[data-theme="terminal"] .detail-head { position: relative; }
+html[data-theme="terminal"] .detail-sub { letter-spacing: 0.06em; text-transform: uppercase; font-size: 11px; }
+html[data-theme="terminal"] .muted.small,
+html[data-theme="terminal"] .notes { letter-spacing: 0.01em; }
+
+/* Selected rows are marked with an arrow, not just a colour. */
+html[data-theme="terminal"] .tree-row.selected::after,
+html[data-theme="terminal"] .officer-row.selected::after { content: "<"; color: var(--accent); margin-left: 6px; font-weight: 700; }
+
+/* ------------------------------------------------------------- Empire */
+
+html[data-theme="terminal"] .guide-card { background: rgba(255, 209, 120, 0.04); border-color: #6b5420; }
+html[data-theme="terminal"] .guide-title { letter-spacing: 0.24em; color: var(--accent); text-shadow: 0 0 8px rgba(255, 209, 120, 0.4); }
+html[data-theme="terminal"] .guide-row { counter-increment: objective; position: relative; padding-left: 34px; }
+html[data-theme="terminal"] .guide-card { counter-reset: objective; }
+html[data-theme="terminal"] .guide-row::before {
+  content: counter(objective, decimal-leading-zero);
+  position: absolute;
+  left: 4px;
+  top: 8px;
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+html[data-theme="terminal"] .trend-tile,
+html[data-theme="terminal"] .since-strip { border-style: solid; }
+html[data-theme="terminal"] .trend-label,
+html[data-theme="terminal"] .since-item-label { letter-spacing: 0.14em; text-transform: uppercase; }
+html[data-theme="terminal"] .data-table .data-row.header { letter-spacing: 0.12em; text-transform: uppercase; border-bottom: 1px solid var(--accent); }
+html[data-theme="terminal"] .data-row:hover { box-shadow: inset 2px 0 0 var(--accent); }
+html[data-theme="terminal"] .log-divider { letter-spacing: 0.2em; text-transform: uppercase; }
+html[data-theme="terminal"] .log-date::after { content: " |"; color: var(--text-dim); }
+
+/* The summary tiles read as instruments. */
+html[data-theme="terminal"] .empire-stat .empire-label { letter-spacing: 0.2em; }
+html[data-theme="terminal"] .empire-value { font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------------- Map */
+
+html[data-theme="terminal"] .map-tools { backdrop-filter: none; }
+html[data-theme="terminal"] .tool-group { border-left: 2px solid var(--accent); }
+html[data-theme="terminal"] .tool-label { color: var(--accent); }
+html[data-theme="terminal"] .tool-btn.active { box-shadow: inset 0 -2px 0 var(--accent); }
+html[data-theme="terminal"] .map-legend,
+html[data-theme="terminal"] .map-hover { clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px)); }
+html[data-theme="terminal"] .legend-title,
+html[data-theme="terminal"] .hover-class { letter-spacing: 0.12em; text-transform: uppercase; }
+html[data-theme="terminal"] .context-actions .context-btn { border-style: dashed; }
+html[data-theme="terminal"] .detail-head .detail-title::before { content: "TARGET"; color: var(--accent); font-size: 10px; letter-spacing: 0.18em; display: block; margin-bottom: 2px; text-shadow: none; }
+html[data-theme="terminal"] .tabs .tab { text-transform: uppercase; letter-spacing: 0.12em; font-size: 10.5px; }
+html[data-theme="terminal"] .tabs .tab.active { box-shadow: inset 0 -2px 0 var(--accent); text-shadow: 0 0 8px rgba(255, 209, 120, 0.45); }
+
+/* ------------------------------------------------------------ Colonies */
+
+html[data-theme="terminal"] .colony-head { box-shadow: 0 1px 0 rgba(255, 209, 120, 0.2); }
+html[data-theme="terminal"] .vitals { gap: 6px; }
+html[data-theme="terminal"] .vital { border-top: 2px solid var(--accent); padding-top: 4px; background: rgba(90, 255, 150, 0.04); padding-left: 8px; }
+html[data-theme="terminal"] .vital-label { letter-spacing: 0.16em; text-transform: uppercase; font-size: 10px; }
+html[data-theme="terminal"] .vital-value { font-size: 19px; text-shadow: 0 0 9px var(--glow); font-variant-numeric: tabular-nums; }
+html[data-theme="terminal"] .colony-tab { text-transform: uppercase; letter-spacing: 0.12em; font-size: 10.5px; }
+html[data-theme="terminal"] .colony-tab.active { box-shadow: inset 0 -2px 0 var(--accent); text-shadow: 0 0 8px rgba(255, 209, 120, 0.45); }
+html[data-theme="terminal"] .alert-row { border-left-width: 3px; }
+html[data-theme="terminal"] .alert-title::before { content: "! "; color: var(--accent); }
+html[data-theme="terminal"] .alert-row.info .alert-title::before { content: "i "; color: #6fe09a; }
+html[data-theme="terminal"] .queue-row { counter-increment: job; }
+html[data-theme="terminal"] .install-row { border-bottom: 1px dotted rgba(90, 255, 150, 0.18); }
+
+/* -------------------------------------------------------------- Fleets */
+
+html[data-theme="terminal"] .fleet-detail > .detail-head .detail-title::before { content: "CALLSIGN"; }
+html[data-theme="terminal"] .fleet-detail .section { counter-reset: order; }
+html[data-theme="terminal"] .order-row { position: relative; padding-left: 40px; counter-increment: order; }
+html[data-theme="terminal"] .order-row::before {
+  content: counter(order, decimal-leading-zero) " >";
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+html[data-theme="terminal"] .order-row .chip { background: rgba(255, 209, 120, 0.12); color: var(--accent); border-color: #7a5f22; }
+html[data-theme="terminal"] .fleet-gauges { margin: 6px 0 4px; display: flex; flex-direction: column; gap: 5px; }
+html[data-theme="terminal"] .fleet-gauge { display: grid; grid-template-columns: 52px minmax(0, 1fr) 40px; align-items: center; gap: 8px; }
+html[data-theme="terminal"] .fleet-gauge-label { font-size: 10px; letter-spacing: 0.2em; color: var(--accent); }
+html[data-theme="terminal"] .fleet-gauge-value { font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
+html[data-theme="terminal"] .fleet-gauge .progress { height: 9px; margin: 0; }
+html[data-theme="terminal"] .fleet-gauge .progress.low .progress-fill { background-color: #e2725b; }
+html[data-theme="terminal"] .panel-left .tree-row .dot { box-shadow: 0 0 6px currentColor; }
+html[data-theme="terminal"] .program-chip { letter-spacing: 0.12em; }
+html[data-theme="terminal"] .program-card { background: rgba(90, 255, 150, 0.05); }
+html[data-theme="terminal"] .program-title::before { content: "AUTO // "; color: var(--accent); font-size: 10px; letter-spacing: 0.18em; }
+html[data-theme="terminal"] .project-warning { border-left: 3px solid #e2725b; padding-left: 8px; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; }
+html[data-theme="terminal"] .project-card { border-style: solid; }
+
+/* -------------------------------------------------------------- Design */
+
+html[data-theme="terminal"] .design-row { border-bottom: 1px dotted rgba(90, 255, 150, 0.18); }
+html[data-theme="terminal"] .derived-host .section-head::after { content: "SPEC SHEET"; margin-left: auto; font-size: 9.5px; letter-spacing: 0.22em; color: var(--accent); }
+html[data-theme="terminal"] .name-input { letter-spacing: 0.04em; }
+html[data-theme="terminal"] .field-label { letter-spacing: 0.1em; text-transform: uppercase; font-size: 10.5px; }
+
+/* ------------------------------------------------------------ Research */
+
+html[data-theme="terminal"] .research-summary { border-bottom: 1px dashed var(--line); }
+html[data-theme="terminal"] .research-tab { text-transform: uppercase; letter-spacing: 0.1em; font-size: 10.5px; }
+html[data-theme="terminal"] .research-tab.active { box-shadow: inset 0 -2px 0 var(--accent); }
+html[data-theme="terminal"] .tech-node { position: relative; }
+html[data-theme="terminal"] .tech-node .node-state { text-transform: uppercase; letter-spacing: 0.14em; font-size: 9.5px; }
+html[data-theme="terminal"] .tech-node.available { border-left-color: var(--accent); }
+html[data-theme="terminal"] .tech-node.available .node-state { color: var(--accent); }
+html[data-theme="terminal"] .tech-node.available .node-state::before { content: "> "; }
+html[data-theme="terminal"] .tech-node.active { animation: node-run 1.6s steps(2) infinite; }
+@keyframes node-run { 50% { box-shadow: inset 0 0 0 1px rgba(110, 255, 160, 0.5); } }
+html[data-theme="terminal"] .tech-node.researched .node-state::before { content: "[x] "; }
+html[data-theme="terminal"] .tech-node.locked { border-style: dashed; }
+html[data-theme="terminal"] .tech-node.locked .node-state::before { content: "// "; }
+html[data-theme="terminal"] .tier-head { letter-spacing: 0.22em; text-transform: uppercase; border-bottom: 1px solid var(--accent); }
+html[data-theme="terminal"] .proj-cancel { border-color: #7a3a2a; color: #f0a899; }
+html[data-theme="terminal"] .research-reveal .check-label { text-transform: uppercase; letter-spacing: 0.08em; font-size: 10.5px; }
+
+/* ------------------------------------------------------------ Officers */
+
+html[data-theme="terminal"] .officer-row.header { letter-spacing: 0.14em; text-transform: uppercase; border-bottom: 1px solid var(--accent); }
+html[data-theme="terminal"] .officer-rank { text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px; color: var(--accent); }
+html[data-theme="terminal"] .officer-name { letter-spacing: 0.03em; }
+html[data-theme="terminal"] .officer-row:hover { box-shadow: inset 2px 0 0 var(--accent); }
+html[data-theme="terminal"] .officer-skills .chip { letter-spacing: 0.06em; font-size: 10px; }
+html[data-theme="terminal"] .detail-body .officer-card,
+html[data-theme="terminal"] .officer-card { border-left: 3px solid var(--accent); }
+
+/* -------------------------------------------------------------- Events */
+
+html[data-theme="terminal"] .events-page { max-width: 900px; }
+html[data-theme="terminal"] .event-row { border-left-width: 3px; background: rgba(90, 255, 150, 0.025); }
+html[data-theme="terminal"] .event-row.bad { background: rgba(226, 114, 91, 0.05); }
+html[data-theme="terminal"] .event-row-head { align-items: baseline; }
+html[data-theme="terminal"] .event-date { color: var(--accent); letter-spacing: 0.06em; }
+html[data-theme="terminal"] .event-date::after { content: " //"; color: var(--text-dim); }
+html[data-theme="terminal"] .event-row-outcome { border-left: 2px solid var(--accent); padding-left: 8px; }
+html[data-theme="terminal"] .event-row-outcome::before { content: "RESULT: "; color: var(--accent); font-size: 10px; letter-spacing: 0.16em; }
+html[data-theme="terminal"] .effect-row .event-row-text::before { content: "IN FORCE: "; color: var(--accent); font-size: 10px; letter-spacing: 0.14em; }
+html[data-theme="terminal"] .events-filters .tool-btn.active { box-shadow: inset 0 -2px 0 var(--accent); }
+
+/* ------------------------------------------------------------- Dialogs */
+
+html[data-theme="terminal"] .save-row { border-left: 3px solid var(--accent); background: rgba(90, 255, 150, 0.03); }
+html[data-theme="terminal"] .save-title { letter-spacing: 0.06em; }
+html[data-theme="terminal"] .save-kind { letter-spacing: 0.14em; }
+html[data-theme="terminal"] .save-message { border-left: 3px solid var(--accent); }
+html[data-theme="terminal"] .digest-tile { border-top: 2px solid var(--accent); }
+html[data-theme="terminal"] .digest-tile-label { letter-spacing: 0.16em; text-transform: uppercase; font-size: 10px; }
+html[data-theme="terminal"] .digest-tile-value { font-size: 19px; text-shadow: 0 0 9px var(--glow); font-variant-numeric: tabular-nums; }
+html[data-theme="terminal"] .digest-issue { border-left-width: 3px; }
+html[data-theme="terminal"] .digest-issue-title::before { content: "! "; color: var(--accent); }
+html[data-theme="terminal"] .digest-date { color: var(--accent); }
+html[data-theme="terminal"] .digest-line.clickable:hover { box-shadow: inset 2px 0 0 var(--accent); }
+
+/* The palette is a command line. */
+html[data-theme="terminal"] .palette-input { letter-spacing: 0.06em; border-left: 3px solid var(--accent); caret-color: var(--accent); }
+html[data-theme="terminal"] .palette-input::placeholder { text-transform: uppercase; letter-spacing: 0.14em; font-size: 12px; }
+html[data-theme="terminal"] .palette::before { content: "> COMMAND LINE"; display: block; padding: 6px 14px 0; color: var(--accent); font-size: 10px; letter-spacing: 0.24em; }
+html[data-theme="terminal"] .palette-row.selected { box-shadow: inset 3px 0 0 var(--accent); }
+html[data-theme="terminal"] .palette-row.selected .palette-label::before { content: "> "; color: var(--accent); }
+html[data-theme="terminal"] .palette-kind { letter-spacing: 0.14em; text-transform: uppercase; font-size: 9.5px; }
+html[data-theme="terminal"] .palette-foot { letter-spacing: 0.08em; text-transform: uppercase; font-size: 10px; }
+
+/* ----------------------------------------------- Toasts, settings, misc */
+
+html[data-theme="terminal"] .toast { position: relative; padding-top: 18px; }
+html[data-theme="terminal"] .toast::after {
+  content: "NOTICE";
+  position: absolute;
+  top: 5px;
+  left: 12px;
+  font-size: 9px;
+  letter-spacing: 0.26em;
+  color: var(--accent);
+}
+html[data-theme="terminal"] .toast-research::after { content: "RESEARCH"; }
+html[data-theme="terminal"] .toast-fleet::after { content: "FLEET"; }
+html[data-theme="terminal"] .toast-colony::after { content: "COLONY"; }
+html[data-theme="terminal"] .toast-construction::after { content: "CONSTRUCTION"; }
+html[data-theme="terminal"] .toast-economy::after { content: "TREASURY"; }
+html[data-theme="terminal"] .toast-people::after { content: "PERSONNEL"; }
+html[data-theme="terminal"] .toast-event::after { content: "INCIDENT"; }
+html[data-theme="terminal"] .toast-title { letter-spacing: 0.16em; }
+html[data-theme="terminal"] .settings-panel h4 { letter-spacing: 0.2em; color: var(--accent); text-transform: uppercase; border-bottom: 1px solid var(--line); padding-bottom: 3px; }
+html[data-theme="terminal"] .seg-btn.active { box-shadow: inset 0 -2px 0 var(--accent); color: var(--accent); }
+html[data-theme="terminal"] .check-label { letter-spacing: 0.04em; }
+html[data-theme="terminal"] .slider-field .number-input { text-align: right; }
+
+/* Bottom-of-screen status bar on the map. */
+html[data-theme="terminal"] .map-status { border-top: 1px solid var(--line); }
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="terminal"] .tech-node.active { animation: none; }
+}
+@media (max-width: 860px) {
+  html[data-theme="terminal"] .detail-head .detail-title::before,
+  html[data-theme="terminal"] .fleet-detail > .detail-head .detail-title::before { font-size: 9px; }
+  html[data-theme="terminal"] .palette::before { padding-top: 4px; }
+  html[data-theme="terminal"] .stat-label::after { min-width: 6px; }
+  html[data-theme="terminal"] .guide-row { padding-left: 28px; }
+}
+

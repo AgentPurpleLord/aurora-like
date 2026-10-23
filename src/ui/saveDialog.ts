@@ -147,5 +147,5 @@ export function openSaveDialog(game: Game, hooks: SaveDialogHooks): DialogHandle
       if (meta.id === QUICKSAVE_ID) r.classList.add("quick");
       return r;
     }
-  }, { label: "Save and load" });
+  }, { label: "Save and load", terminalTitle: "Archive" });
 }

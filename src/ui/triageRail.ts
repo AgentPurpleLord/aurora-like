@@ -8,7 +8,7 @@
 
 import type { Game } from "../state/game";
 import { activeIssues, countBySeverity, type Issue, type Severity } from "../sim/issues";
-import { el } from "./format";
+import { el, themed } from "./format";
 
 const SEVERITY_LABEL: Record<Severity, string> = {
   critical: "Critical",
@@ -75,7 +75,7 @@ export class TriageRail {
   private renderFull(): void {
     const counts = this.counts();
     const head = el("div", "panel-head rail-head");
-    head.append(el("span", undefined, "Attention"));
+    head.append(themed("Attention", "Threat board"));
 
     const summary = el("span", "rail-summary");
     for (const severity of ["critical", "warning", "info"] as Severity[]) {

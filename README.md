@@ -328,6 +328,16 @@ sweep, unvisited stars as hollow contacts and visited ones lit, glowing links (g
 in amber), a target reticle with range and spectral class on the selected star, and a
 "visited / uncharted" tag on the target panel. Classic shows none of this.
 
+Every other screen has its own touches too: label ..... value leaders on every readout;
+renamed headings (*Mission objectives*, *Threat board*, *Incident log*, *Fleet roster*,
+*Personnel roster*, *Situation report*, *Archive*); numbered objectives on the dashboard;
+instrument-style vitals on colonies; `CALLSIGN` and `TARGET` captions on the fleet and body
+panels, numbered orders and fuel and hold gauges on fleets; `[x]`, `>` and `//` markers on
+research cards with a pulse on the one in progress; a `SPEC SHEET` tag on the designer; an
+incident-log layout with `RESULT:` and `IN FORCE:` lines on events; a `> COMMAND LINE` palette;
+category tags on toasts; and on the system map a targeting HUD of corner brackets, rulers and a
+centre crosshair drawn on the canvas.
+
 The rest of the terminal theme is derived rather than hand-maintained: `npm run theme`
 reads `src/style.css`, moves every colour in it into the phosphor palette
 (`src/ui/phosphor.ts`: blues and greys become green, golds become amber, reds

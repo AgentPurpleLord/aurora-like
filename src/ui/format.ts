@@ -90,3 +90,14 @@ export function describeEffect(effect: { kind: string; factor: number; until: nu
   const left = days >= 60 ? `${Math.round(days / 30)} months` : `${days} days`;
   return `${EFFECT_NAMES[effect.kind] ?? effect.kind} ${change >= 0 ? "+" : "-"}${Math.abs(change)}%, ${left} left`;
 }
+
+/**
+ * Text that reads differently in the terminal theme: both are in the page and
+ * the theme shows one. For headings only - "Attention" is "Threat board" on
+ * the console. Anything a test or a screen reader depends on stays plain.
+ */
+export function themed(classic: string, terminal: string, className = ""): HTMLElement {
+  const wrap = el("span", className);
+  wrap.append(el("span", "th-c", classic), el("span", "th-t", terminal));
+  return wrap;
+}

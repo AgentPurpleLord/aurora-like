@@ -2090,3 +2090,4 @@ kbd {
 .galaxy-radar, .galaxy-range, .galaxy-reticle { display: none; }
 .galaxy-side .queue-row { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 5px 0; }
 .galaxy-side .queue-name { white-space: normal; overflow: visible; text-overflow: clip; width: 100%; }
+.th-t, .terminal-only { display: none; }
