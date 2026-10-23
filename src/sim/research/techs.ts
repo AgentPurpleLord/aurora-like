@@ -25,6 +25,8 @@ export interface EmpireStats {
   ordnanceRate: number;
   /** Tons per mass driver per year. */
   massDriverThroughput: number;
+  /** Tons of ship one maintenance facility can service at a time. */
+  serviceTonsPerFacility: number;
   /** Atmospheres of gas moved per terraforming installation per year. */
   terraformRate: number;
   /** Added to the base population growth rate as a multiplier. */
@@ -149,6 +151,11 @@ export const TECHS: Tech[] = [
     description: "Orbital maintenance bays that hold off the failure rate of ships stationed at a colony.",
   },
   {
+    id: "maintenance-bays-2", name: "Maintenance Bay Efficiency", field: "construction",
+    cost: 3000, prereqs: ["maintenance-facilities"], effects: [set("serviceTonsPerFacility", 8000)],
+    description: "Better tooling and stores: each maintenance facility can service twice the tonnage of ship at once.",
+  },
+  {
     id: "ordnance-factories", name: "Ordnance Factory Construction", field: "construction",
     cost: 2000, prereqs: ["trans-newtonian"], effects: [unlock("ordnance-factory")],
     description: "Dedicated plant for missiles and other ordnance.",
@@ -212,6 +219,11 @@ export const TECHS: Tech[] = [
     id: "magneto-plasma", name: "Magneto-Plasma Drive Technology", field: "power",
     cost: 10000, prereqs: ["ion-drive"],
     description: "The most powerful drive available, and the most economical per unit of thrust.",
+  },
+  {
+    id: "military-specification", name: "Military Specification Components", field: "power",
+    cost: 2500, prereqs: ["nuclear-thermal"],
+    description: "A harder standard for powered parts. Military engines push 30% harder, military sensors and drives work 30% and 25% better - at 70% more cost, half as many more crew, and more than twice the wear. Commercial parts remain cheaper and gentler on maintenance.",
   },
   {
     id: "engine-power-125", name: "Engine Power Modifier x1.25", field: "power",
@@ -378,6 +390,7 @@ export function baseStats(): EmpireStats {
     ordnanceRate: 10,
     massDriverThroughput: 0,
     terraformRate: 0,
+    serviceTonsPerFacility: 4000,
     popGrowthBonus: 0,
     colonyCostReduction: 0,
     infrastructureEfficiency: 1,

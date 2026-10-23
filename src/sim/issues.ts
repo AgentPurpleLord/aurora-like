@@ -9,6 +9,7 @@
 
 import type { Empire } from "../state/empire";
 import type { Galaxy } from "./galaxy";
+import { FAILING, OVERDUE, fleetCondition } from "./ships/maintenance";
 import { installationCount } from "../state/colony";
 import { INSTALLATION_BY_ID } from "./economy/installations";
 import { colonyOutput, populationCapacity } from "./economy/production";
@@ -221,6 +222,21 @@ export function deriveIssues(empire: Empire, system: Galaxy): Issue[] {
           system.byId.get(fleet.anchorId)?.name ?? fleet.anchorId
         }.`,
         action: { label: "Give orders", view: "fleets" },
+      });
+    }
+  }
+
+  // ---------------------------------------------------------- servicing
+  for (const fleet of empire.fleets.values()) {
+    if (!fleet.shipIds.length || fleet.program) continue;
+    const worst = fleetCondition(empire, fleet);
+    if (worst < OVERDUE) {
+      add({
+        id: `fleet:overdue:${fleet.id}`,
+        severity: worst < FAILING ? "critical" : "warning",
+        title: `${fleet.name} is overdue for servicing (${Math.round(worst)}%)`,
+        detail: "Worn ships are slower and may break down. Park the fleet at a colony with a shipyard or maintenance facility.",
+        action: { label: "Open fleet", view: "fleets" },
       });
     }
   }

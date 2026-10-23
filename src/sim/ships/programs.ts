@@ -20,6 +20,7 @@ import type { Galaxy } from "../galaxy";
 import { MINERALS, type MineralName } from "../minerals";
 import { vecLength, vecSub, type Vec3 } from "../orbit";
 import { canCross, findRoute, nearestHome, routeLengthAu } from "./routing";
+import { OVERDUE, fleetCondition, servicingCapacity } from "./maintenance";
 import {
   cargoTons,
   fleetStats,
@@ -110,6 +111,37 @@ function wait(empire: Empire, fleet: Fleet, status: string, problem?: string): v
   fleet.note = problem ?? null;
 }
 
+/**
+ * A fleet that is worn out goes to be serviced, and a fleet that is being
+ * serviced stays until it is nearly right. Returns true if it handled the
+ * fleet this time (and the caller should plan nothing else).
+ */
+function seeToCondition(empire: Empire, system: Galaxy, fleet: Fleet, stats: FleetStats): boolean {
+  const condition = fleetCondition(empire, fleet);
+  const here = fleet.anchorId ? empire.colonies.get(fleet.anchorId) : undefined;
+  const servicedHere = here !== undefined && servicingCapacity(empire, here) > 0;
+  if (servicedHere && condition < 90) {
+    wait(empire, fleet, `Being serviced (${Math.round(condition)}%)`);
+    return true;
+  }
+  if (condition >= OVERDUE) return false;
+
+  const stop = nearestHome(
+    empire, system, fleet.position, fleet.systemId, stats.tons, stats.jumpCapacity,
+    (id) => {
+      const colony = empire.colonies.get(id);
+      return colony !== undefined && servicingCapacity(empire, colony) > 0;
+    },
+  );
+  if (!stop || stats.speed <= 0 || stats.rangeAu < stop.distanceAu) {
+    wait(empire, fleet, "Worn out and nowhere in reach to service it", "Worn out and nowhere in reach to service it");
+    return true;
+  }
+  fleet.orders.push({ kind: "move", bodyId: stop.body.id });
+  fleet.programStatus = `Worn out (${Math.round(condition)}%): going to ${stop.body.name} for service`;
+  return true;
+}
+
 function fuelShare(stats: FleetStats): number {
   return stats.fuelCapacity > 0 ? stats.fuel / stats.fuelCapacity : 1;
 }
@@ -142,6 +174,8 @@ function planSurvey(
     wait(empire, fleet, "No survey sensors aboard", "No survey sensors aboard");
     return;
   }
+
+  if (seeToCondition(empire, system, fleet, stats)) return;
 
   const targetSystem = program.systemId ?? "sol";
   const targetStar = system.systemById.get(targetSystem)?.root;
@@ -272,6 +306,8 @@ function planExplore(empire: Empire, system: Galaxy, fleet: Fleet, stats: FleetS
     );
     return;
   }
+
+  if (seeToCondition(empire, system, fleet, stats)) return;
 
   const here = fleet.anchorId ? empire.colonies.get(fleet.anchorId) : undefined;
   const sysName = (id: string) => system.systemById.get(id)?.name ?? id;

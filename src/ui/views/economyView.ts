@@ -11,6 +11,8 @@ import type { Game } from "../../state/game";
 import type { Body } from "../../sim/system";
 import { classLabel } from "../../sim/system";
 import { settleBlocker } from "../../sim/exploration";
+import { servicingCapacity } from "../../sim/ships/maintenance";
+import { fleetStats } from "../../sim/ships/fleet";
 import type { Colony } from "../../state/colony";
 import { installationCount } from "../../state/colony";
 import {
@@ -1011,6 +1013,17 @@ export class EconomyView {
 
   private renderInstallations(parent: HTMLElement, colony: Colony): void {
     const sec = section(parent, "Installations");
+    const servicing = servicingCapacity(this.game.empire, colony);
+    if (servicing > 0) {
+      const docked = [...this.game.empire.fleets.values()]
+        .filter((f) => f.anchorId === colony.bodyId)
+        .reduce((sum, f) => sum + fleetStats(this.game.empire, f).tons, 0);
+      stat(
+        sec, "Servicing capacity",
+        `${num(servicing)} t of ship  (${num(docked)} t in dock)`,
+        docked > servicing ? "warn" : undefined,
+      );
+    }
     const entries = Object.entries(colony.installations).filter(([, n]) => n > 0);
     if (!entries.length) {
       emptyNote(sec, "Nothing built here yet.");

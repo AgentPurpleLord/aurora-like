@@ -85,6 +85,7 @@ const STAT_LABELS: Record<string, string> = {
   colonyCostReduction: "Colony cost",
   infrastructureEfficiency: "Infrastructure efficiency",
   wealthBonus: "Tax revenue",
+  serviceTonsPerFacility: "Servicing capacity",
 };
 
 const STAT_UNITS: Record<string, string> = {
@@ -94,6 +95,7 @@ const STAT_UNITS: Record<string, string> = {
   fuelPerRefinery: "litres/year per refinery",
   massDriverThroughput: "t/year per driver",
   terraformRate: "atm/year per installation",
+  serviceTonsPerFacility: "t of ship per facility",
 };
 
 export interface Unlocks {
@@ -135,6 +137,7 @@ export function unlocksOf(tech: Tech): Unlocks {
   for (const sensor of SENSOR_TYPES) {
     if (sensor.tech === tech.id) gains.push(`${sensor.name} sensors in the component designer`);
   }
+  if (tech.id === "military-specification") gains.push("The military specification for engines, sensors, jump drives and gate modules in the component designer");
   if (tech.id === "engine-power-125") improves.push("Engine power modifier up to 1.25");
   if (tech.id === "fuel-consumption-08") improves.push("Every engine burns 20% less fuel");
   if (tech.id === "trans-newtonian") {

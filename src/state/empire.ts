@@ -657,6 +657,7 @@ export class Empire {
       fleetId: fleet.id,
       fuel: 0,
       built: now,
+      condition: 100,
     };
     this.ships.set(ship.id, ship);
     fleet.shipIds.push(ship.id);
@@ -922,7 +923,7 @@ export class Empire {
     this.colonies.clear();
     for (const colony of data.colonies) this.colonies.set(colony.bodyId, colony);
     this.ships.clear();
-    for (const ship of data.ships) this.ships.set(ship.id, ship);
+    for (const ship of data.ships) this.ships.set(ship.id, Object.assign({ condition: 100 }, ship));
     this.fleets.clear();
     for (const fleet of data.fleets) {
       // Fields added after the first release default sensibly for old saves.

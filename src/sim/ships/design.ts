@@ -60,6 +60,10 @@ export interface DesignStats {
   jumpCapacity: number;
   /** Gate construction points per day. */
   gateRate: number;
+  /** Tonnage-weighted wear multiplier: 1 is a plain commercial ship, higher wears faster. */
+  wear: number;
+  /** True if any powered component is built to the military specification. */
+  military: boolean;
   buildCost: number;
   minerals: Partial<Record<MineralName, number>>;
   /** Components by kind, for the designer's summary. */
@@ -83,6 +87,8 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
   const survey = { geological: 0, gravitational: 0 };
   let jumpCapacity = 0;
   let gateRate = 0;
+  let wearTons = 0;
+  let military = false;
   const minerals: Partial<Record<MineralName, number>> = {};
   const counts: Partial<Record<ComponentKind, number>> = {};
   const problems: string[] = [];
@@ -107,6 +113,8 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
     colonistCapacity += (stats.colonists ?? 0) * n;
     buildCost += stats.cost * n;
     if (stats.survey) survey[stats.survey.type] += stats.survey.rate * n;
+    wearTons += stats.wear * stats.tons * n;
+    if (stats.grade === "military") military = true;
     jumpCapacity += (stats.jump ?? 0) * n;
     gateRate += (stats.gate ?? 0) * n;
     counts[component.kind] = (counts[component.kind] ?? 0) + n;
@@ -143,6 +151,8 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
     survey,
     jumpCapacity,
     gateRate,
+    wear: tons > 0 ? wearTons / tons : 0,
+    military,
     buildCost,
     minerals,
     counts,
@@ -160,7 +170,7 @@ export function describeDesign(stats: DesignStats): string {
   if (stats.jumpCapacity > 0) roles.push("jump ship");
   if (stats.gateRate > 0) roles.push("gate builder");
   if (!roles.length) roles.push(stats.speed > 0 ? "scout" : "hulk");
-  return roles.join(", ");
+  return `${stats.military ? "military " : "commercial "}${roles.join(", ")}`;
 }
 
 /** Crew quarters (in components of this size) needed to berth everyone. */

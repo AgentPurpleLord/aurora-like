@@ -16,6 +16,7 @@ import type { Body } from "../system";
 import type { Galaxy } from "../galaxy";
 import { gatedConnected } from "../ships/routing";
 import { runEvents } from "../events/engine";
+import { maintainShips } from "../ships/maintenance";
 import type { EmpireStats } from "../research/techs";
 import { TECH_BY_ID } from "../research/techs";
 import { MINERALS, type MineralName } from "../minerals";
@@ -272,6 +273,10 @@ export function runCycle(empire: Empire, system: Galaxy, now: number, days: numb
 
   researchPoints = advanceResearch(empire, system, now, year);
   expenses += researchPoints * WEALTH_PER_RESEARCH_POINT;
+
+  // Ships wear with use and are serviced at the colonies that can.
+  const upkeep = maintainShips(empire, system, days);
+  expenses += (upkeep.cost * WEALTH_PER_BUILD_POINT) / year;
 
   empire.treasury += (income - expenses) * year;
   const wasAusterity = empire.austerity;

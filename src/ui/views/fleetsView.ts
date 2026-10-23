@@ -24,6 +24,7 @@ import {
   type FleetOrder,
 } from "../../sim/ships/fleet";
 import { fullName } from "../../sim/people/officers";
+import { FAILING, OVERDUE, fleetCondition, wearPerYear } from "../../sim/ships/maintenance";
 import { compact, el, num, themed } from "../format";
 import { button, emptyNote, numberInput, progressBar, section, select, stat } from "../widgets";
 import { formatYears } from "./economyView";
@@ -170,6 +171,12 @@ export class FleetsView {
     );
     stat(summary, "Range", `${stats.rangeAu.toFixed(2)} AU`);
     stat(summary, "Cargo", `${compact(stats.cargoUsed)} / ${compact(stats.cargoCapacity)} t`);
+    const worn = fleetCondition(game.empire, fleet);
+    stat(
+      summary, "Condition",
+      `${Math.round(worn)}%${worn < OVERDUE ? "  overdue" : ""}`,
+      worn < FAILING ? "bad" : worn < OVERDUE ? "warn" : undefined,
+    );
 
     // Instrument gauges for the terminal theme; Classic hides them.
     const gauges = el("div", "terminal-only fleet-gauges");
@@ -181,6 +188,7 @@ export class FleetsView {
     };
     gauge("FUEL", stats.fuelCapacity > 0 ? stats.fuel / stats.fuelCapacity : 0, stats.fuel < stats.fuelCapacity * 0.2 ? "low" : "");
     gauge("HOLD", stats.cargoCapacity > 0 ? stats.cargoUsed / stats.cargoCapacity : 0);
+    gauge("COND", worn / 100, worn < OVERDUE ? "low" : "");
     summary.after(gauges);
 
     this.renderCommander(body, fleet);
@@ -446,8 +454,9 @@ export class FleetsView {
         el("span", "muted small", design ? `${design.name} - ${num(stats?.tons ?? 0)} t` : "unknown class"),
       );
       row.append(
-        el("span", "install-count", `${compact(ship.fuel)} l`),
+        el("span", `install-count${ship.condition < OVERDUE ? " bad" : ""}`, `${compact(ship.fuel)} l  ${Math.round(ship.condition)}%`),
       );
+      row.title = `Condition ${Math.round(ship.condition)}%. Wears ${(wearPerYear(empire, ship)).toFixed(0)} points a year under way.`;
       row.append(
         button("Detach", () => {
           const split = empire.createFleet(`${ship.name} Group`, fleet.position, fleet.anchorId, fleet.systemId);

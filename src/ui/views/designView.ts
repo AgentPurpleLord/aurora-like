@@ -9,6 +9,7 @@
  */
 
 import { settings } from "../settings";
+import { SERVICE_COST_SHARE, WEAR_PER_YEAR } from "../../sim/ships/maintenance";
 import type { Game } from "../../state/game";
 import { shipyardCapacity } from "../../sim/economy/production";
 import {
@@ -646,6 +647,13 @@ export class DesignView {
     if (stats.colonistCapacity) stat(sec, "Colonists", compact(stats.colonistCapacity));
     if (stats.survey.geological) stat(sec, "Geo survey", `${num(stats.survey.geological)} pts/day`);
     stat(sec, "Build cost", `${num(stats.buildCost)} BP`);
+    stat(
+      sec, "Wear",
+      `${stats.wear.toFixed(2)}x  (${(WEAR_PER_YEAR * stats.wear).toFixed(0)}% a year under way)`,
+      stats.wear > 1.4 ? "warn" : undefined,
+    );
+    stat(sec, "Full overhaul", `${num(stats.buildCost * SERVICE_COST_SHARE)} BP`);
+    stat(sec, "Specification", stats.military ? "Military" : "Commercial");
     stat(sec, "Role", describeDesign(stats));
 
     // The slipway a class needs, against the best the empire has.

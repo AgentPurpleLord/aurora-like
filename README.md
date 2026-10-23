@@ -346,6 +346,36 @@ stay red, lightness and transparency are kept), and writes
 `tools/terminal-extra.css`. After changing `style.css`, run it again so the two
 themes stay in step.
 
+## Commercial and military parts, and maintenance
+
+**Specification.** Every powered component - engines, survey sensors, jump drives and
+gate modules - is designed as *commercial* or *military*. Commercial is the civilian
+pattern: the plain figures, the lowest cost, the fewest crew, gentle on maintenance.
+Military is built to a harder standard: engines push 30% harder (at 15% more fuel per
+unit of power), sensors survey and gate modules build 30% faster, jump drives carry
+25% more - at 70% more cost, half as many again in crew, and 2.2 times the wear.
+Holds, tanks, berths and colony modules have no military pattern. The military
+specification has to be researched (*Military Specification Components*); until then it
+is hidden in the designer. Military parts are named as such, a class made of any of them
+is a military class, and a part designed before this existed counts as commercial, so
+nothing already built changes.
+
+**Condition.** Every ship has a condition, 100% when new. Ships wear with use - fully
+when under way or surveying, at 40% when parked away from a colony, at 15% when parked
+at one - at 28 points a year times the class's wear (tonnage-weighted: engines and
+sensors count, tanks and holds hardly do). A worn ship is slower, down to 60% speed at
+nothing, and below 30% it can break down: a decision asks whether to pay for field
+repairs or to limp on, losing condition and fuel. An overdue fleet is raised on the
+attention rail.
+
+**Servicing.** A colony services the ships parked at it: 1,500 t of ship per shipyard
+and 4,000 t per maintenance facility (8,000 with *Maintenance Bay Efficiency*). Ships
+beyond that share the capacity and are restored more slowly - up to 4 points a day at
+full capacity - and it costs 15% of the ship's build cost for a complete overhaul, so a
+military hull is dear to keep and a freighter is not. Colonies show their capacity and
+how much is in dock. Survey and exploration programmes go to a servicing colony when
+a fleet is worn out, and wait to be serviced before setting out again.
+
 ## Terraforming
 
 ![a terraforming programme](docs/terraforming.png)

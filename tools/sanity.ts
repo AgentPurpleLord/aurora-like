@@ -21,7 +21,9 @@ import { BUILT_IN_TEMPLATES, resolveTemplate } from "../src/sim/economy/template
 import { supplyToward } from "../src/sim/economy/standingOrders";
 import { deriveProposals } from "../src/sim/governors";
 import { effectiveColonyCost, shipyardCapacity } from "../src/sim/economy/production";
-import { componentStats, normaliseParams, SURVEY_POINTS_NEEDED } from "../src/sim/ships/components";
+import { componentStats, normaliseParams, suggestName, SURVEY_POINTS_NEEDED } from "../src/sim/ships/components";
+import { maintainShips, servicingCapacity } from "../src/sim/ships/maintenance";
+import { statsFor } from "../src/sim/research/techs";
 import type { Empire } from "../src/state/empire";
 import { Galaxy } from "../src/sim/galaxy";
 import { optionsFor, resolveEvent, rollEvent } from "../src/sim/events/engine";
@@ -1556,6 +1558,147 @@ console.log("");
   we.scheduleEvent("derelict-beacon", { cost: 3000 }, w.clock.seconds, 30);
   const copy2 = gameFromSave(parseSave(JSON.stringify(makeSave(w, "ch", "ch", "manual"))));
   assert("and so do scheduled follow-ups", copy2.empire.scheduled.length === 1 && copy2.empire.scheduled[0].defId === "derelict-beacon");
+}
+
+// ==========================================================================
+// Commercial and military parts, and keeping ships serviced
+// ==========================================================================
+
+console.log("");
+
+{
+  const researched = new Set(["trans-newtonian", "nuclear-thermal"]);
+  const withMilitary = new Set([...researched, "military-specification"]);
+  const base = { type: "nuclear-thermal", size: 5, modifier: 1 };
+  const com = componentStats("engine", { ...base, grade: "commercial" }, researched);
+  const old = componentStats("engine", base, researched);
+  const mil = componentStats("engine", { ...base, grade: "military" }, withMilitary);
+
+  check("a part with no grade is commercial, so old designs do not change", old.power!, com.power!, 1e-9);
+  check("a 5 HS nuclear thermal engine still makes 60 power", com.power!, 60, 1e-9);
+  check("military engines push 30% harder", mil.power! / com.power!, 1.3, 1e-9);
+  check("and cost 70% more", mil.cost / com.cost, 1.7, 0.03);
+  check("and need half as many more crew", mil.crew / com.crew, 1.5, 0.35);
+  check("and burn more fuel per unit of power", (mil.fuelPerHour! / mil.power!) / (com.fuelPerHour! / com.power!), 1.15, 1e-9);
+  check("and wear 2.2 times as fast", mil.wear / com.wear, 2.2, 1e-9);
+  assert("the military specification needs research", componentStats("engine", { ...base, grade: "military" }, researched).problems.length > 0);
+  assert("and is fine once researched", mil.problems.length === 0);
+  assert("military parts are named as such", suggestName("engine", { ...base, grade: "military" }, withMilitary).startsWith("Military "));
+  assert("commercial names are unchanged", suggestName("engine", base, researched) === "Nuclear Thermal 5HS");
+  assert("tanks, holds and berths have no military pattern",
+    componentStats("fuel-tank", { size: 5, grade: "military" }, researched).grade === "commercial" &&
+    componentStats("fuel-tank", { size: 5 }, researched).wear === 0.4);
+  const sensorCom = componentStats("survey-sensor", { type: "geological", size: 4 }, new Set([...researched, "geo-survey-sensors"]));
+  const sensorMil = componentStats("survey-sensor", { type: "geological", size: 4, grade: "military" }, new Set([...withMilitary, "geo-survey-sensors"]));
+  check("military sensors survey 30% faster", sensorMil.survey!.rate / sensorCom.survey!.rate, 1.3, 1e-9);
+
+  // --- a class made of them
+  const g = new Game("upkeep");
+  const e = g.empire;
+  e.research("nuclear-thermal");
+  e.research("military-specification");
+  const commercialEngine = e.addComponentDesign("engine", { ...base, grade: "commercial" }, 0);
+  const militaryEngine = e.addComponentDesign("engine", { ...base, grade: "military" }, 0);
+  const tank = e.addComponentDesign("fuel-tank", { size: 5 }, 0);
+  const quarters = e.addComponentDesign("crew-quarters", { size: 4 }, 0);
+  const plain = e.addDesign("Plain", [
+    { componentId: commercialEngine.id, count: 2 }, { componentId: tank.id, count: 4 }, { componentId: quarters.id, count: 2 },
+  ], 0);
+  const hard = e.addDesign("Hard", [
+    { componentId: militaryEngine.id, count: 2 }, { componentId: tank.id, count: 4 }, { componentId: quarters.id, count: 2 },
+  ], 0);
+  const ps = e.statsOf(plain.id)!;
+  const hs = e.statsOf(hard.id)!;
+  assert("a military class is marked, a commercial one is not", hs.military && !ps.military);
+  assert("it is faster", hs.speed > ps.speed * 1.2);
+  assert("it costs more", hs.buildCost > ps.buildCost * 1.2);
+  assert("it wears faster", hs.wear > ps.wear * 1.3);
+
+  // --- wear
+  const fleet = e.createFleet("Test Wing", { x: 0, y: 0, z: 0 }, "earth");
+  const ship = e.commissionShip(plain.id, fleet, "P1", 0);
+  ship.fuel = ps.fuelCapacity;
+  check("a new ship is in perfect condition", ship.condition, 100, 0);
+  fleet.orders.push({ kind: "move", bodyId: "neptune" });
+  const sail = 30;
+  for (let i = 0; i < sail / CYCLE_DAYS; i++) g.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  assert(`a ship under way wears (${ship.condition.toFixed(1)}%)`, fleet.anchorId === null && ship.condition < 100);
+  check("by its wear rate", 100 - ship.condition, 28 * ps.wear * (sail / 365.25), 0.2);
+
+  // --- a ship at a distant, unserviced body wears slowly
+  const mars = g.galaxy.byId.get("mars")!;
+  const idle = e.createFleet("Idle", mars.world, "mars");
+  const idleShip = e.commissionShip(plain.id, idle, "I1", 0);
+  const rate = 28 * ps.wear / 365.25;
+  g.step(CYCLE_DAYS * SECONDS_PER_DAY * 4);
+  assert("a ship parked at an unserviced body wears at 40% of the working rate",
+    Math.abs((100 - idleShip.condition) - rate * 0.4 * CYCLE_DAYS * 4) < 0.3);
+
+  // --- service
+  const earthYard = e.createFleet("Yard", g.galaxy.byId.get("earth")!.world, "earth");
+  const serviced = e.commissionShip(plain.id, earthYard, "S1", 0);
+  serviced.condition = 40;
+  const capacity = servicingCapacity(e, e.colony("earth")!);
+  assert(`a colony with shipyards has servicing capacity (${capacity} t)`, capacity === 2 * 1500);
+  const result = maintainShips(e, g.galaxy, CYCLE_DAYS);
+  assert("a parked ship at it is restored", serviced.condition > 45);
+  const gained = serviced.condition - 40;
+  check("servicing costs a share of the ship's price, in proportion to the work",
+    result.cost, ps.buildCost * 0.15 * gained / 100, 1e-6);
+  for (let i = 0; i < 20; i++) g.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  check("and it gets all the way back", serviced.condition, 100, 0);
+  e.research("maintenance-facilities");
+  e.research("maintenance-bays-2");
+  e.colony("earth")!.installations["maintenance"] = 3;
+  check("maintenance facilities add capacity, twice as much with better bays",
+    servicingCapacity(e, e.colony("earth")!), 3 * 8000 + 3000, 0);
+
+  // --- condition slows a ship
+  const slowFleet = e.createFleet("Slow", { x: 0, y: 0, z: 0 }, "earth");
+  const slowShip = e.commissionShip(plain.id, slowFleet, "W1", 0);
+  slowShip.fuel = ps.fuelCapacity;
+  const fast = fleetStats(e, slowFleet).speed;
+  slowShip.condition = 0;
+  check("a ship in ruins still limps at 60% speed", fleetStats(e, slowFleet).speed / fast, 0.6, 1e-9);
+  slowShip.condition = 50;
+  check("and half-worn at 80%", fleetStats(e, slowFleet).speed / fast, 0.8, 1e-9);
+
+  // --- raised for attention, and breaking down
+  slowShip.condition = 25;
+  assert("an overdue fleet is raised for attention",
+    deriveIssues(e, g.galaxy).some((i) => i.id === `fleet:overdue:${slowFleet.id}`));
+  const failure = rollEvent({ empire: e, galaxy: g.galaxy, now: g.clock.seconds, rng: e.eventRng }, "ship-failure");
+  assert("a badly worn ship can break down", failure !== null && failure.decision);
+  if (failure) {
+    const worn = e.ships.get(String(failure.params.ship))!;
+    const before = worn.condition;
+    resolveEvent(e, g.galaxy, failure.id, "repair", g.clock.seconds);
+    assert("field repairs restore condition for a price", worn.condition >= before + 34 || worn.condition === 100);
+  }
+
+  // --- a programme fleet goes for service rather than carrying on worn out
+  const sg = new Game("worn");
+  const se = sg.empire;
+  se.research("nuclear-thermal");
+  se.research("geo-survey-sensors");
+  const sp = parts(se);
+  const scout = se.addDesign("Scout", [
+    { componentId: sp.engine("nuclear-thermal").id, count: 2 }, { componentId: sp.tank().id, count: 6 },
+    { componentId: sp.sensor().id, count: 2 }, { componentId: sp.quarters().id, count: 1 },
+  ], 0);
+  const sf = se.createFleet("Wing", sg.galaxy.byId.get("earth")!.world, "earth");
+  const sship = se.commissionShip(scout.id, sf, "W1", 0);
+  sship.fuel = se.statsOf(scout.id)!.fuelCapacity;
+  sship.condition = 55;
+  sf.program = { kind: "survey", maxAu: 0, systemId: "sol" };
+  sg.step(SECONDS_PER_DAY * 2);
+  assert("a survey fleet at a servicing colony waits to be serviced before setting out",
+    sf.orders.length === 0 && /serviced/i.test(sf.programStatus ?? ""));
+  for (let i = 0; i < 30 && sf.orders.length === 0; i++) sg.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  assert("and sets out once it is nearly right", sship.condition >= 90 && sf.orders.length > 0);
+
+  // --- the new techs
+  assert("maintenance bays double a facility's capacity", statsFor(["maintenance-bays-2", "maintenance-facilities", "trans-newtonian"]).serviceTonsPerFacility === 8000);
 }
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);
