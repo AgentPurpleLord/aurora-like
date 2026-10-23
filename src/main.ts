@@ -52,3 +52,12 @@ new App(need<HTMLCanvasElement>("map"), {
   saveButton: need("save-button"),
   views,
 }, start.game, start);
+
+// Offline support and installability, in the built app only.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {
+      /* private browsing and some embedded browsers refuse; the game works regardless */
+    });
+  });
+}

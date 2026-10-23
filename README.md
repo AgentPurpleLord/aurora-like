@@ -265,6 +265,24 @@ waits, the command palette lists each one, and the return digest groups events
 with the rest of what happened. "Popup for every event" in Settings gives good
 and bad news the popup treatment too.
 
+## Hosting and installing
+
+The game is static files, so it can be hosted anywhere. A GitHub Actions
+workflow (`.github/workflows/pages.yml`) runs the model checks, builds, and
+publishes to **GitHub Pages** on every push to `main`. One-time setup: in the
+repository's *Settings > Pages*, set *Source* to **GitHub Actions**. The site
+then lives at `https://<user>.github.io/<repo>/`.
+
+The build uses relative URLs, so it also works unchanged on Cloudflare Pages,
+Netlify, Vercel or any folder on any web server. It is an installable web app:
+on a phone, open the site and choose *Add to Home Screen* (iOS: Share, then Add
+to Home Screen; Android Chrome: menu, then Install app) to run it full screen,
+and a service worker caches it so it also runs offline after the first visit.
+
+Saves live in each browser's local storage, so a phone and a computer keep
+separate games; use *Save and load > Export* and *Import* to move one between
+them.
+
 ## Terraforming
 
 ![a terraforming programme](docs/terraforming.png)
