@@ -45,7 +45,7 @@ import {
 } from "../../sim/economy/standingOrders";
 import { POLICY_BLURBS, POLICY_NAMES, type GovernorPolicy } from "../../sim/governors";
 import { fullName, type Officer } from "../../sim/people/officers";
-import { compact, el, formatPressure, num, population } from "../format";
+import { compact, describeEffect, el, formatPressure, num, population } from "../format";
 import { button, emptyNote, numberInput, progressBar, section, select, stat } from "../widgets";
 
 export class EconomyView {
@@ -240,6 +240,23 @@ export class EconomyView {
     alerts: Issue[],
   ): void {
     const { game } = this;
+
+    // Lasting effects from events, which explain output that looks off.
+    const effects = game.empire.effects.filter((e) => e.target === colony.bodyId || e.target === "empire");
+    if (effects.length) {
+      const lasting = section(scroll, `Lasting effects (${effects.length})`);
+      for (const effect of effects) {
+        const row = el("div", `alert-row ${effect.factor >= 1 ? "info" : "warning"}`);
+        row.append(el("span", `issue-dot ${effect.factor >= 1 ? "info" : "warning"}`));
+        const text = el("div", "alert-text");
+        text.append(
+          el("div", "alert-title", effect.label),
+          el("div", "muted small", `${describeEffect(effect, game.clock.seconds)}${effect.target === "empire" ? " - empire-wide" : ""}`),
+        );
+        row.append(text);
+        lasting.append(row);
+      }
+    }
 
     const attention = section(scroll, "Needs attention here");
     if (!alerts.length) {

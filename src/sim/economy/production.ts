@@ -128,9 +128,10 @@ export function colonyOutput(
     stats.constructionRate *
     employment *
     (1 + bonus(governor, "production")) *
-    industry;
+    industry *
+    empire.effectFactor("industry", colony.bodyId);
 
-  const mines = effectiveMines(colony, employment);
+  const mines = effectiveMines(colony, employment) * empire.effectFactor("mining", colony.bodyId);
   const mining: Partial<Record<MineralName, number>> = {};
   for (const deposit of body.minerals) {
     if (deposit.amount <= 0) continue;
@@ -139,21 +140,24 @@ export function colonyOutput(
   }
 
   const refineries = installationCount(colony, "fuel-refinery") * employment;
-  const fuel = refineries * stats.fuelPerRefinery;
+  const fuel = refineries * stats.fuelPerRefinery * empire.effectFactor("fuel", colony.bodyId);
 
   const researchPoints = empire.projects
     .filter((p) => p.colonyId === colony.bodyId)
     .reduce((sum, p) => {
       const scientist = empire.officers.get(p.scientistId ?? undefined);
       return sum + p.labs * stats.researchRate * employment * (1 + bonus(scientist, "research"));
-    }, 0);
+    }, 0) * empire.effectFactor("research", colony.bodyId);
 
   const wealth =
-    colony.population * TAX_PER_MILLION * (1 + stats.wealthBonus + bonus(governor, "wealth")) +
-    installationCount(colony, "financial-centre") * WEALTH_PER_FINANCIAL_CENTRE;
+    (colony.population * TAX_PER_MILLION * (1 + stats.wealthBonus + bonus(governor, "wealth")) +
+      installationCount(colony, "financial-centre") * WEALTH_PER_FINANCIAL_CENTRE) *
+    empire.effectFactor("wealth", colony.bodyId);
 
   const capacity = populationCapacity(body, colony, stats);
-  const growthRate = BASE_GROWTH * (1 + stats.popGrowthBonus + bonus(governor, "populationGrowth"));
+  const growthRate =
+    BASE_GROWTH * (1 + stats.popGrowthBonus + bonus(governor, "populationGrowth")) *
+    empire.effectFactor("growth", colony.bodyId);
   const populationGrowth =
     capacity <= 0
       ? colony.population > 0 ? -colony.population * 0.05 : 0
@@ -710,7 +714,8 @@ export function projectRate(empire: Empire, project: ResearchProject): number {
   const labs = Math.min(project.labs, available, capacity);
   if (labs <= 0) return 0;
   return (
-    labs * empire.stats.researchRate * employmentRatio(colony) * (1 + bonus(scientist, "research"))
+    labs * empire.stats.researchRate * employmentRatio(colony) * (1 + bonus(scientist, "research")) *
+    empire.effectFactor("research", project.colonyId)
   );
 }
 

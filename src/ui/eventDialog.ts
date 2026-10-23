@@ -31,6 +31,7 @@ export function openEventDialog(
       el("span", "muted small", formatShortDate(event.time)),
     );
     body.append(meta, el("p", "event-text", event.text));
+    if (event.follows) body.append(el("p", "muted small", `This follows: ${event.follows}.`));
 
     // Already settled, or just settled by this dialog: show what came of it.
     if (event.status !== "pending") {

@@ -21,6 +21,9 @@ export interface EventContext {
   galaxy: Galaxy;
   now: number;
   rng: Random;
+  /** The event being resolved, so a follow-up can say what it follows. */
+  eventId?: string;
+  eventTitle?: string;
 }
 
 export interface EventOption {
@@ -57,6 +60,11 @@ export interface EventDef {
   decision?: boolean;
   /** The option taken if nobody decides in time. */
   fallback?: string;
+  /**
+   * For follow-ups: is the situation still what it was when this was
+   * scheduled? If not, the chain simply ends.
+   */
+  valid?(params: EventParams, ctx: EventContext): boolean;
 }
 
 export type EventStatus = "pending" | "resolved" | "expired";
@@ -79,4 +87,6 @@ export interface GameEvent {
   outcome?: string;
   resolvedAt?: number;
   link?: LogLink;
+  /** Title of the event this one follows, for a chain. */
+  follows?: string;
 }

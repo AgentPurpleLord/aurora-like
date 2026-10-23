@@ -1473,5 +1473,90 @@ console.log("");
   assert("the event stream carries on from the same point", saved.empire.eventRng.state === le.eventRng.state);
 }
 
+// ==========================================================================
+// Lasting effects and event chains
+// ==========================================================================
+
+console.log("");
+
+{
+  const g = new Game("chains");
+  const e = g.empire;
+  e.eventFrequency = 0;
+  const earth = e.colony("earth")!;
+  const body = g.galaxy.byId.get("earth")!;
+  const baseline = colonyOutput(e, body, earth, e.stats);
+
+  // --- effects change output, and only for what they name
+  e.addEffect({ kind: "industry", target: "earth", factor: 0.7, label: "Work-to-rule" }, g.clock.seconds, 60);
+  e.addEffect({ kind: "wealth", target: "empire", factor: 0.9, label: "Squeeze" }, g.clock.seconds, 60);
+  const dented = colonyOutput(e, body, earth, e.stats);
+  check("an industry effect scales build points", dented.buildPoints / baseline.buildPoints, 0.7, 1e-9);
+  check("an empire-wide wealth effect scales income", dented.wealth / baseline.wealth, 0.9, 1e-9);
+  check("and leaves mining alone", dented.mining.Duranium! / baseline.mining.Duranium!, 1, 1e-9);
+  e.addEffect({ kind: "industry", target: "earth", factor: 0.5, label: "Second blow" }, g.clock.seconds, 60);
+  check("effects stack", colonyOutput(e, body, earth, e.stats).buildPoints / baseline.buildPoints, 0.35, 1e-9);
+  e.addEffect({ kind: "industry", target: "mars", factor: 0.1, label: "Elsewhere" }, g.clock.seconds, 60);
+  check("an effect on another colony does not touch this one", colonyOutput(e, body, earth, e.stats).buildPoints / baseline.buildPoints, 0.35, 1e-9);
+
+  for (let i = 0; i < 14; i++) g.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  assert("effects end when their time is up", e.effects.length === 0);
+  check("and output returns to normal", colonyOutput(e, body, earth, e.stats).buildPoints / baseline.buildPoints, 1, 1e-9);
+  assert("the end of an effect is logged", e.log.some((l) => /Work-to-rule on Earth has ended/.test(l.text)));
+
+  // --- an epidemic ignored always has an aftermath
+  const ctx = () => ({ empire: e, galaxy: g.galaxy, now: g.clock.seconds, rng: e.eventRng });
+  e.treasury = 500_000;
+  const outbreak = rollEvent(ctx(), "epidemic")!;
+  resolveEvent(e, g.galaxy, outbreak.id, "ignore", g.clock.seconds);
+  assert("an ignored outbreak slows growth", e.effectFactor("growth", "earth") === 0.5);
+  assert("and schedules its aftermath", e.scheduled.some((s) => s.defId === "epidemic-aftermath"));
+  const due = e.scheduled[0].due;
+  assert("the aftermath is a few months off, not at once", due - g.clock.seconds >= 99 * 86_400 && due - g.clock.seconds <= 151 * 86_400);
+  for (let i = 0; i < 40 && !e.pendingEvents.length; i++) g.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  const after = e.pendingEvents[0];
+  assert("the aftermath arrives as a decision", after?.defId === "epidemic-aftermath" && after.decision);
+  assert("and says what it follows", after?.follows === "Outbreak");
+  resolveEvent(e, g.galaxy, after.id, "fund", g.clock.seconds);
+  assert("funding the programme boosts growth for most of a year",
+    e.effects.some((x) => x.label === "Healthy generation" && x.factor === 1.5 && x.until - g.clock.seconds > 250 * 86_400));
+
+  // --- a chain with a chance in it, across seeds
+  let returned = 0;
+  for (let n = 0; n < 12 && returned === 0; n++) {
+    const t = new Game(`strike-${n}`);
+    const te = t.empire;
+    te.treasury = 500_000;
+    te.queueBuild("earth", "mine", 5);
+    const c = { empire: te, galaxy: t.galaxy, now: t.clock.seconds, rng: te.eventRng };
+    const strike = rollEvent(c, "strike")!;
+    resolveEvent(te, t.galaxy, strike.id, "hold", t.clock.seconds);
+    if (!te.scheduled.some((s) => s.defId === "strike-returns")) continue;
+    returned++;
+    for (let i = 0; i < 30 && !te.pendingEvents.length; i++) t.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    const again = te.pendingEvents[0];
+    assert("holding firm can bring the strike back", again?.defId === "strike-returns" && again.follows === "Work stoppage");
+    resolveEvent(te, t.galaxy, again.id, "settle", t.clock.seconds);
+    assert("and settling then pays off", te.effectFactor("industry", "earth") > 0.7 * 1.1);
+  }
+  assert("the strike came back for at least one seed", returned > 0);
+
+  // --- a chain whose subject has gone just ends
+  const w = new Game("gone");
+  const we = w.empire;
+  we.foundColony("mars", w.clock.seconds).population = 3;
+  we.scheduleEvent("epidemic-aftermath", { colony: "mars", cost: 1000 }, w.clock.seconds, 10);
+  we.abandonColony("mars");
+  for (let i = 0; i < 6; i++) w.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  assert("a follow-up for a colony that no longer exists is dropped", we.scheduled.length === 0 && we.events.length === 0);
+
+  // --- the future survives a save
+  const copy = gameFromSave(parseSave(JSON.stringify(makeSave(g, "ch", "ch", "manual"))));
+  assert("effects survive a save", copy.empire.effects.length === e.effects.length && e.effects.length > 0);
+  we.scheduleEvent("derelict-beacon", { cost: 3000 }, w.clock.seconds, 30);
+  const copy2 = gameFromSave(parseSave(JSON.stringify(makeSave(w, "ch", "ch", "manual"))));
+  assert("and so do scheduled follow-ups", copy2.empire.scheduled.length === 1 && copy2.empire.scheduled[0].defId === "derelict-beacon");
+}
+
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

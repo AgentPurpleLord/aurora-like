@@ -78,3 +78,15 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   if (text !== undefined) node.textContent = text;
   return node;
 }
+
+const EFFECT_NAMES: Record<string, string> = {
+  industry: "Industry", mining: "Mining", fuel: "Fuel production", research: "Research", wealth: "Income", growth: "Population growth",
+};
+
+/** "Industry -30%, 3 months left" for a timed effect. */
+export function describeEffect(effect: { kind: string; factor: number; until: number }, now: number): string {
+  const change = Math.round((effect.factor - 1) * 100);
+  const days = Math.max(0, Math.round((effect.until - now) / 86_400));
+  const left = days >= 60 ? `${Math.round(days / 30)} months` : `${days} days`;
+  return `${EFFECT_NAMES[effect.kind] ?? effect.kind} ${change >= 0 ? "+" : "-"}${Math.abs(change)}%, ${left} left`;
+}

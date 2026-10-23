@@ -892,6 +892,31 @@ async function eventSuite(browser) {
     /You chose: Hold firm/.test(await page.locator(".dialog").innerText()));
   await page.getByRole("button", { name: "OK", exact: true }).click();
 
+  // Holding firm leaves a lasting effect, which is listed and explained.
+  await nav(page, "Events").click();
+  await check("a lasting effect is listed with what it does and how long is left", async () => {
+    const text = await page.locator("#view-events").innerText();
+    return /lasting effects/i.test(text) && /Work-to-rule/.test(text) && /Industry -30%, 6 months left/.test(text);
+  });
+  await nav(page, "Colonies").click();
+  await check("and shown on the colony it affects", async () =>
+    /Work-to-rule/.test(await page.locator("#view-colonies").innerText()));
+
+  // A follow-up arrives later, and says what it follows.
+  await page.evaluate(() => {
+    const g = window.__game;
+    g.empire.scheduleEvent("epidemic-aftermath", { colony: "earth", cost: 2000 }, g.clock.seconds, 1, "Outbreak");
+    g.step(6 * 86400);
+  });
+  await check("a scheduled follow-up opens a popup when its time comes", async () =>
+    /After the fever/.test(await page.locator(".dialog").innerText()));
+  await check("and says what it follows", async () =>
+    /This follows: Outbreak/.test(await page.locator(".dialog").innerText()));
+  await page.locator(".dialog .event-option", { hasText: "Fund a health programme" }).click();
+  await check("the chosen follow-up starts its own lasting effect", async () =>
+    /Population growth \+50%/.test(await page.locator(".dialog").innerText()) || /Healthy generation/.test(await page.evaluate(() => JSON.stringify(window.__game.empire.effects))));
+  await page.getByRole("button", { name: "OK", exact: true }).click();
+
   // News is a toast and a log line, not a popup.
   await page.evaluate(() => { window.__rollEvent("grant"); });
   await check("good news is a toast, not a popup", async () =>
@@ -901,12 +926,12 @@ async function eventSuite(browser) {
   await nav(page, "Events").click();
   await page.locator("#view-events .events-filters button", { hasText: "Good" }).click();
   await check("the log filters by tone", async () => {
-    const rows = await page.locator("#view-events .event-row").count();
-    return rows >= 1 && (await page.locator("#view-events .event-row.bad").count()) === 0;
+    const rows = await page.locator("#view-events .events-list .event-row").count();
+    return rows >= 1 && (await page.locator("#view-events .events-list .event-row.bad").count()) === 0;
   });
   await page.locator("#view-events .events-filters button", { hasText: "All" }).click();
-  await page.locator('#view-events input[type="search"]').fill("outbreak");
-  await check("and searches", async () => (await page.locator("#view-events .event-row").count()) === 1);
+  await page.locator('#view-events input[type="search"]').fill("quarantine");
+  await check("and searches", async () => (await page.locator("#view-events .events-list .event-row").count()) === 1);
 
   // Settings.
   await page.getByRole("button", { name: "Settings", exact: true }).click();
