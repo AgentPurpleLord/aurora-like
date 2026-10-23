@@ -6,7 +6,7 @@
  * event log.
  */
 
-import { stabilityLabel } from "../../sim/economy/finance";
+import { stabilityLabel, stabilityTarget } from "../../sim/economy/finance";
 import { formatShortDate } from "../../sim/clock";
 import type { Game } from "../../state/game";
 import type { Body } from "../../sim/system";
@@ -291,6 +291,18 @@ export class EconomyView {
     stat(summary, "Wealth", `${num(output.wealth)} / year`);
     stat(summary, "Stability", `${Math.round(colony.stability)} - ${stabilityLabel(colony.stability)}`,
       colony.stability < 40 ? "bad" : colony.stability < 60 ? "warn" : undefined);
+    {
+      const governor = this.game.empire.governorOf(colony.bodyId);
+      const why = stabilityTarget({
+        taxRate: this.game.empire.taxRate, welfare: this.game.empire.welfare, treasury: this.game.empire.treasury,
+        expenses: this.game.empire.snapshot.expenses, effect: this.game.empire.effectFactor("stability", colony.bodyId),
+        administration: governor ? governor.skills.administration ?? 0 : null,
+      });
+      const sign = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(0)}`;
+      const note = el("p", "muted small",
+        `Heading for ${Math.round(why.target)}: taxes ${sign(why.tax)}, welfare ${sign(why.welfare)}, treasury ${sign(why.treasury)}, ${governor ? "governor" : "no governor"} ${sign(why.governor)}.`);
+      summary.append(note);
+    }
     const governor = game.empire.governorOf(colony.bodyId);
     stat(summary, "Governor", governor ? fullName(governor) : "vacant", governor ? undefined : "warn");
     const inflow = migrationInflow(game.empire, body, colony, game.galaxy);

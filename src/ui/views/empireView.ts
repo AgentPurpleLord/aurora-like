@@ -513,13 +513,20 @@ export class EmpireView {
     const lines: [string, number][] = [
       ["Taxes", b.taxes], ["Trade", b.trade], ["Financial centres", b.centres],
       ["Construction", -b.construction], ["Research", -b.research], ["Upkeep", -b.upkeep],
-      ["Welfare", -b.welfare], ["Debt interest", -b.interest], ["Ships and other", -b.other],
+      ["Welfare", -b.welfare], ["Debt interest", -b.interest], ["Idle reserves lost", -b.erosion], ["Ships and other", -b.other],
     ];
     for (const [label, value] of lines) {
       if (Math.abs(value) < 0.05) continue;
       stat(sec, label, signed(value), undefined);
     }
 
+    const effective = b.lines.reduce((sum, l) => sum + l.strength, 0);
+    stat(sec, "Freight lines", b.lines.length ? `${b.lines.length} (${effective.toFixed(1)} links)` : "none",
+      b.lines.length ? "good" : "warn");
+    if (!b.lines.length) {
+      sec.append(el("p", "muted small",
+        "Trade follows freight: set a fleet to a freight line between two colonies to raise commerce. Civilian shipping gives only a modest baseline."));
+    }
     sec.append(el("label", "muted small", `Tax rate - ${Math.round(empire.taxRate * 100)}% (${Math.round(NEUTRAL_TAX * 100)}% is neutral)`));
     const tax = numberInput(Math.round(empire.taxRate * 100), (v) => {
       empire.taxRate = v / 100;

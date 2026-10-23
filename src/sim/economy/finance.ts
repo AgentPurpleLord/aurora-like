@@ -53,9 +53,29 @@ export function tradeFactor(taxRate: number, stability: number): number {
   return Math.max(0, 1.3 - taxRate) * clamp(stability / BASE_STABILITY, 0.3, 1.2);
 }
 
-/** More colonies to trade with means more trade, up to a point. */
-export function connectionFactor(populatedColonies: number): number {
-  return 0.5 + 0.25 * Math.min(4, Math.max(0, populatedColonies - 1));
+/** More trade links (see trade.ts) means more trade, up to four. */
+export function connectionFactor(links: number): number {
+  return 0.5 + 0.25 * Math.min(4, Math.max(0, links));
+}
+
+/** Idle reserves beyond this many years of spending are eaten away by inflation. */
+export const FREE_RESERVE_YEARS = 3;
+export const FREE_RESERVE_FLOOR = 1000;
+export const RESERVE_EROSION = 0.04;
+
+/** What a hoard loses in a year: a share of whatever exceeds a sensible reserve. */
+export function reserveErosion(treasury: number, annualExpenses: number): number {
+  const free = Math.max(FREE_RESERVE_FLOOR, FREE_RESERVE_YEARS * annualExpenses);
+  return treasury > free ? (treasury - free) * RESERVE_EROSION : 0;
+}
+
+/**
+ * What a governor does for the peace: a skilled administrator keeps order, a
+ * poor one stirs resentment, and a colony with nobody in charge drifts.
+ * `administration` is the officer's rating (1 to 8), or null for no governor.
+ */
+export function governorStability(administration: number | null): number {
+  return administration === null ? -2 : (administration - 3) * 2;
 }
 
 export interface StabilityInputs {
@@ -66,6 +86,8 @@ export interface StabilityInputs {
   expenses: number;
   /** Product of timed effects on stability at this colony. */
   effect: number;
+  /** The governor's administration rating, or null if there is none. */
+  administration: number | null;
 }
 
 export interface StabilityBreakdown {
@@ -73,6 +95,7 @@ export interface StabilityBreakdown {
   tax: number;
   welfare: number;
   treasury: number;
+  governor: number;
 }
 
 /** Where a colony's stability is heading, and why. */
@@ -80,8 +103,9 @@ export function stabilityTarget(i: StabilityInputs): StabilityBreakdown {
   const tax = -(i.taxRate - NEUTRAL_TAX) * 80;
   const welfare = i.welfare * 100;
   const treasury = i.treasury < 0 ? -15 : i.treasury >= i.expenses && i.expenses > 0 ? 5 : 0;
-  const target = clamp((BASE_STABILITY + tax + welfare + treasury) * i.effect, 0, 100);
-  return { target, tax, welfare, treasury };
+  const governor = governorStability(i.administration);
+  const target = clamp((BASE_STABILITY + tax + welfare + treasury + governor) * i.effect, 0, 100);
+  return { target, tax, welfare, treasury, governor };
 }
 
 export function stabilityLabel(stability: number): string {

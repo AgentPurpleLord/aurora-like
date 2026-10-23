@@ -25,7 +25,8 @@ import { componentStats, normaliseParams, suggestName, SURVEY_POINTS_NEEDED } fr
 import { maintainShips, servicingCapacity } from "../src/sim/ships/maintenance";
 import { statsFor } from "../src/sim/research/techs";
 import { classTitle } from "../src/sim/ships/hulls";
-import { buyProgramme, programmeCost, moraleFactor } from "../src/sim/economy/finance";
+import { buyProgramme, programmeCost, moraleFactor, reserveErosion, stabilityTarget } from "../src/sim/economy/finance";
+import { invalidateTrade, tradeConnections } from "../src/sim/economy/trade";
 import { budgetOf } from "../src/sim/economy/budget";
 import type { Empire } from "../src/state/empire";
 import { Galaxy } from "../src/sim/galaxy";
@@ -1733,7 +1734,7 @@ console.log("");
     const earthColony = fe.colony("earth")!;
     const base = colonyOutput(fe, earthBody, earthColony, fe.stats);
     assert("neutral taxes give at least the familiar 2.5 per million", base.taxes / earthColony.population >= 2.5);
-    fe.taxRate = 0.5;
+    fe.taxRate = 0.6;
     const heavy = colonyOutput(fe, earthBody, earthColony, fe.stats);
     assert("heavier taxes raise tax income", heavy.taxes > base.taxes * 1.6);
     assert("but cut commerce", heavy.trade < base.trade);
@@ -1767,9 +1768,45 @@ console.log("");
     assert("debt costs interest", debt.interest > 0);
     // save round trip
     fe.taxRate = 0.42;
-    const reloaded = gameFromSave(parseSave(JSON.stringify(makeSave(fg))));
+    const reloaded = gameFromSave(parseSave(JSON.stringify(makeSave(fg, "fin", "fin", "manual"))));
     check("tax rate survives a save", reloaded.empire.taxRate, 0.42, 1e-9);
     assert("so does stability", reloaded.empire.colony("earth")!.stability === earthColony.stability);
+  }
+
+  // --- trade follows freight; governors keep the peace; hoards erode
+  {
+    const lg = new Game("links");
+    const le = lg.empire;
+    le.research("nuclear-thermal");
+    le.civilianShipping = false;
+    const lmars = le.foundColony("mars", 0);
+    lmars.population = 10;
+    const learth = le.colony("earth")!;
+    const earthB = lg.galaxy.byId.get("earth")!;
+    const none = colonyOutput(le, earthB, learth, le.stats).trade;
+    const lhauler = le.addStandardClasses(0).find((d) => d.name === "Hauler")!;
+    const lfleet = le.createFleet("Line", { x: 0, y: 0, z: 0 }, "earth");
+    const lship = le.commissionShip(lhauler.id, lfleet, "H1", 0);
+    lfleet.program = { kind: "freight", fromId: "earth", toId: "mars", there: null, back: null };
+    invalidateTrade(le);
+    check("a freight line is one link at each end", tradeConnections(le).get("earth") ?? 0, 1, 1e-9);
+    check("and raises trade by half over no links", colonyOutput(le, earthB, learth, le.stats).trade / none, 1.5, 1e-9);
+    lship.condition = 10;
+    invalidateTrade(le);
+    assert("a ship in ruins carries no trade", (tradeConnections(le).get("earth") ?? 0) === 0);
+    lship.condition = 100;
+    le.civilianShipping = true;
+    invalidateTrade(le);
+    assert("civilian shipping adds a modest baseline", (tradeConnections(le).get("earth") ?? 0) > 1);
+
+    const calm = { taxRate: 0.3, welfare: 0, treasury: 0, expenses: 0, effect: 1 };
+    const good = stabilityTarget({ ...calm, administration: 8 }).target;
+    const poor = stabilityTarget({ ...calm, administration: 1 }).target;
+    const none2 = stabilityTarget({ ...calm, administration: null }).target;
+    assert("a good governor beats a poor one beats none", good > 75 && poor < none2 + 1 && poor < 70 && none2 < 70);
+
+    assert("modest reserves are safe", reserveErosion(500, 100) === 0);
+    check("a hoard loses 4% of the excess a year", reserveErosion(100_000, 100), 99_000 * 0.04, 1e-6);
   }
 }
 

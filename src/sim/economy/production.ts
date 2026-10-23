@@ -37,8 +37,9 @@ import {
 } from "../atmosphere";
 import { bonus, fullName, labCapacity } from "../people/officers";
 import { evaluateStandingOrders } from "./standingOrders";
+import { invalidateTrade, tradeConnections } from "./trade";
 import {
-  DEBT_INTEREST, GDP_PER_MILLION, RIOTS_BELOW, STABILITY_DRIFT, TRADE_PER_MILLION, UNREST_BELOW,
+  DEBT_INTEREST, reserveErosion, GDP_PER_MILLION, RIOTS_BELOW, STABILITY_DRIFT, TRADE_PER_MILLION, UNREST_BELOW,
   connectionFactor, growthFactor, moraleFactor, stabilityTarget, tradeFactor,
 } from "./finance";
 
@@ -159,11 +160,10 @@ export function colonyOutput(
     }, 0) * empire.effectFactor("research", colony.bodyId) * morale;
 
   const wealthFactor = (1 + stats.wealthBonus + bonus(governor, "wealth")) * empire.effectFactor("wealth", colony.bodyId);
-  let populated = 0;
-  for (const c of empire.colonies.values()) if (c.population > 0.1) populated++;
+  const links = tradeConnections(empire).get(colony.bodyId) ?? 0;
   const taxes = colony.population * GDP_PER_MILLION * empire.taxRate * wealthFactor;
   const trade =
-    colony.population * TRADE_PER_MILLION * connectionFactor(populated) *
+    colony.population * TRADE_PER_MILLION * connectionFactor(links) *
     tradeFactor(empire.taxRate, colony.stability) * wealthFactor;
   const centres =
     installationCount(colony, "financial-centre") * WEALTH_PER_FINANCIAL_CENTRE *
@@ -240,6 +240,7 @@ export function runCycle(empire: Empire, system: Galaxy, now: number, days: numb
   let population = 0;
   let taxes = 0;
   const minerals: Partial<Record<MineralName, number>> = {};
+  invalidateTrade(empire);
 
   for (const colony of empire.colonies.values()) {
     const body = system.byId.get(colony.bodyId);
@@ -297,6 +298,7 @@ export function runCycle(empire: Empire, system: Galaxy, now: number, days: numb
       treasury: empire.treasury,
       expenses: empire.snapshot.expenses,
       effect: empire.effectFactor("stability", colony.bodyId),
+      administration: empire.governorOf(colony.bodyId)?.skills.administration ?? (empire.governorOf(colony.bodyId) ? 0 : null),
     });
     colony.stability = before + (target - before) * Math.min(1, STABILITY_DRIFT * year);
     announceMood(empire, body.name, colony.bodyId, before, colony.stability, now);
@@ -314,6 +316,9 @@ export function runCycle(empire: Empire, system: Galaxy, now: number, days: numb
   // Ships wear with use and are serviced at the colonies that can.
   const upkeep = maintainShips(empire, system, days);
   expenses += (upkeep.cost * WEALTH_PER_BUILD_POINT) / year;
+
+  // A hoard loses value to inflation: idle money is not a strategy.
+  expenses += reserveErosion(empire.treasury, expenses);
 
   empire.treasury += (income - expenses) * year;
   const wasAusterity = empire.austerity;

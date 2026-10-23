@@ -400,6 +400,16 @@ Wealth now has consequences, managed from the **Finance** panel on the Empire sc
 - Stability scales output (down to 60% in the worst unrest, slightly above 100% when
   people are content) and population growth. Below 40 a colony is in unrest, below 20 it
   riots; both raise an issue and a log entry.
+- **Trade follows freight.** A colony's trade scales with its *links*: each working freight
+  line (a fleet on a freight programme whose ships are in fair condition) counts as a link
+  at both ends, in proportion to its hold (2,000 t is a full link, up to four). Civilian
+  shipping, if on, supplies a modest baseline of up to two links; with neither, trade runs
+  at half rate. The Finance panel lists your lines.
+- **Governors keep the peace.** A governor's administration rating shifts stability by
+  (rating - 3) x 2, so a skilled one is worth up to +10 and a poor one costs 4; a colony
+  with nobody in charge loses 2. The colony view shows what its stability is heading for.
+- **Hoards erode.** Reserves above three years' spending (and at least 1,000) lose 4% of the
+  excess a year to inflation, so a full treasury is worth spending on programmes.
 - **Debt** charges 6% a year in interest, halves industry and drags stability down.
 - **Programmes** spend the treasury: Industrial subsidy, Research grant, Mining
   incentives, Settlement drive (each +25-40% for three years) and Public festival
