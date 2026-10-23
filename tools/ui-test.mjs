@@ -607,6 +607,15 @@ async function refreshSuite(browser) {
   await check("the palette switches the theme back", async () =>
     (await page.evaluate(() => document.documentElement.dataset.theme)) === "classic");
 
+  // --- hand-tuned terminal screens
+  await page.evaluate(() => { document.documentElement.dataset.theme = "terminal"; });
+  await check("the galaxy map has a radar scale in the terminal theme", async () => {
+    await nav(page, "Galaxy").click();
+    return (await page.locator(".galaxy-radar").isVisible()) && (await page.locator(".galaxy-bearing").count()) === 4;
+  });
+  await page.evaluate(() => { document.documentElement.dataset.theme = "classic"; });
+  await check("and none in Classic", async () => !(await page.locator(".galaxy-radar").isVisible()));
+
   // --- the settings popover and the guide
   await check("the status bar offers Next event", async () =>
     (await page.getByRole("button", { name: "Skip to next event" }).count()) === 1);
@@ -923,6 +932,21 @@ async function eventSuite(browser) {
   await check("Events carries a badge while a decision waits", async () =>
     /1/.test(await page.locator('#view-tabs button[data-view="events"] .tab-badge-dot').first().innerText()));
 
+  // The briefing in the terminal theme: banner, file number, numbered orders.
+  await page.evaluate(() => { document.documentElement.dataset.theme = "terminal"; });
+  await check("a terminal briefing carries a warning banner and a file number", async () => {
+    const banner = page.locator(".dialog .event-banner");
+    return (await banner.isVisible()) && /WARNING/.test(await banner.innerText()) && /EVT-\d{4}/.test(await page.locator(".dialog .event-code").innerText());
+  });
+  await check("its text prints out in full", async () => {
+    await page.waitForTimeout(1600);
+    return /Fund|fever|habitats/.test(await page.locator(".dialog .event-text").innerText()) && !/_$/.test((await page.locator(".dialog .event-text").innerText()).trim());
+  });
+  await check("options are numbered", async () =>
+    (await page.locator(".dialog .event-option").first().getAttribute("data-key")) === "1");
+  await page.evaluate(() => { document.documentElement.dataset.theme = "classic"; });
+  await check("the banner is hidden in Classic", async () => !(await page.locator(".dialog .event-banner").isVisible()));
+
   // Decide later, then decide from the log.
   await page.getByRole("button", { name: "Decide later", exact: true }).click();
   await check("deciding later leaves it pending", async () =>
@@ -937,9 +961,9 @@ async function eventSuite(browser) {
     return /Outbreak/.test(text) && /Chosen: Fund a quarantine/.test(text);
   });
 
-  // The popup shows the outcome after a choice.
+  // The popup shows the outcome after a choice; number keys choose.
   await page.evaluate(() => { window.__game.empire.queueBuild("earth", "mine", 5); window.__rollEvent("strike"); });
-  await page.locator(".dialog .event-option", { hasText: "Hold firm" }).click();
+  await page.keyboard.press("2");
   await check("the popup then shows the outcome", async () =>
     /You chose: Hold firm/.test(await page.locator(".dialog").innerText()));
   await page.getByRole("button", { name: "OK", exact: true }).click();

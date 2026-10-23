@@ -195,9 +195,6 @@ html[data-theme="terminal"] .tab-badge-dot { text-transform: uppercase; letter-s
 
 /* Tables and rows: ruled like a printout. */
 html[data-theme="terminal"] .tree-row.selected { box-shadow: inset 2px 0 0 var(--accent); }
-html[data-theme="terminal"] .event-row,
-html[data-theme="terminal"] .save-row,
-html[data-theme="terminal"] .queue-row { border-style: solid; }
 
 /* The map pane gets a targeting-grid frame. */
 html[data-theme="terminal"] .map-pane { box-shadow: inset 0 0 0 1px rgba(90, 255, 150, 0.12); }
@@ -212,4 +209,134 @@ html[data-theme="terminal"] .galaxy-svg { background: #020a05; }
   html[data-theme="terminal"] {
     --cut: 7px;
   }
+}
+
+/* ======================================================== event briefings */
+
+html[data-theme="terminal"] .dialog:has(.event-banner) { width: min(600px, calc(100vw - 24px)); }
+html[data-theme="terminal"] .event-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: -14px -16px 14px;
+  padding: 7px 16px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.34em;
+  color: #fff;
+  text-shadow: 0 0 3px #000, 0 0 3px #000, 1px 1px 0 #000;
+}
+html[data-theme="terminal"] .event-banner::before { content: "//"; letter-spacing: 0; }
+html[data-theme="terminal"] .event-banner::after { content: "//////////////////////////////"; flex: 1; overflow: hidden; letter-spacing: 0; opacity: 0.45; white-space: nowrap; }
+html[data-theme="terminal"] .event-banner.bad {
+  background: repeating-linear-gradient(-45deg, #8f2f1e 0 10px, #2a0d08 10px 20px);
+  border-bottom: 1px solid #e2725b;
+}
+html[data-theme="terminal"] .event-banner.good {
+  background: repeating-linear-gradient(-45deg, #1d6b3a 0 10px, #072412 10px 20px);
+  border-bottom: 1px solid #5fe08a;
+}
+html[data-theme="terminal"] .event-banner.neutral {
+  background: repeating-linear-gradient(-45deg, #8a6a1c 0 10px, #261c06 10px 20px);
+  border-bottom: 1px solid #ffc766;
+}
+html[data-theme="terminal"] .event-meta .event-chip { display: none; }
+html[data-theme="terminal"] .event-code {
+  display: inline;
+  margin-left: auto;
+  color: var(--accent);
+  letter-spacing: 0.2em;
+  font-size: 11px;
+}
+html[data-theme="terminal"] .event-text { font-size: 13.5px; line-height: 1.6; min-height: 3.2em; }
+html[data-theme="terminal"] .event-cursor { display: inline; color: var(--accent); animation: crt-blink 0.7s steps(1) infinite; }
+
+/* Options as numbered orders, picked with the number keys. */
+html[data-theme="terminal"] .event-option { position: relative; padding-left: 52px; border-left-width: 3px; }
+html[data-theme="terminal"] .event-option[data-key]::before {
+  content: "[" attr(data-key) "]";
+  position: absolute;
+  left: 12px;
+  top: 9px;
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+html[data-theme="terminal"] .event-option:hover:not(:disabled) { border-color: var(--accent); box-shadow: 0 0 14px rgba(255, 209, 120, 0.25), inset 0 0 0 1px rgba(255, 209, 120, 0.25); }
+html[data-theme="terminal"] .event-option-label { text-transform: uppercase; letter-spacing: 0.1em; }
+html[data-theme="terminal"] .event-options:not(.inline)::after {
+  content: "> PRESS A NUMBER KEY TO ORDER, OR CHOOSE BELOW";
+  color: var(--text-dim);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+html[data-theme="terminal"] .event-expiry::before { content: "T-"; color: var(--accent); }
+
+/* What came of it, set out as a report. */
+html[data-theme="terminal"] .event-report-label {
+  display: block;
+  margin-top: 16px;
+  color: var(--accent);
+  font-size: 10.5px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+}
+html[data-theme="terminal"] .event-report-label::before { content: "[ "; }
+html[data-theme="terminal"] .event-report-label::after { content: " ]"; }
+html[data-theme="terminal"] .event-outcome { border-left: 3px solid var(--accent); background: rgba(255, 209, 120, 0.05); }
+html[data-theme="terminal"] .event-chosen { text-transform: uppercase; letter-spacing: 0.1em; font-size: 11px; }
+
+/* ============================================================ galaxy map */
+
+html[data-theme="terminal"] .galaxy-svg { background: radial-gradient(circle at 50% 50%, #052012 0%, #020a05 72%); border-color: var(--line); }
+html[data-theme="terminal"] .galaxy-head h2::before { content: "// "; color: var(--accent); }
+html[data-theme="terminal"] .galaxy-radar { display: inline; }
+html[data-theme="terminal"] .galaxy-spoke { stroke: rgba(90, 255, 150, 0.1); stroke-width: 1; }
+html[data-theme="terminal"] .galaxy-tick { stroke: rgba(90, 255, 150, 0.5); stroke-width: 1; }
+html[data-theme="terminal"] .galaxy-bezel { fill: none; stroke: rgba(90, 255, 150, 0.5); stroke-width: 1.2; }
+html[data-theme="terminal"] .galaxy-bearing { fill: #ffd178; font: 9px ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.12em; }
+html[data-theme="terminal"] .galaxy-sweep { transform-box: view-box; transform-origin: 50% 50%; animation: radar-sweep 9s linear infinite; }
+html[data-theme="terminal"] .galaxy-wedge { fill: rgba(90, 255, 150, 0.11); }
+html[data-theme="terminal"] .galaxy-beam { stroke: rgba(140, 255, 185, 0.75); stroke-width: 1.2; }
+@keyframes radar-sweep { to { transform: rotate(360deg); } }
+@keyframes reticle-pulse { 50% { opacity: 0.35; } }
+
+html[data-theme="terminal"] .galaxy-ring { stroke: rgba(90, 255, 150, 0.2); stroke-dasharray: 3 5; }
+html[data-theme="terminal"] .galaxy-ring-label { fill: rgba(140, 255, 185, 0.55); letter-spacing: 0.1em; }
+html[data-theme="terminal"] .galaxy-label { text-transform: uppercase; letter-spacing: 0.1em; font: 10px ui-monospace, Menlo, Consolas, monospace; }
+html[data-theme="terminal"] .galaxy-node.known .galaxy-label { fill: #d8ffe6; font-weight: 700; }
+html[data-theme="terminal"] .galaxy-node.selected .galaxy-range,
+html[data-theme="terminal"] .galaxy-node:hover .galaxy-range { display: inline; }
+html[data-theme="terminal"] .galaxy-range { fill: #68ba83; font: 9px ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.08em; }
+html[data-theme="terminal"] .galaxy-fleets { fill: #ffd178; font: 9px ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* Unvisited stars are contacts: hollow, dashed. Visited ones are solid and lit. */
+html[data-theme="terminal"] .galaxy-node:not(.known) .galaxy-star { fill: none !important; stroke: rgba(110, 255, 160, 0.7); stroke-width: 1; stroke-dasharray: 2 2; opacity: 1; }
+html[data-theme="terminal"] .galaxy-node.known .galaxy-star { filter: drop-shadow(0 0 5px rgba(180, 255, 205, 0.7)); stroke: #d8ffe6; }
+html[data-theme="terminal"] .galaxy-colony { stroke: #ffd178; }
+html[data-theme="terminal"] .galaxy-node.selected .galaxy-star { stroke: #ffd178; stroke-dasharray: none; }
+html[data-theme="terminal"] .galaxy-node.selected .galaxy-reticle { display: inline; fill: none; stroke: #ffd178; stroke-width: 1.8; animation: reticle-pulse 1s steps(2) infinite; }
+html[data-theme="terminal"] .galaxy-node.selected .galaxy-label { fill: #ffd178; }
+html[data-theme="terminal"] .galaxy-node:hover .galaxy-label { fill: #ffd178; }
+
+html[data-theme="terminal"] .galaxy-link { stroke: #5fe08a; stroke-width: 1.6; filter: drop-shadow(0 0 3px rgba(95, 224, 138, 0.8)); }
+html[data-theme="terminal"] .galaxy-link.gate { stroke: #ffc766; stroke-width: 3; filter: drop-shadow(0 0 4px rgba(255, 199, 102, 0.8)); }
+html[data-theme="terminal"] .galaxy-stub { stroke: #5fe08a; stroke-dasharray: 2 3; }
+html[data-theme="terminal"] .galaxy-stub-label { fill: #ffd178; }
+
+html[data-theme="terminal"] .galaxy-legend { text-transform: uppercase; letter-spacing: 0.07em; font-size: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
+html[data-theme="terminal"] .galaxy-state { margin-left: auto; margin-right: 8px; }
+html[data-theme="terminal"] .galaxy-state.visited { color: #8dffb5; border-color: #2f7a4a; }
+html[data-theme="terminal"] .galaxy-state:not(.visited) { color: #ffd178; border-color: #7a5f22; }
+html[data-theme="terminal"] .galaxy-side .panel-head { gap: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="terminal"] .galaxy-sweep,
+  html[data-theme="terminal"] .galaxy-node.selected .galaxy-reticle,
+  html[data-theme="terminal"] .event-cursor { animation: none !important; }
+}
+@media (max-width: 860px) {
+  html[data-theme="terminal"] .event-banner { margin: -14px -16px 12px; letter-spacing: 0.22em; }
+  html[data-theme="terminal"] .event-options:not(.inline)::after { content: "> TAP AN ORDER"; }
+  html[data-theme="terminal"] .galaxy-node:hover .galaxy-range { display: none; }
 }

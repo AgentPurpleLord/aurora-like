@@ -2084,3 +2084,9 @@ kbd {
   .slider-field .step-btn { min-width: 38px; min-height: 36px; font-size: 16px; }
   .slider-field .number-input { width: 92px; min-height: 36px; }
 }
+
+/* Terminal-theme furniture: present in the markup, shown only there. */
+.event-banner, .event-code, .event-report-label, .event-cursor,
+.galaxy-radar, .galaxy-range, .galaxy-reticle { display: none; }
+.galaxy-side .queue-row { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 5px 0; }
+.galaxy-side .queue-name { white-space: normal; overflow: visible; text-overflow: clip; width: 100%; }

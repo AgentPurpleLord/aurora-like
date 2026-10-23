@@ -318,7 +318,17 @@ headers on popups, segmented progress bars, a faint scanline overlay with a
 slow refresh sweep (switched off under *reduce motion*), and a map drawn in the
 same ink. The choice is remembered.
 
-The terminal theme is derived rather than hand-maintained: `npm run theme`
+Two screens are tuned by hand for it. **Event briefings** open under a hazard-striped
+WARNING, COMMENDATION or ADVISORY banner with a file number (`EVT-0007`); the
+text prints out like a console receiving it (click to show it all; instant under
+*reduce motion*); the choices are numbered orders you can pick with the number
+keys; and the result appears as an after-action report. **The galaxy map** becomes a
+radar plot: bearing spokes and a right-ascension scale, dashed range rings, a slow
+sweep, unvisited stars as hollow contacts and visited ones lit, glowing links (gates
+in amber), a target reticle with range and spectral class on the selected star, and a
+"visited / uncharted" tag on the target panel. Classic shows none of this.
+
+The rest of the terminal theme is derived rather than hand-maintained: `npm run theme`
 reads `src/style.css`, moves every colour in it into the phosphor palette
 (`src/ui/phosphor.ts`: blues and greys become green, golds become amber, reds
 stay red, lightness and transparency are kept), and writes

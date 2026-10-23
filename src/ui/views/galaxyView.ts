@@ -22,7 +22,7 @@ import { el, num } from "../format";
 import { button } from "../widgets";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const VIEW = 520;
+const VIEW = 560;
 const CENTRE = VIEW / 2;
 const RADIUS = 232;
 const MAX_LY = 42;
@@ -122,6 +122,44 @@ export class GalaxyView {
 
     const canvas = svg("svg", { viewBox: `0 0 ${VIEW} ${VIEW}`, class: "galaxy-svg", role: "group", "aria-label": "Galaxy map" });
 
+    // The radar furniture the terminal theme shows: bearing spokes, a
+    // right-ascension scale and a sweep. Classic hides the group entirely.
+    const radar = svg("g", { class: "galaxy-radar", "aria-hidden": "true" });
+    for (let deg = 0; deg < 360; deg += 30) {
+      const a = (deg * Math.PI) / 180;
+      radar.append(svg("line", {
+        x1: CENTRE, y1: CENTRE,
+        x2: CENTRE + Math.cos(a) * (RADIUS + 10), y2: CENTRE - Math.sin(a) * (RADIUS + 10),
+        class: "galaxy-spoke",
+      }));
+    }
+    for (let deg = 0; deg < 360; deg += 5) {
+      const a = (deg * Math.PI) / 180;
+      const long = deg % 30 === 0 ? 9 : 4;
+      radar.append(svg("line", {
+        x1: CENTRE + Math.cos(a) * (RADIUS + 10), y1: CENTRE - Math.sin(a) * (RADIUS + 10),
+        x2: CENTRE + Math.cos(a) * (RADIUS + 10 + long), y2: CENTRE - Math.sin(a) * (RADIUS + 10 + long),
+        class: "galaxy-tick",
+      }));
+    }
+    for (const [hours, deg] of [["0h", 0], ["6h", 90], ["12h", 180], ["18h", 270]] as [string, number][]) {
+      const a = (deg * Math.PI) / 180;
+      const label = svg("text", {
+        x: CENTRE + Math.cos(a) * (RADIUS + 28), y: CENTRE - Math.sin(a) * (RADIUS + 28) + 3,
+        class: "galaxy-bearing", "text-anchor": "middle",
+      });
+      label.textContent = `RA ${hours}`;
+      radar.append(label);
+    }
+    radar.append(svg("circle", { cx: CENTRE, cy: CENTRE, r: RADIUS + 10, class: "galaxy-bezel" }));
+    const sweep = svg("g", { class: "galaxy-sweep" });
+    sweep.append(
+      svg("path", { d: `M ${CENTRE} ${CENTRE} L ${CENTRE + RADIUS + 10} ${CENTRE} A ${RADIUS + 10} ${RADIUS + 10} 0 0 0 ${CENTRE + (RADIUS + 10) * Math.cos(0.5)} ${CENTRE - (RADIUS + 10) * Math.sin(0.5)} Z`, class: "galaxy-wedge" }),
+      svg("line", { x1: CENTRE, y1: CENTRE, x2: CENTRE + RADIUS + 10, y2: CENTRE, class: "galaxy-beam" }),
+    );
+    radar.append(sweep);
+    canvas.append(radar);
+
     // distance rings
     for (const ly of [5, 10, 20, 40]) {
       const r = RADIUS * Math.pow(ly / MAX_LY, 0.55);
@@ -194,9 +232,18 @@ export class GalaxyView {
       const label = svg("text", { x: radius + 6, y: 4, class: "galaxy-label" });
       label.textContent = system.name;
       group.append(label);
+      // Range and a target reticle: terminal-theme furniture, hidden in Classic.
+      const range = svg("text", { x: radius + 6, y: 16, class: "galaxy-range" });
+      range.textContent = system.id === "sol" ? "HOME" : `${system.meta.distanceLy} LY - ${system.meta.spectral}`;
+      group.append(range);
+      const r = radius + 9;
+      group.append(svg("path", {
+        class: "galaxy-reticle",
+        d: `M ${-r} ${-r + 6} V ${-r} H ${-r + 6} M ${r - 6} ${-r} H ${r} V ${-r + 6} M ${r} ${r - 6} V ${r} H ${r - 6} M ${-r + 6} ${r} H ${-r} V ${r - 6}`,
+      }));
       const fleets = fleetsAt.get(system.id);
       if (fleets) {
-        const badge = svg("text", { x: radius + 6, y: 17, class: "galaxy-fleets" });
+        const badge = svg("text", { x: radius + 6, y: 28, class: "galaxy-fleets" });
         badge.textContent = `${fleets} fleet${fleets === 1 ? "" : "s"}`;
         group.append(badge);
       }
@@ -221,7 +268,7 @@ export class GalaxyView {
 
     const legend = el("div", "galaxy-legend muted small");
     legend.append(
-      "Bright: visited. Dim: charted by astronomers only. Cyan line: a crossed jump point. Green line: a gate. ? : a jump point found but not followed.",
+      "Bright: visited. Dim: charted by astronomers only. Line: a crossed jump point. Thick line: a gate. ? : a jump point found but not followed.",
     );
     this.map.append(legend);
   }
@@ -235,6 +282,7 @@ export class GalaxyView {
 
     const head = el("div", "panel-head");
     head.append(el("span", undefined, system.name));
+    head.append(el("span", `chip galaxy-state ${known ? "visited" : ""}`, known ? "visited" : "uncharted"));
     head.append(el("span", "muted", system.meta.spectral));
     this.side.append(head);
 
