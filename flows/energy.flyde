@@ -1,0 +1,1115 @@
+node:
+  instances:
+    - id: laser-10cm
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: laser-10cm
+        name:
+          type: string
+          value: 10cm Infrared Laser
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Lasers
+        cost:
+          type: number
+          value: 3000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: trans-newtonian
+        description:
+          type: string
+          value: The first trans-Newtonian beam weapon.
+      pos:
+        x: 0
+        y: 0
+      displayName: 10cm Infrared Laser
+    - id: laser-15cm
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: laser-15cm
+        name:
+          type: string
+          value: 15cm Visible Light Laser
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Lasers
+        cost:
+          type: number
+          value: 6000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "A shorter wavelength: more punch per shot."
+      pos:
+        x: 340
+        y: 0
+      displayName: 15cm Visible Light Laser
+    - id: laser-focal-reduction
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: laser-focal-reduction
+        name:
+          type: string
+          value: Reduced Focal Size
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Lasers
+        cost:
+          type: number
+          value: 5000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Tighter beams carry further.
+      pos:
+        x: 340
+        y: 300
+      displayName: Reduced Focal Size
+    - id: laser-20cm
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: laser-20cm
+        name:
+          type: string
+          value: 20cm Ultraviolet Laser
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Lasers
+        cost:
+          type: number
+          value: 14000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Heavier beam.
+      pos:
+        x: 680
+        y: 0
+      displayName: 20cm Ultraviolet Laser
+    - id: laser-focal-reduction-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: laser-focal-reduction-2
+        name:
+          type: string
+          value: Reduced Focal Size II
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Lasers
+        cost:
+          type: number
+          value: 14000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Tighter again.
+      pos:
+        x: 680
+        y: 300
+      displayName: Reduced Focal Size II
+    - id: laser-25cm
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: laser-25cm
+        name:
+          type: string
+          value: 25cm X-Ray Laser
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Lasers
+        cost:
+          type: number
+          value: 32000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Hard radiation.
+      pos:
+        x: 1020
+        y: 0
+      displayName: 25cm X-Ray Laser
+    - id: laser-focal-reduction-3
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: laser-focal-reduction-3
+        name:
+          type: string
+          value: Reduced Focal Size III
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Lasers
+        cost:
+          type: number
+          value: 36000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Near-perfect collimation.
+      pos:
+        x: 1020
+        y: 300
+      displayName: Reduced Focal Size III
+    - id: laser-30cm
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: laser-30cm
+        name:
+          type: string
+          value: 30cm Gamma-Ray Laser
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Lasers
+        cost:
+          type: number
+          value: 70000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: The heaviest laser.
+      pos:
+        x: 1360
+        y: 0
+      displayName: 30cm Gamma-Ray Laser
+    - id: railgun-10cm
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: railgun-10cm
+        name:
+          type: string
+          value: 10cm Railgun
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Kinetic Guns
+        cost:
+          type: number
+          value: 3000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: trans-newtonian
+        description:
+          type: string
+          value: Kinetic cannon firing four shots per salvo.
+      pos:
+        x: 0
+        y: 720
+      displayName: 10cm Railgun
+    - id: railgun-15cm
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: railgun-15cm
+        name:
+          type: string
+          value: 15cm Railgun
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Kinetic Guns
+        cost:
+          type: number
+          value: 6000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A longer barrel.
+      pos:
+        x: 340
+        y: 720
+      displayName: 15cm Railgun
+    - id: railgun-20cm
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: railgun-20cm
+        name:
+          type: string
+          value: 20cm Railgun
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Kinetic Guns
+        cost:
+          type: number
+          value: 14000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Capital-class kinetic cannon.
+      pos:
+        x: 680
+        y: 720
+      displayName: 20cm Railgun
+    - id: gauss-cannon
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: gauss-cannon
+        name:
+          type: string
+          value: Gauss Cannon
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Kinetic Guns
+        cost:
+          type: number
+          value: 22000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Rapid-fire point defence.
+      pos:
+        x: 1020
+        y: 720
+      displayName: Gauss Cannon
+    - id: capacitor-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: capacitor-2
+        name:
+          type: string
+          value: Capacitor Recharge Rate 2
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Capacitors
+        cost:
+          type: number
+          value: 2500
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: trans-newtonian
+        description:
+          type: string
+          value: Beam weapons recharge twice as quickly.
+      pos:
+        x: 0
+        y: 1140
+      displayName: Capacitor Recharge Rate 2
+    - id: capacitor-3
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: capacitor-3
+        name:
+          type: string
+          value: Capacitor Recharge Rate 3
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Capacitors
+        cost:
+          type: number
+          value: 6000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Beams recharge three times as quickly.
+      pos:
+        x: 340
+        y: 1140
+      displayName: Capacitor Recharge Rate 3
+    - id: capacitor-4
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: capacitor-4
+        name:
+          type: string
+          value: Capacitor Recharge Rate 4
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Capacitors
+        cost:
+          type: number
+          value: 14000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Four times as quickly.
+      pos:
+        x: 680
+        y: 1140
+      displayName: Capacitor Recharge Rate 4
+    - id: capacitor-5
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: capacitor-5
+        name:
+          type: string
+          value: Capacitor Recharge Rate 5
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Capacitors
+        cost:
+          type: number
+          value: 32000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Five times as quickly.
+      pos:
+        x: 1020
+        y: 1140
+      displayName: Capacitor Recharge Rate 5
+    - id: turrets
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: turrets
+        name:
+          type: string
+          value: Weapon Turret Technology
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Turrets
+        cost:
+          type: number
+          value: 4000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Gimballed mounts, allowing beam weapons to track fast targets.
+      pos:
+        x: 340
+        y: 1560
+      displayName: Weapon Turret Technology
+    - id: turret-gearing-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: turret-gearing-2
+        name:
+          type: string
+          value: Turret Gearing 2
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Turrets
+        cost:
+          type: number
+          value: 6000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Turrets track twice as fast.
+      pos:
+        x: 680
+        y: 1560
+      displayName: Turret Gearing 2
+    - id: turret-gearing-3
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: turret-gearing-3
+        name:
+          type: string
+          value: Turret Gearing 3
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Turrets
+        cost:
+          type: number
+          value: 16000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Three times as fast.
+      pos:
+        x: 1020
+        y: 1560
+      displayName: Turret Gearing 3
+    - id: turret-gearing-4
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: turret-gearing-4
+        name:
+          type: string
+          value: Turret Gearing 4
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Turrets
+        cost:
+          type: number
+          value: 40000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Fast enough for fighters.
+      pos:
+        x: 1360
+        y: 1560
+      displayName: Turret Gearing 4
+    - id: plasma-carronade
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: plasma-carronade
+        name:
+          type: string
+          value: Plasma Carronade
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Advanced Beams
+        cost:
+          type: number
+          value: 18000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Short-range plasma bolts.
+      pos:
+        x: 340
+        y: 1980
+      displayName: Plasma Carronade
+    - id: plasma-torch
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: plasma-torch
+        name:
+          type: string
+          value: Plasma Torch
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Advanced Beams
+        cost:
+          type: number
+          value: 40000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A sustained plasma stream.
+      pos:
+        x: 680
+        y: 1980
+      displayName: Plasma Torch
+    - id: meson-cannon
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: meson-cannon
+        name:
+          type: string
+          value: Meson Cannon
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Advanced Beams
+        cost:
+          type: number
+          value: 80000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Mesons pass through armour.
+      pos:
+        x: 1020
+        y: 1980
+      displayName: Meson Cannon
+    - id: particle-beam
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: particle-beam
+        name:
+          type: string
+          value: Particle Beam Cannon
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Advanced Beams
+        cost:
+          type: number
+          value: 150000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A stream of accelerated particles.
+      pos:
+        x: 1360
+        y: 1980
+      displayName: Particle Beam Cannon
+    - id: microwave-cannon
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: microwave-cannon
+        name:
+          type: string
+          value: High Power Microwave
+        field:
+          type: string
+          value: energy
+        branch:
+          type: string
+          value: Advanced Beams
+        cost:
+          type: number
+          value: 60000
+        future:
+          type: boolean
+          value: true
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Cooks electronics.
+      pos:
+        x: 1700
+        y: 1980
+      displayName: High Power Microwave
+  connections:
+    - from:
+        insId: laser-10cm
+        pinId: unlocks
+      to:
+        insId: laser-15cm
+        pinId: requires
+    - from:
+        insId: laser-10cm
+        pinId: unlocks
+      to:
+        insId: laser-focal-reduction
+        pinId: requires
+    - from:
+        insId: laser-15cm
+        pinId: unlocks
+      to:
+        insId: laser-20cm
+        pinId: requires
+    - from:
+        insId: laser-focal-reduction
+        pinId: unlocks
+      to:
+        insId: laser-focal-reduction-2
+        pinId: requires
+    - from:
+        insId: laser-20cm
+        pinId: unlocks
+      to:
+        insId: laser-25cm
+        pinId: requires
+    - from:
+        insId: laser-focal-reduction-2
+        pinId: unlocks
+      to:
+        insId: laser-focal-reduction-3
+        pinId: requires
+    - from:
+        insId: laser-25cm
+        pinId: unlocks
+      to:
+        insId: laser-30cm
+        pinId: requires
+    - from:
+        insId: railgun-10cm
+        pinId: unlocks
+      to:
+        insId: railgun-15cm
+        pinId: requires
+    - from:
+        insId: railgun-15cm
+        pinId: unlocks
+      to:
+        insId: railgun-20cm
+        pinId: requires
+    - from:
+        insId: railgun-20cm
+        pinId: unlocks
+      to:
+        insId: gauss-cannon
+        pinId: requires
+    - from:
+        insId: capacitor-2
+        pinId: unlocks
+      to:
+        insId: capacitor-3
+        pinId: requires
+    - from:
+        insId: capacitor-3
+        pinId: unlocks
+      to:
+        insId: capacitor-4
+        pinId: requires
+    - from:
+        insId: capacitor-4
+        pinId: unlocks
+      to:
+        insId: capacitor-5
+        pinId: requires
+    - from:
+        insId: laser-10cm
+        pinId: unlocks
+      to:
+        insId: turrets
+        pinId: requires
+    - from:
+        insId: turrets
+        pinId: unlocks
+      to:
+        insId: turret-gearing-2
+        pinId: requires
+    - from:
+        insId: turret-gearing-2
+        pinId: unlocks
+      to:
+        insId: turret-gearing-3
+        pinId: requires
+    - from:
+        insId: turret-gearing-3
+        pinId: unlocks
+      to:
+        insId: turret-gearing-4
+        pinId: requires
+    - from:
+        insId: capacitor-2
+        pinId: unlocks
+      to:
+        insId: plasma-carronade
+        pinId: requires
+    - from:
+        insId: plasma-carronade
+        pinId: unlocks
+      to:
+        insId: plasma-torch
+        pinId: requires
+    - from:
+        insId: plasma-torch
+        pinId: unlocks
+      to:
+        insId: meson-cannon
+        pinId: requires
+    - from:
+        insId: meson-cannon
+        pinId: unlocks
+      to:
+        insId: particle-beam
+        pinId: requires
+    - from:
+        insId: particle-beam
+        pinId: unlocks
+      to:
+        insId: microwave-cannon
+        pinId: requires
+  id: tech-energy
+  inputs: {}
+  outputs: {}
+  inputsPosition: {}
+  outputsPosition: {}

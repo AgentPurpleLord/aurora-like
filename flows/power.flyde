@@ -1,0 +1,3146 @@
+node:
+  instances:
+    - id: conventional-engine
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: conventional-engine
+        name:
+          type: string
+          value: Conventional Engine
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Conventional & Nuclear
+        cost:
+          type: number
+          value: 1000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: trans-newtonian
+        description:
+          type: string
+          value: An engine for the component designer making 0.2 power per hull space.
+      pos:
+        x: 0
+        y: 0
+      displayName: Conventional Engine
+    - id: nuclear-thermal
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: nuclear-thermal
+        name:
+          type: string
+          value: Nuclear Thermal Engine
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Conventional & Nuclear
+        cost:
+          type: number
+          value: 2500
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: An engine for the component designer making 5 power per hull space, 25x the engine before it.
+      pos:
+        x: 340
+        y: 0
+      displayName: Nuclear Thermal Engine
+    - id: improved-nuclear-thermal
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: improved-nuclear-thermal
+        name:
+          type: string
+          value: Improved Nuclear Thermal Engine
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Conventional & Nuclear
+        cost:
+          type: number
+          value: 4000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: An engine for the component designer making 6.4 power per hull space, 1.28x the engine before it.
+      pos:
+        x: 680
+        y: 0
+      displayName: Improved Nuclear Thermal Engine
+    - id: nuclear-pulse
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: nuclear-pulse
+        name:
+          type: string
+          value: Nuclear Pulse Engine
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Conventional & Nuclear
+        cost:
+          type: number
+          value: 7500
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: An engine for the component designer making 8 power per hull space, 1.25x the engine before it.
+      pos:
+        x: 1020
+        y: 0
+      displayName: Nuclear Pulse Engine
+    - id: improved-nuclear-pulse
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: improved-nuclear-pulse
+        name:
+          type: string
+          value: Improved Nuclear Pulse Engine
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Conventional & Nuclear
+        cost:
+          type: number
+          value: 12000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: An engine for the component designer making 10 power per hull space, 1.25x the engine before it.
+      pos:
+        x: 1360
+        y: 0
+      displayName: Improved Nuclear Pulse Engine
+    - id: ion-engine
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: ion-engine
+        name:
+          type: string
+          value: Ion Engine
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Ion & Fusion
+        cost:
+          type: number
+          value: 20000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: An engine for the component designer making 12.5 power per hull space, 1.25x the engine before it.
+      pos:
+        x: 1700
+        y: 420
+      displayName: Ion Engine
+    - id: magneto-plasma
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: magneto-plasma
+        name:
+          type: string
+          value: Magneto-Plasma Drive
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Ion & Fusion
+        cost:
+          type: number
+          value: 35000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: An engine for the component designer making 16 power per hull space, 1.28x the engine before it.
+      pos:
+        x: 2040
+        y: 420
+      displayName: Magneto-Plasma Drive
+    - id: internal-fusion
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: internal-fusion
+        name:
+          type: string
+          value: Internal Confinement Fusion Drive
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Ion & Fusion
+        cost:
+          type: number
+          value: 60000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: An engine for the component designer making 20 power per hull space, 1.25x the engine before it.
+      pos:
+        x: 2380
+        y: 420
+      displayName: Internal Confinement Fusion Drive
+    - id: magnetic-fusion
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: magnetic-fusion
+        name:
+          type: string
+          value: Magnetic Confinement Fusion Drive
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Ion & Fusion
+        cost:
+          type: number
+          value: 100000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: An engine for the component designer making 25 power per hull space, 1.25x the engine before it.
+      pos:
+        x: 2720
+        y: 420
+      displayName: Magnetic Confinement Fusion Drive
+    - id: inertial-fusion
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: inertial-fusion
+        name:
+          type: string
+          value: Inertial Confinement Fusion Drive
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Ion & Fusion
+        cost:
+          type: number
+          value: 160000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: An engine for the component designer making 32 power per hull space, 1.28x the engine before it.
+      pos:
+        x: 3060
+        y: 420
+      displayName: Inertial Confinement Fusion Drive
+    - id: solid-antimatter
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: solid-antimatter
+        name:
+          type: string
+          value: Solid Core Anti-matter Drive
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Antimatter & Photonic
+        cost:
+          type: number
+          value: 260000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: An engine for the component designer making 40 power per hull space, 1.25x the engine before it.
+      pos:
+        x: 3400
+        y: 840
+      displayName: Solid Core Anti-matter Drive
+    - id: gas-antimatter
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: gas-antimatter
+        name:
+          type: string
+          value: Gas Core Anti-matter Drive
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Antimatter & Photonic
+        cost:
+          type: number
+          value: 420000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: An engine for the component designer making 50 power per hull space, 1.25x the engine before it.
+      pos:
+        x: 3740
+        y: 840
+      displayName: Gas Core Anti-matter Drive
+    - id: plasma-antimatter
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: plasma-antimatter
+        name:
+          type: string
+          value: Plasma Core Anti-matter Drive
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Antimatter & Photonic
+        cost:
+          type: number
+          value: 680000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: An engine for the component designer making 60 power per hull space, 1.2x the engine before it.
+      pos:
+        x: 4080
+        y: 840
+      displayName: Plasma Core Anti-matter Drive
+    - id: beam-antimatter
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: beam-antimatter
+        name:
+          type: string
+          value: Beam Core Anti-matter Drive
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Antimatter & Photonic
+        cost:
+          type: number
+          value: 1100000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: An engine for the component designer making 80 power per hull space, 1.33x the engine before it.
+      pos:
+        x: 4420
+        y: 840
+      displayName: Beam Core Anti-matter Drive
+    - id: photonic-drive
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: photonic-drive
+        name:
+          type: string
+          value: Photonic Drive
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Antimatter & Photonic
+        cost:
+          type: number
+          value: 1800000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: An engine for the component designer making 100 power per hull space, 1.25x the engine before it.
+      pos:
+        x: 4760
+        y: 840
+      displayName: Photonic Drive
+    - id: fuel-cell-1
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-cell-1
+        name:
+          type: string
+          value: Solid Fuel Cell
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Chemical Power
+        cost:
+          type: number
+          value: 600
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: trans-newtonian
+        description:
+          type: string
+          value: A chemical reactor for the component designer, making 2 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly.
+      pos:
+        x: 0
+        y: 1260
+      displayName: Solid Fuel Cell
+    - id: fuel-cell-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-cell-2
+        name:
+          type: string
+          value: Liquid Fuel Cell
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Chemical Power
+        cost:
+          type: number
+          value: 1200
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A chemical reactor for the component designer, making 2.5 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly.
+      pos:
+        x: 340
+        y: 1260
+      displayName: Liquid Fuel Cell
+    - id: fuel-cell-3
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-cell-3
+        name:
+          type: string
+          value: Advanced Fuel Cell
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Chemical Power
+        cost:
+          type: number
+          value: 2400
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A chemical reactor for the component designer, making 3.2 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly.
+      pos:
+        x: 680
+        y: 1260
+      displayName: Advanced Fuel Cell
+    - id: fuel-cell-4
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-cell-4
+        name:
+          type: string
+          value: High Efficiency Fuel Cell
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Chemical Power
+        cost:
+          type: number
+          value: 4800
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A chemical reactor for the component designer, making 4 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly.
+      pos:
+        x: 1020
+        y: 1260
+      displayName: High Efficiency Fuel Cell
+    - id: reactor-nuclear-1
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: reactor-nuclear-1
+        name:
+          type: string
+          value: Fission Reactor
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Nuclear Power
+        cost:
+          type: number
+          value: 9600
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A nuclear reactor for the component designer, making 5 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly.
+      pos:
+        x: 1360
+        y: 1680
+      displayName: Fission Reactor
+    - id: reactor-nuclear-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: reactor-nuclear-2
+        name:
+          type: string
+          value: Advanced Fission Reactor
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Nuclear Power
+        cost:
+          type: number
+          value: 19200
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A nuclear reactor for the component designer, making 6.4 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly.
+      pos:
+        x: 1700
+        y: 1680
+      displayName: Advanced Fission Reactor
+    - id: reactor-nuclear-3
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: reactor-nuclear-3
+        name:
+          type: string
+          value: Megawatt Fission Reactor
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Nuclear Power
+        cost:
+          type: number
+          value: 38400
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A nuclear reactor for the component designer, making 8 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly.
+      pos:
+        x: 2040
+        y: 1680
+      displayName: Megawatt Fission Reactor
+    - id: reactor-nuclear-4
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: reactor-nuclear-4
+        name:
+          type: string
+          value: Advanced Electric Drive Reactor
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Nuclear Power
+        cost:
+          type: number
+          value: 76800
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A nuclear reactor for the component designer, making 12.8 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly.
+      pos:
+        x: 2380
+        y: 1680
+      displayName: Advanced Electric Drive Reactor
+    - id: reactor-fusion-1
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: reactor-fusion-1
+        name:
+          type: string
+          value: Magnetic Confinement Fusion Reactor
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Fusion Power
+        cost:
+          type: number
+          value: 153600
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A fusion reactor for the component designer, making 16 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly.
+      pos:
+        x: 2720
+        y: 2100
+      displayName: Magnetic Confinement Fusion Reactor
+    - id: reactor-fusion-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: reactor-fusion-2
+        name:
+          type: string
+          value: Inertial Confinement Fusion Reactor
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Fusion Power
+        cost:
+          type: number
+          value: 307200
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A fusion reactor for the component designer, making 20 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly.
+      pos:
+        x: 3060
+        y: 2100
+      displayName: Inertial Confinement Fusion Reactor
+    - id: reactor-fusion-3
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: reactor-fusion-3
+        name:
+          type: string
+          value: Fusion-Fission Hybrid Reactor
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Fusion Power
+        cost:
+          type: number
+          value: 614400
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A fusion reactor for the component designer, making 25 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly.
+      pos:
+        x: 3400
+        y: 2100
+      displayName: Fusion-Fission Hybrid Reactor
+    - id: reactor-fusion-4
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: reactor-fusion-4
+        name:
+          type: string
+          value: Magnetic Target Fusion Reactor
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Fusion Power
+        cost:
+          type: number
+          value: 1228800
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A fusion reactor for the component designer, making 32 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly.
+      pos:
+        x: 3740
+        y: 2100
+      displayName: Magnetic Target Fusion Reactor
+    - id: reactor-am-1
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: reactor-am-1
+        name:
+          type: string
+          value: Antimatter Catalyst Reactor
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Antimatter Power
+        cost:
+          type: number
+          value: 2457600
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A antimatter reactor for the component designer, making 40 power per hull space. Electric drives draw on reactor power; a ship without enough cannot fly.
+      pos:
+        x: 4080
+        y: 2520
+      displayName: Antimatter Catalyst Reactor
+    - id: engine-size-1
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: engine-size-1
+        name:
+          type: string
+          value: 40 Hull Spaces
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Engine Size
+        cost:
+          type: number
+          value: 2000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A single engine may be up to 40 hull spaces (the largest is 400).
+      pos:
+        x: 340
+        y: 2940
+      displayName: 40 Hull Spaces
+    - id: engine-size-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: engine-size-2
+        name:
+          type: string
+          value: 60 Hull Spaces
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Engine Size
+        cost:
+          type: number
+          value: 4000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A single engine may be up to 60 hull spaces (the largest is 400).
+      pos:
+        x: 680
+        y: 2940
+      displayName: 60 Hull Spaces
+    - id: engine-size-3
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: engine-size-3
+        name:
+          type: string
+          value: 100 Hull Spaces
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Engine Size
+        cost:
+          type: number
+          value: 8000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A single engine may be up to 100 hull spaces (the largest is 400).
+      pos:
+        x: 1020
+        y: 2940
+      displayName: 100 Hull Spaces
+    - id: engine-size-4
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: engine-size-4
+        name:
+          type: string
+          value: 160 Hull Spaces
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Engine Size
+        cost:
+          type: number
+          value: 16000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A single engine may be up to 160 hull spaces (the largest is 400).
+      pos:
+        x: 1360
+        y: 2940
+      displayName: 160 Hull Spaces
+    - id: engine-size-5
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: engine-size-5
+        name:
+          type: string
+          value: 250 Hull Spaces
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Engine Size
+        cost:
+          type: number
+          value: 32000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A single engine may be up to 250 hull spaces (the largest is 400).
+      pos:
+        x: 1700
+        y: 2940
+      displayName: 250 Hull Spaces
+    - id: engine-size-6
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: engine-size-6
+        name:
+          type: string
+          value: 400 Hull Spaces
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Engine Size
+        cost:
+          type: number
+          value: 64000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A single engine may be up to 400 hull spaces (the largest is 400).
+      pos:
+        x: 2040
+        y: 2940
+      displayName: 400 Hull Spaces
+    - id: engine-power-125
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: engine-power-125
+        name:
+          type: string
+          value: Power Modifier x1.25
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Power Modifier
+        cost:
+          type: number
+          value: 2000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Raises the engine power modifier ceiling to 1.25x: more thrust from the same engine, at a fuel premium that grows with its square."
+      pos:
+        x: 340
+        y: 3360
+      displayName: Power Modifier x1.25
+    - id: engine-power-150
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: engine-power-150
+        name:
+          type: string
+          value: Power Modifier x1.5
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Power Modifier
+        cost:
+          type: number
+          value: 4000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Raises the engine power modifier ceiling to 1.5x: more thrust from the same engine, at a fuel premium that grows with its square."
+      pos:
+        x: 680
+        y: 3360
+      displayName: Power Modifier x1.5
+    - id: engine-power-175
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: engine-power-175
+        name:
+          type: string
+          value: Power Modifier x1.75
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Power Modifier
+        cost:
+          type: number
+          value: 8000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Raises the engine power modifier ceiling to 1.75x: more thrust from the same engine, at a fuel premium that grows with its square."
+      pos:
+        x: 1020
+        y: 3360
+      displayName: Power Modifier x1.75
+    - id: engine-power-200
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: engine-power-200
+        name:
+          type: string
+          value: Power Modifier x2
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Power Modifier
+        cost:
+          type: number
+          value: 16000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Raises the engine power modifier ceiling to 2x: more thrust from the same engine, at a fuel premium that grows with its square."
+      pos:
+        x: 1360
+        y: 3360
+      displayName: Power Modifier x2
+    - id: engine-power-250
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: engine-power-250
+        name:
+          type: string
+          value: Power Modifier x2.5
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Power Modifier
+        cost:
+          type: number
+          value: 32000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Raises the engine power modifier ceiling to 2.5x: more thrust from the same engine, at a fuel premium that grows with its square."
+      pos:
+        x: 1700
+        y: 3360
+      displayName: Power Modifier x2.5
+    - id: engine-power-300
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: engine-power-300
+        name:
+          type: string
+          value: Power Modifier x3
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Power Modifier
+        cost:
+          type: number
+          value: 64000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Raises the engine power modifier ceiling to 3x: more thrust from the same engine, at a fuel premium that grows with its square."
+      pos:
+        x: 2040
+        y: 3360
+      displayName: Power Modifier x3
+    - id: miniaturization-1
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: miniaturization-1
+        name:
+          type: string
+          value: Miniaturisation 0.4x
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Miniaturisation
+        cost:
+          type: number
+          value: 1000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Engines take up only 0.4x the hull space for the same thrust, on every ship, existing ones included.
+      pos:
+        x: 340
+        y: 3780
+      displayName: Miniaturisation 0.4x
+    - id: miniaturization-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: miniaturization-2
+        name:
+          type: string
+          value: Miniaturisation 0.3x
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Miniaturisation
+        cost:
+          type: number
+          value: 2000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Engines take up only 0.3x the hull space for the same thrust, on every ship, existing ones included.
+      pos:
+        x: 680
+        y: 3780
+      displayName: Miniaturisation 0.3x
+    - id: miniaturization-3
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: miniaturization-3
+        name:
+          type: string
+          value: Miniaturisation 0.25x
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Miniaturisation
+        cost:
+          type: number
+          value: 4000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Engines take up only 0.25x the hull space for the same thrust, on every ship, existing ones included.
+      pos:
+        x: 1020
+        y: 3780
+      displayName: Miniaturisation 0.25x
+    - id: miniaturization-4
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: miniaturization-4
+        name:
+          type: string
+          value: Miniaturisation 0.2x
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Miniaturisation
+        cost:
+          type: number
+          value: 8000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Engines take up only 0.2x the hull space for the same thrust, on every ship, existing ones included.
+      pos:
+        x: 1360
+        y: 3780
+      displayName: Miniaturisation 0.2x
+    - id: miniaturization-5
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: miniaturization-5
+        name:
+          type: string
+          value: Miniaturisation 0.15x
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Miniaturisation
+        cost:
+          type: number
+          value: 16000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Engines take up only 0.15x the hull space for the same thrust, on every ship, existing ones included.
+      pos:
+        x: 1700
+        y: 3780
+      displayName: Miniaturisation 0.15x
+    - id: miniaturization-6
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: miniaturization-6
+        name:
+          type: string
+          value: Miniaturisation 0.1x
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Miniaturisation
+        cost:
+          type: number
+          value: 32000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Engines take up only 0.1x the hull space for the same thrust, on every ship, existing ones included.
+      pos:
+        x: 2040
+        y: 3780
+      displayName: Miniaturisation 0.1x
+    - id: fuel-efficiency-1
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-efficiency-1
+        name:
+          type: string
+          value: Fuel Use 0.9x
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Fuel Efficiency
+        cost:
+          type: number
+          value: 1000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Every engine burns fuel at 0.9x the rate, existing ships included.
+      pos:
+        x: 340
+        y: 4200
+      displayName: Fuel Use 0.9x
+    - id: fuel-efficiency-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-efficiency-2
+        name:
+          type: string
+          value: Fuel Use 0.8x
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Fuel Efficiency
+        cost:
+          type: number
+          value: 2000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Every engine burns fuel at 0.8x the rate, existing ships included.
+      pos:
+        x: 680
+        y: 4200
+      displayName: Fuel Use 0.8x
+    - id: fuel-efficiency-3
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-efficiency-3
+        name:
+          type: string
+          value: Fuel Use 0.7x
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Fuel Efficiency
+        cost:
+          type: number
+          value: 4000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Every engine burns fuel at 0.7x the rate, existing ships included.
+      pos:
+        x: 1020
+        y: 4200
+      displayName: Fuel Use 0.7x
+    - id: fuel-efficiency-4
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-efficiency-4
+        name:
+          type: string
+          value: Fuel Use 0.6x
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Fuel Efficiency
+        cost:
+          type: number
+          value: 8000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Every engine burns fuel at 0.6x the rate, existing ships included.
+      pos:
+        x: 1360
+        y: 4200
+      displayName: Fuel Use 0.6x
+    - id: fuel-efficiency-5
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-efficiency-5
+        name:
+          type: string
+          value: Fuel Use 0.5x
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Fuel Efficiency
+        cost:
+          type: number
+          value: 16000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Every engine burns fuel at 0.5x the rate, existing ships included.
+      pos:
+        x: 1700
+        y: 4200
+      displayName: Fuel Use 0.5x
+    - id: fuel-efficiency-6
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-efficiency-6
+        name:
+          type: string
+          value: Fuel Use 0.4x
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Fuel Efficiency
+        cost:
+          type: number
+          value: 32000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Every engine burns fuel at 0.4x the rate, existing ships included.
+      pos:
+        x: 2040
+        y: 4200
+      displayName: Fuel Use 0.4x
+    - id: fuel-efficiency-7
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-efficiency-7
+        name:
+          type: string
+          value: Fuel Use 0.3x
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Fuel Efficiency
+        cost:
+          type: number
+          value: 64000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Every engine burns fuel at 0.3x the rate, existing ships included.
+      pos:
+        x: 2380
+        y: 4200
+      displayName: Fuel Use 0.3x
+    - id: fuel-efficiency-8
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-efficiency-8
+        name:
+          type: string
+          value: Fuel Use 0.25x
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Fuel Efficiency
+        cost:
+          type: number
+          value: 128000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Every engine burns fuel at 0.25x the rate, existing ships included.
+      pos:
+        x: 2720
+        y: 4200
+      displayName: Fuel Use 0.25x
+    - id: fuel-efficiency-9
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-efficiency-9
+        name:
+          type: string
+          value: Fuel Use 0.2x
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Fuel Efficiency
+        cost:
+          type: number
+          value: 256000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Every engine burns fuel at 0.2x the rate, existing ships included.
+      pos:
+        x: 3060
+        y: 4200
+      displayName: Fuel Use 0.2x
+    - id: fuel-efficiency-10
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-efficiency-10
+        name:
+          type: string
+          value: Fuel Use 0.15x
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Fuel Efficiency
+        cost:
+          type: number
+          value: 512000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Every engine burns fuel at 0.15x the rate, existing ships included.
+      pos:
+        x: 3400
+        y: 4200
+      displayName: Fuel Use 0.15x
+    - id: fuel-efficiency-11
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-efficiency-11
+        name:
+          type: string
+          value: Fuel Use 0.125x
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Fuel Efficiency
+        cost:
+          type: number
+          value: 1024000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Every engine burns fuel at 0.125x the rate, existing ships included.
+      pos:
+        x: 3740
+        y: 4200
+      displayName: Fuel Use 0.125x
+    - id: fuel-efficiency-12
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: fuel-efficiency-12
+        name:
+          type: string
+          value: Fuel Use 0.1x
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Fuel Efficiency
+        cost:
+          type: number
+          value: 2048000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Every engine burns fuel at 0.1x the rate, existing ships included.
+      pos:
+        x: 4080
+        y: 4200
+      displayName: Fuel Use 0.1x
+    - id: jump-point-theory
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: jump-point-theory
+        name:
+          type: string
+          value: Jump Point Theory
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Jump Technology
+        cost:
+          type: number
+          value: 7500
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: grav-survey-sensors
+        description:
+          type: string
+          value: "The mathematics of jump points, and with it the jump drive: a ship carrying one can cross a jump point on its own, bringing along as much tonnage as the drive is rated for."
+      pos:
+        x: 1360
+        y: 4620
+      displayName: Jump Point Theory
+    - id: jump-gate-construction
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: jump-gate-construction
+        name:
+          type: string
+          value: Jump Gate Construction
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Jump Technology
+        cost:
+          type: number
+          value: 12000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Gate construction modules. A ship carrying one can stabilise a jump point it has crossed, after which any ship - jump drive or not - can use the connection. Gates are what turn a discovery into a trade route.
+      pos:
+        x: 1700
+        y: 4620
+      displayName: Jump Gate Construction
+    - id: jump-efficiency-1
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: jump-efficiency-1
+        name:
+          type: string
+          value: Jump Drive Efficiency I
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Jump Technology
+        cost:
+          type: number
+          value: 15000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Tuned resonance: jump drives carry 25% more tonnage."
+      pos:
+        x: 1700
+        y: 4920
+      displayName: Jump Drive Efficiency I
+    - id: jump-efficiency-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: jump-efficiency-2
+        name:
+          type: string
+          value: Jump Drive Efficiency II
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Jump Technology
+        cost:
+          type: number
+          value: 40000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Jump drives carry 50% more tonnage than the original.
+      pos:
+        x: 2040
+        y: 4620
+      displayName: Jump Drive Efficiency II
+    - id: gate-construction-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: gate-construction-2
+        name:
+          type: string
+          value: Gate Construction II
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Jump Technology
+        cost:
+          type: number
+          value: 25000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Gate construction modules build 50% faster.
+      pos:
+        x: 2040
+        y: 4920
+      displayName: Gate Construction II
+    - id: jump-efficiency-3
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: jump-efficiency-3
+        name:
+          type: string
+          value: Jump Drive Efficiency III
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Jump Technology
+        cost:
+          type: number
+          value: 100000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Jump drives carry twice the original tonnage.
+      pos:
+        x: 2380
+        y: 4620
+      displayName: Jump Drive Efficiency III
+    - id: gate-construction-3
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: gate-construction-3
+        name:
+          type: string
+          value: Gate Construction III
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Jump Technology
+        cost:
+          type: number
+          value: 60000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Gate construction modules build twice as fast.
+      pos:
+        x: 2380
+        y: 4920
+      displayName: Gate Construction III
+    - id: gate-construction-4
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: gate-construction-4
+        name:
+          type: string
+          value: Gate Construction IV
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Jump Technology
+        cost:
+          type: number
+          value: 150000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: Gate construction modules build three times as fast.
+      pos:
+        x: 2720
+        y: 4620
+      displayName: Gate Construction IV
+    - id: military-specification
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: military-specification
+        name:
+          type: string
+          value: Military Specification Components
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Ship Components
+        cost:
+          type: number
+          value: 2500
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: A harder standard for powered parts. Military engines push 30% harder, military sensors and drives work 30% and 25% better - at 70% more cost, half as many more crew, and more than twice the wear. Commercial parts remain cheaper and gentler on maintenance.
+      pos:
+        x: 680
+        y: 5340
+      displayName: Military Specification Components
+    - id: tank-efficiency-1
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: tank-efficiency-1
+        name:
+          type: string
+          value: Fuel Tank Linings I
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Ship Components
+        cost:
+          type: number
+          value: 3500
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Better sealants: every fuel tank holds 25% more, on ships already built too."
+      pos:
+        x: 680
+        y: 5640
+      displayName: Fuel Tank Linings I
+    - id: tank-efficiency-2
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: tank-efficiency-2
+        name:
+          type: string
+          value: Fuel Tank Linings II
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Ship Components
+        cost:
+          type: number
+          value: 12000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Cryogenic tankage: tanks hold 50% more than the original."
+      pos:
+        x: 1020
+        y: 5340
+      displayName: Fuel Tank Linings II
+    - id: tank-efficiency-3
+      type: code
+      nodeId: Tech
+      source:
+        type: file
+        data: nodes/Tech.flyde.ts
+      inputConfig: {}
+      config:
+        techId:
+          type: string
+          value: tank-efficiency-3
+        name:
+          type: string
+          value: Fuel Tank Linings III
+        field:
+          type: string
+          value: power
+        branch:
+          type: string
+          value: Ship Components
+        cost:
+          type: number
+          value: 40000
+        future:
+          type: boolean
+          value: false
+        effects:
+          type: string
+          value: ""
+        extraPrereqs:
+          type: string
+          value: ""
+        description:
+          type: string
+          value: "Compressed fuel stores: tanks hold twice the original."
+      pos:
+        x: 1360
+        y: 5340
+      displayName: Fuel Tank Linings III
+  connections:
+    - from:
+        insId: conventional-engine
+        pinId: unlocks
+      to:
+        insId: nuclear-thermal
+        pinId: requires
+    - from:
+        insId: nuclear-thermal
+        pinId: unlocks
+      to:
+        insId: improved-nuclear-thermal
+        pinId: requires
+    - from:
+        insId: improved-nuclear-thermal
+        pinId: unlocks
+      to:
+        insId: nuclear-pulse
+        pinId: requires
+    - from:
+        insId: nuclear-pulse
+        pinId: unlocks
+      to:
+        insId: improved-nuclear-pulse
+        pinId: requires
+    - from:
+        insId: improved-nuclear-pulse
+        pinId: unlocks
+      to:
+        insId: ion-engine
+        pinId: requires
+    - from:
+        insId: ion-engine
+        pinId: unlocks
+      to:
+        insId: magneto-plasma
+        pinId: requires
+    - from:
+        insId: magneto-plasma
+        pinId: unlocks
+      to:
+        insId: internal-fusion
+        pinId: requires
+    - from:
+        insId: internal-fusion
+        pinId: unlocks
+      to:
+        insId: magnetic-fusion
+        pinId: requires
+    - from:
+        insId: magnetic-fusion
+        pinId: unlocks
+      to:
+        insId: inertial-fusion
+        pinId: requires
+    - from:
+        insId: inertial-fusion
+        pinId: unlocks
+      to:
+        insId: solid-antimatter
+        pinId: requires
+    - from:
+        insId: solid-antimatter
+        pinId: unlocks
+      to:
+        insId: gas-antimatter
+        pinId: requires
+    - from:
+        insId: gas-antimatter
+        pinId: unlocks
+      to:
+        insId: plasma-antimatter
+        pinId: requires
+    - from:
+        insId: plasma-antimatter
+        pinId: unlocks
+      to:
+        insId: beam-antimatter
+        pinId: requires
+    - from:
+        insId: beam-antimatter
+        pinId: unlocks
+      to:
+        insId: photonic-drive
+        pinId: requires
+    - from:
+        insId: fuel-cell-1
+        pinId: unlocks
+      to:
+        insId: fuel-cell-2
+        pinId: requires
+    - from:
+        insId: fuel-cell-2
+        pinId: unlocks
+      to:
+        insId: fuel-cell-3
+        pinId: requires
+    - from:
+        insId: fuel-cell-3
+        pinId: unlocks
+      to:
+        insId: fuel-cell-4
+        pinId: requires
+    - from:
+        insId: fuel-cell-4
+        pinId: unlocks
+      to:
+        insId: reactor-nuclear-1
+        pinId: requires
+    - from:
+        insId: reactor-nuclear-1
+        pinId: unlocks
+      to:
+        insId: reactor-nuclear-2
+        pinId: requires
+    - from:
+        insId: reactor-nuclear-2
+        pinId: unlocks
+      to:
+        insId: reactor-nuclear-3
+        pinId: requires
+    - from:
+        insId: reactor-nuclear-3
+        pinId: unlocks
+      to:
+        insId: reactor-nuclear-4
+        pinId: requires
+    - from:
+        insId: reactor-nuclear-4
+        pinId: unlocks
+      to:
+        insId: reactor-fusion-1
+        pinId: requires
+    - from:
+        insId: reactor-fusion-1
+        pinId: unlocks
+      to:
+        insId: reactor-fusion-2
+        pinId: requires
+    - from:
+        insId: reactor-fusion-2
+        pinId: unlocks
+      to:
+        insId: reactor-fusion-3
+        pinId: requires
+    - from:
+        insId: reactor-fusion-3
+        pinId: unlocks
+      to:
+        insId: reactor-fusion-4
+        pinId: requires
+    - from:
+        insId: reactor-fusion-4
+        pinId: unlocks
+      to:
+        insId: reactor-am-1
+        pinId: requires
+    - from:
+        insId: conventional-engine
+        pinId: unlocks
+      to:
+        insId: engine-size-1
+        pinId: requires
+    - from:
+        insId: engine-size-1
+        pinId: unlocks
+      to:
+        insId: engine-size-2
+        pinId: requires
+    - from:
+        insId: engine-size-2
+        pinId: unlocks
+      to:
+        insId: engine-size-3
+        pinId: requires
+    - from:
+        insId: engine-size-3
+        pinId: unlocks
+      to:
+        insId: engine-size-4
+        pinId: requires
+    - from:
+        insId: engine-size-4
+        pinId: unlocks
+      to:
+        insId: engine-size-5
+        pinId: requires
+    - from:
+        insId: engine-size-5
+        pinId: unlocks
+      to:
+        insId: engine-size-6
+        pinId: requires
+    - from:
+        insId: conventional-engine
+        pinId: unlocks
+      to:
+        insId: engine-power-125
+        pinId: requires
+    - from:
+        insId: engine-power-125
+        pinId: unlocks
+      to:
+        insId: engine-power-150
+        pinId: requires
+    - from:
+        insId: engine-power-150
+        pinId: unlocks
+      to:
+        insId: engine-power-175
+        pinId: requires
+    - from:
+        insId: engine-power-175
+        pinId: unlocks
+      to:
+        insId: engine-power-200
+        pinId: requires
+    - from:
+        insId: engine-power-200
+        pinId: unlocks
+      to:
+        insId: engine-power-250
+        pinId: requires
+    - from:
+        insId: engine-power-250
+        pinId: unlocks
+      to:
+        insId: engine-power-300
+        pinId: requires
+    - from:
+        insId: conventional-engine
+        pinId: unlocks
+      to:
+        insId: miniaturization-1
+        pinId: requires
+    - from:
+        insId: miniaturization-1
+        pinId: unlocks
+      to:
+        insId: miniaturization-2
+        pinId: requires
+    - from:
+        insId: miniaturization-2
+        pinId: unlocks
+      to:
+        insId: miniaturization-3
+        pinId: requires
+    - from:
+        insId: miniaturization-3
+        pinId: unlocks
+      to:
+        insId: miniaturization-4
+        pinId: requires
+    - from:
+        insId: miniaturization-4
+        pinId: unlocks
+      to:
+        insId: miniaturization-5
+        pinId: requires
+    - from:
+        insId: miniaturization-5
+        pinId: unlocks
+      to:
+        insId: miniaturization-6
+        pinId: requires
+    - from:
+        insId: conventional-engine
+        pinId: unlocks
+      to:
+        insId: fuel-efficiency-1
+        pinId: requires
+    - from:
+        insId: fuel-efficiency-1
+        pinId: unlocks
+      to:
+        insId: fuel-efficiency-2
+        pinId: requires
+    - from:
+        insId: fuel-efficiency-2
+        pinId: unlocks
+      to:
+        insId: fuel-efficiency-3
+        pinId: requires
+    - from:
+        insId: fuel-efficiency-3
+        pinId: unlocks
+      to:
+        insId: fuel-efficiency-4
+        pinId: requires
+    - from:
+        insId: fuel-efficiency-4
+        pinId: unlocks
+      to:
+        insId: fuel-efficiency-5
+        pinId: requires
+    - from:
+        insId: fuel-efficiency-5
+        pinId: unlocks
+      to:
+        insId: fuel-efficiency-6
+        pinId: requires
+    - from:
+        insId: fuel-efficiency-6
+        pinId: unlocks
+      to:
+        insId: fuel-efficiency-7
+        pinId: requires
+    - from:
+        insId: fuel-efficiency-7
+        pinId: unlocks
+      to:
+        insId: fuel-efficiency-8
+        pinId: requires
+    - from:
+        insId: fuel-efficiency-8
+        pinId: unlocks
+      to:
+        insId: fuel-efficiency-9
+        pinId: requires
+    - from:
+        insId: fuel-efficiency-9
+        pinId: unlocks
+      to:
+        insId: fuel-efficiency-10
+        pinId: requires
+    - from:
+        insId: fuel-efficiency-10
+        pinId: unlocks
+      to:
+        insId: fuel-efficiency-11
+        pinId: requires
+    - from:
+        insId: fuel-efficiency-11
+        pinId: unlocks
+      to:
+        insId: fuel-efficiency-12
+        pinId: requires
+    - from:
+        insId: nuclear-pulse
+        pinId: unlocks
+      to:
+        insId: jump-point-theory
+        pinId: requires
+    - from:
+        insId: jump-point-theory
+        pinId: unlocks
+      to:
+        insId: jump-gate-construction
+        pinId: requires
+    - from:
+        insId: jump-point-theory
+        pinId: unlocks
+      to:
+        insId: jump-efficiency-1
+        pinId: requires
+    - from:
+        insId: jump-efficiency-1
+        pinId: unlocks
+      to:
+        insId: jump-efficiency-2
+        pinId: requires
+    - from:
+        insId: jump-gate-construction
+        pinId: unlocks
+      to:
+        insId: gate-construction-2
+        pinId: requires
+    - from:
+        insId: jump-efficiency-2
+        pinId: unlocks
+      to:
+        insId: jump-efficiency-3
+        pinId: requires
+    - from:
+        insId: gate-construction-2
+        pinId: unlocks
+      to:
+        insId: gate-construction-3
+        pinId: requires
+    - from:
+        insId: gate-construction-3
+        pinId: unlocks
+      to:
+        insId: gate-construction-4
+        pinId: requires
+    - from:
+        insId: nuclear-thermal
+        pinId: unlocks
+      to:
+        insId: military-specification
+        pinId: requires
+    - from:
+        insId: nuclear-thermal
+        pinId: unlocks
+      to:
+        insId: tank-efficiency-1
+        pinId: requires
+    - from:
+        insId: tank-efficiency-1
+        pinId: unlocks
+      to:
+        insId: tank-efficiency-2
+        pinId: requires
+    - from:
+        insId: tank-efficiency-2
+        pinId: unlocks
+      to:
+        insId: tank-efficiency-3
+        pinId: requires
+  id: tech-power
+  inputs: {}
+  outputs: {}
+  inputsPosition: {}
+  outputsPosition: {}

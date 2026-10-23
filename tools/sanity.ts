@@ -28,6 +28,8 @@ import { ENGINE_TYPES, REACTOR_TYPES } from "../src/sim/ships/engines";
 import { FIELD_BRANCHES } from "../src/sim/research/branches";
 import { branchesInField } from "../src/sim/research/graph";
 import { classTitle } from "../src/sim/ships/hulls";
+import * as ComponentLadders from "../src/sim/ships/components";
+import { flowToTechs, techsToFlow, effectsToText, textToEffects, loadFlowTechs } from "./techFlows";
 import { buyProgramme, programmeCost, moraleFactor, reserveErosion, stabilityTarget } from "../src/sim/economy/finance";
 import {
   FACTIONS, approval, capitalUpkeep, courtFaction, enactPolicy, repealPolicy, rejectDemand, judge, moodEffect, runPolitics,
@@ -2280,6 +2282,29 @@ console.log("");
     check("the conventional and nuclear engines are five techs in a line of five columns", gone.columns.length * 10 + gone.count, 55, 0);
     assert("a tech's name does not repeat its sub-field", !TECHS.some((t) => t.branch && t.name.startsWith(`${t.branch}:`)));
   }
+}
+
+// ---- Flyde flows: the tree is authored in flows/*.flyde ----
+{
+  const norm = (ts: typeof TECHS) => new Map(ts.map((t) => [t.id, JSON.stringify({ ...t, prereqs: [...t.prereqs].sort() })]));
+  const fromFlows = norm(loadFlowTechs());
+  const fromJson = norm(TECHS);
+  const drift = [...fromJson.keys()].filter((id) => fromFlows.get(id) !== fromJson.get(id));
+  check("flows/ and src/data/techs.json agree (run `npm run techs`)", drift.length + Math.abs(fromFlows.size - fromJson.size), 0, 0);
+  if (drift.length) console.log("  differ:", drift.slice(0, 8).join(", "));
+  const again = flowToTechs(techsToFlow("power", TECHS));
+  check("a flow regenerated from the data reads back the same", again.length, TECHS.filter((t) => t.field === "power").length, 0);
+  const fx = TECHS.flatMap((t) => t.effects ?? []);
+  assert("effect text round-trips", JSON.stringify(textToEffects(effectsToText(fx))) === JSON.stringify(fx));
+  const refs = new Set<string>();
+  for (const v of Object.values(ComponentLadders)) {
+    if (Array.isArray(v)) for (const row of v) if (Array.isArray(row) && typeof row[0] === "string") refs.add(row[0]);
+  }
+  ENGINE_TYPES.forEach((e) => refs.add(e.tech));
+  REACTOR_TYPES.forEach((r) => refs.add(r.tech));
+  const missing = [...refs].filter((id) => !TECH_BY_ID.has(id));
+  check("every tech id the parts refer to exists in the tree", missing.length, 0, 0);
+  if (missing.length) console.log("  missing:", missing.join(", "));
 }
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);
