@@ -8,7 +8,7 @@
  * the log and the empire's current state.
  */
 
-import type { Empire, LogCategory, LogEntry } from "../state/empire";
+import type { Empire, LogCategory, LogEntry, ReviewMark } from "../state/empire";
 import type { Galaxy } from "./galaxy";
 import { activeIssues, type Issue } from "./issues";
 
@@ -47,8 +47,9 @@ const GROUPS: [LogCategory, string][] = [
   ["people", "People"],
 ];
 
-export function buildDigest(empire: Empire, system: Galaxy, now: number): Digest {
-  const mark = empire.reviewMark;
+/** `since` defaults to the player's last review; a turn report passes the moment the turn began. */
+export function buildDigest(empire: Empire, system: Galaxy, now: number, since?: ReviewMark): Digest {
+  const mark = since ?? empire.reviewMark;
   // Newest first in the log; the report reads oldest first.
   const fresh = empire.logSince(mark.seq);
   const oldest = empire.log[empire.log.length - 1];

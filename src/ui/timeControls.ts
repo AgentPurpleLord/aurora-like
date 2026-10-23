@@ -7,6 +7,7 @@
  */
 
 import type { Game } from "../state/game";
+import type { ReviewMark } from "../state/empire";
 import { TIME_INCREMENTS, TIME_RATES } from "../sim/clock";
 import { el } from "./format";
 
@@ -26,6 +27,8 @@ export class TimeControls {
     root: HTMLElement,
     private game: Game,
     private onNextEvent: () => void,
+    /** Told when a jump button has run its span, with the empire as it stood before. */
+    private onJump: (before: ReviewMark, seconds: number) => void = () => {},
   ) {
     const clock = el("div", "clock");
     clock.append(this.dateEl, this.timeEl);
@@ -93,7 +96,9 @@ export class TimeControls {
     btn.title = `Advance ${label.slice(1)}`;
     btn.addEventListener("click", () => {
       this.moreMenu.classList.remove("open");
+      const before = this.game.empire.reviewSnapshot(this.game.clock.seconds);
       this.game.step(seconds);
+      this.onJump(before, seconds);
     });
     return btn;
   }

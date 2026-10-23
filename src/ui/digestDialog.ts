@@ -1,7 +1,7 @@
 /** The return digest dialog: what happened since the player last looked. */
 
 import type { Game } from "../state/game";
-import type { LogLink } from "../state/empire";
+import type { LogLink, ReviewMark } from "../state/empire";
 import { buildDigest } from "../sim/digest";
 import { formatShortDate } from "../sim/clock";
 import { showDialog, type DialogHandle } from "./dialog";
@@ -18,11 +18,13 @@ export function openDigestDialog(
   game: Game,
   navigate: (link: LogLink) => void,
   onClose?: () => void,
+  /** When given, report on the span since then rather than since the last review. */
+  since?: ReviewMark,
 ): DialogHandle {
   const expanded = new Set<string>();
 
-  return showDialog("While you were away", (body, handle) => {
-    const digest = buildDigest(game.empire, game.galaxy, game.clock.seconds);
+  return showDialog(since ? "Turn report" : "While you were away", (body, handle) => {
+    const digest = buildDigest(game.empire, game.galaxy, game.clock.seconds, since);
     const events = digest.groups.reduce((sum, g) => sum + g.entries.length, 0);
 
     body.append(
@@ -110,14 +112,18 @@ export function openDigestDialog(
     }
 
     const foot = el("div", "dialog-foot");
-    foot.append(
-      button("Mark as read", () => {
-        game.empire.markReviewed(game.clock.seconds);
-        handle.close();
-        game.emit();
-      }, "primary-btn"),
-      button("Close", () => handle.close()),
-    );
+    if (since) {
+      foot.append(button("Continue", () => handle.close(), "primary-btn"));
+    } else {
+      foot.append(
+        button("Mark as read", () => {
+          game.empire.markReviewed(game.clock.seconds);
+          handle.close();
+          game.emit();
+        }, "primary-btn"),
+        button("Close", () => handle.close()),
+      );
+    }
     body.append(foot);
-  }, { wide: true, onClose, label: "Digest", terminalTitle: "Situation report" });
+  }, { wide: true, onClose, label: "Digest", terminalTitle: since ? "Turn report" : "Situation report" });
 }

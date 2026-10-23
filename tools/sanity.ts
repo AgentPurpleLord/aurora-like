@@ -32,6 +32,7 @@ import {
 import {
   GOODS, baseMood, computeMarket, fertility, invalidateMarket, popInfluence, summarisePops, targetShares,
 } from "../src/sim/economy/goods";
+import { labReport, projectRoom } from "../src/sim/research/labs";
 import { invalidateTrade, tradeConnections } from "../src/sim/economy/trade";
 import { budgetOf } from "../src/sim/economy/budget";
 import type { Empire } from "../src/state/empire";
@@ -1928,6 +1929,30 @@ console.log("");
     // save round trip
     const rt = gameFromSave(parseSave(JSON.stringify(makeSave(mg, "pp", "pp", "manual"))));
     assert("pops survive a save", rt.empire.colony("mars")!.pops.some((g) => g.radicalism > 50));
+  }
+
+  // --- laboratories are put to work as they are built
+  {
+    const lg = new Game("labs");
+    const le = lg.empire;
+    const home = le.colony("earth")!;
+    assert("the opening has two projects on Earth", le.projects.filter((p) => p.colonyId === "earth").length === 2);
+    const room = le.projects.reduce((n, p) => n + projectRoom(le, p.id), 0);
+    assert("with room for more labs", room > 0);
+    home.installations["research-lab"] += 3;
+    const used = le.labsInUse("earth");
+    assert("new labs start idle", labReport(le)[0].idle === 3 + (30 - used));
+    le.autoAssignLabs = false;
+    lg.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    check("with auto-assign off they stay idle", le.labsInUse("earth"), used, 0);
+    le.autoAssignLabs = true;
+    lg.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    assert("with it on they are given to the projects", le.labsInUse("earth") > used);
+    assert("never beyond what the scientists direct", le.projects.every((p) => projectRoom(le, p.id) >= 0));
+    assert("the assignment is logged", le.log.some((l) => /put to work/.test(l.text)));
+    assert("nothing absorbable is left idle", labReport(le)[0].absorbable === 0);
+    const report = labReport(le)[0];
+    assert("a blocked colony says why", report.idle === 0 || (report.blocker?.length ?? 0) > 0);
   }
 }
 

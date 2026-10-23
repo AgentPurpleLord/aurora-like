@@ -165,6 +165,7 @@ export interface EmpireState {
   austerity: boolean;
   taxRate?: number;
   welfare?: number;
+  autoLabs?: boolean;
   politics?: PoliticsState;
   politicsRng?: number;
   dismissed: [string, number][];
@@ -217,6 +218,8 @@ export class Empire {
   taxRate = 0.3;
   /** Share of tax revenue spent on public welfare, which buys stability. */
   welfare = 0;
+  /** New laboratories are given to the projects at their colony as they appear. */
+  autoAssignLabs = true;
   /** Factions, laws, capital and the election clock. */
   politics: PoliticsState = defaultPolitics();
   readonly politicsRng = new Random("politics");
@@ -843,7 +846,12 @@ export class Empire {
 
   /** Record the empire's state as "seen", for the what-changed summary. */
   markReviewed(now: number): void {
-    this.reviewMark = {
+    this.reviewMark = this.reviewSnapshot(now);
+  }
+
+  /** The empire as it stands, in the form a review mark takes. */
+  reviewSnapshot(now: number): ReviewMark {
+    return {
       time: now,
       seq: this.logSeq,
       treasury: this.treasury,
@@ -873,6 +881,7 @@ export class Empire {
       austerity: this.austerity,
       taxRate: this.taxRate,
       welfare: this.welfare,
+      autoLabs: this.autoAssignLabs,
       politics: this.politics,
       politicsRng: this.politicsRng.state,
       dismissed: [...this.dismissed],
@@ -931,6 +940,7 @@ export class Empire {
     this.austerity = data.austerity;
     this.taxRate = data.taxRate ?? 0.3;
     this.welfare = data.welfare ?? 0;
+    this.autoAssignLabs = data.autoLabs ?? true;
     this.politics = { ...defaultPolitics(), ...data.politics };
     if (data.politicsRng !== undefined) this.politicsRng.state = data.politicsRng;
     this.refreshPolitics(data.lastTick);

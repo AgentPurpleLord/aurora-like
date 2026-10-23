@@ -34,6 +34,7 @@ import {
   type TechState,
 } from "../../sim/research/graph";
 import { TECHS, TECH_BY_ID, type Tech } from "../../sim/research/techs";
+import { assignIdleLabs, describeAssignment, labReport } from "../../sim/research/labs";
 import { fullName, labCapacity } from "../../sim/people/officers";
 import { compact, el, num } from "../format";
 import { button, emptyNote, numberInput, progressBar, section, select, stat } from "../widgets";
@@ -130,6 +131,7 @@ export class ResearchView {
   private renderMain(): void {
     this.main.textContent = "";
     this.renderSummary();
+    this.renderLabs();
     this.renderProjects();
     this.renderToolbar();
     this.main.append(this.boardHost);
@@ -157,10 +159,54 @@ export class ResearchView {
     };
     add("Output", `${num(empire.snapshot.researchPoints)} RP/yr`);
     add("Laboratories", `${num(working)} of ${num(totalLabs)} working`, working < totalLabs ? "warn" : undefined);
+    add("Idle labs", num(totalLabs - working), totalLabs - working > 0 ? "warn" : "good");
     add("Scientists free", num(freeScientistCount), freeScientistCount && working < totalLabs ? "warn" : undefined);
     add("Ready to start", num(ready));
     add("Researched", `${empire.researched.size} of ${TECHS.length}`);
     this.main.append(strip);
+  }
+
+  /** Where the laboratories are, which are working, and why the rest are not. */
+  private renderLabs(): void {
+    const { empire } = this.game;
+    const report = labReport(empire);
+    if (!report.length) return;
+    const sec = el("div", "research-labs");
+    sec.append(el("h3", undefined, "Laboratories"));
+
+    const auto = el("label", "check-row research-auto");
+    const box = el("input");
+    box.type = "checkbox";
+    box.checked = empire.autoAssignLabs;
+    box.setAttribute("aria-label", "Auto-assign new labs");
+    box.addEventListener("change", () => {
+      empire.autoAssignLabs = box.checked;
+      this.game.emit();
+      this.draw();
+    });
+    auto.append(box, el("span", "check-label", "Put new laboratories to work on this colony's projects automatically"));
+    sec.append(auto);
+
+    for (const c of report) {
+      const row = el("div", "lab-row");
+      const name = this.game.galaxy.byId.get(c.colonyId)?.name ?? c.colonyId;
+      row.append(el("span", "lab-name", name));
+      row.append(progressBar(c.built > 0 ? c.working / c.built : 0));
+      row.append(el("span", `lab-count${c.idle ? " warn" : ""}`, `${num(c.working)} working / ${num(c.built)} built${c.idle ? ` - ${num(c.idle)} idle` : ""}`));
+      if (c.blocker) row.append(el("span", "muted small lab-blocker", c.blocker));
+      sec.append(row);
+    }
+    const absorbable = report.reduce((n, c) => n + c.absorbable, 0);
+    if (absorbable > 0 && !empire.autoAssignLabs) {
+      sec.append(button(`Assign ${num(absorbable)} idle labs now`, () => {
+        for (const a of assignIdleLabs(empire)) {
+          empire.addLog(this.game.clock.seconds, "research", describeAssignment(a, this.game.galaxy.byId.get(a.colonyId)?.name ?? a.colonyId), { view: "research", techId: a.techId });
+        }
+        this.game.emit();
+        this.draw();
+      }));
+    }
+    this.main.append(sec);
   }
 
   private renderProjects(): void {
@@ -187,7 +233,7 @@ export class ResearchView {
       card.classList.toggle("stalled", rate <= 0);
 
       card.append(el("div", "proj-name", tech.name));
-      card.append(el("div", "proj-field", FIELD_SHORT[tech.field]));
+      card.append(el("div", "proj-field", `${FIELD_SHORT[tech.field]} - ${num(project.labs)} ${project.labs === 1 ? "lab" : "labs"}`));
       card.append(progressBar(project.progress / tech.cost));
       const scientist = empire.officers.get(project.scientistId ?? undefined);
       card.append(

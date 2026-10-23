@@ -441,6 +441,19 @@ refineries spacers). Open a colony's **People** tab to see them.
   Colonial League). Their mood feeds those factions' support, and who the population is
   sets the factions' influence - so a famine on one world can lose you an election.
 
+## Turn reports and laboratories
+
+- **Turn reports.** Every clock jump button (`+1d`, `+5d`, `+30d`, ...) ends with a *Turn report*
+  covering exactly the span just run: changes in treasury, population, techs, colonies and
+  ships, what happened by category, and what needs attention. Jumps of a day or more always
+  report; shorter hops only when something happened. Escape or Continue dismisses it.
+- **Laboratories.** The Research screen lists every colony's labs - working, built and idle - with
+  the reason when some are idle (no project there, or every scientist is at the limit their
+  administration allows). Project cards show their lab count.
+- **Auto-assign.** New laboratories are put to work on the projects at their colony as the
+  production cycle runs, fewest labs first, up to what each scientist can direct. Untick the
+  box to assign by hand, or use *Assign idle labs now*.
+
 ## Politics
 
 The **Politics** screen (key `P`) is the part of the game that is never finished with.

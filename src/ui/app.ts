@@ -29,7 +29,7 @@ import { SettingsMenu } from "./settingsMenu";
 import { Toasts } from "./toasts";
 import { applyDensity, applyTheme, saveSettings, settings } from "./settings";
 import { LENSES, LENS_BY_ID, hoverLines, type LensId } from "./lenses";
-import { IMPORTANT_CATEGORIES, type LogEntry, type LogLink } from "../state/empire";
+import { IMPORTANT_CATEGORIES, type LogEntry, type LogLink, type ReviewMark } from "../state/empire";
 import { QUICKSAVE_ID, listSaves, requestLoad, saveAuto, saveQuick, type SaveMeta } from "../state/save";
 import { buildDigest, worthShowing } from "../sim/digest";
 import { formatShortDate } from "../sim/clock";
@@ -181,7 +181,7 @@ export class App {
       openEconomy: () => this.setView("colonies"),
       openFleets: () => this.setView("fleets"),
     });
-    this.time = new TimeControls(roots.time, this.game, () => this.nextEvent());
+    this.time = new TimeControls(roots.time, this.game, () => this.nextEvent(), (before, seconds) => this.turnReport(before, seconds));
     this.economy = new EconomyView(roots.views.colonies, this.game);
     this.research = new ResearchView(roots.views.research, this.game);
     this.officers = new OfficersView(roots.views.officers, this.game);
@@ -391,6 +391,19 @@ export class App {
 
   private openDigest(): void {
     openDigestDialog(this.game, (link) => this.navigate(link), () => this.game.emit());
+  }
+
+  /**
+   * A turn-based jump has run: report on exactly that span. A day or more
+   * always gets a report; shorter hops only when something happened in them.
+   */
+  private turnReport(before: ReviewMark, seconds: number): void {
+    if (dialogOpen()) return;
+    const digest = buildDigest(this.game.empire, this.game.galaxy, this.game.clock.seconds, before);
+    const news = digest.groups.length > 0 || digest.attention.length > 0;
+    if (seconds < 86_400 && !news) return;
+    this.digestOfferedFor = this.game.empire.reviewMark.seq;
+    openDigestDialog(this.game, (link) => this.navigate(link), () => this.game.emit(), before);
   }
 
   /**

@@ -37,6 +37,7 @@ import {
 } from "../atmosphere";
 import { bonus, fullName, labCapacity } from "../people/officers";
 import { evaluateStandingOrders } from "./standingOrders";
+import { assignIdleLabs, describeAssignment } from "../research/labs";
 import { runPolitics } from "../politics";
 import { invalidateMarket, computeMarket, popFactor, popStability, runPops } from "./goods";
 import { invalidateTrade, tradeConnections } from "./trade";
@@ -318,6 +319,11 @@ export function runCycle(empire: Empire, system: Galaxy, now: number, days: numb
 
   migrate(empire, system, year);
 
+  if (empire.autoAssignLabs) {
+    for (const a of assignIdleLabs(empire)) {
+      empire.addLog(now, "research", describeAssignment(a, system.byId.get(a.colonyId)?.name ?? a.colonyId), { view: "research", techId: a.techId });
+    }
+  }
   researchPoints = advanceResearch(empire, system, now, year);
   expenses += researchPoints * WEALTH_PER_RESEARCH_POINT;
 
