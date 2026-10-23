@@ -26,6 +26,8 @@ import { maintainShips, servicingCapacity } from "../src/sim/ships/maintenance";
 import { statsFor, TECHS, TECH_BY_ID } from "../src/sim/research/techs";
 import { SPEED_SCALE } from "../src/sim/ships/design";
 import { ENGINE_TYPES, REACTOR_TYPES } from "../src/sim/ships/engines";
+import { FIELD_BRANCHES } from "../src/sim/research/branches";
+import { branchesInField } from "../src/sim/research/graph";
 import { classTitle } from "../src/sim/ships/hulls";
 import { buyProgramme, programmeCost, moraleFactor, reserveErosion, stabilityTarget } from "../src/sim/economy/finance";
 import {
@@ -2180,6 +2182,19 @@ console.log("");
     check("and the ship is lighter by the saving", bigHull.tons - smallHull.tons, 10 * 50 * 0.7, 1e-6);
     pe.research("engine-power-300");
     check("the modifier ceiling reaches 3.0", normaliseParams("engine", { type: "solid-motor", size: 5, modifier: 9 }, pe.researched).modifier as number, 3, 0);
+  }
+
+  // --- research sub-fields
+  {
+    assert("every technology has a sub-field", TECHS.every((t) => t.branch && t.branch.length > 0));
+    const stray = TECHS.filter((t) => t.branch === "General");
+    check("none fell through to General", stray.length, 0, 0);
+    if (stray.length) console.log("  unassigned:", stray.map((t) => t.id).join(", "));
+    const unlisted = TECHS.filter((t) => !FIELD_BRANCHES[t.field].includes(t.branch!));
+    check("and every sub-field is listed for its field", unlisted.length, 0, 0);
+    const gone = branchesInField("power").find((b) => b.name === "Chemical Rockets")!;
+    check("chemical rockets are five techs in a line of five columns", gone.columns.length * 10 + gone.count, 55, 0);
+    assert("a tech's name does not repeat its sub-field", !TECHS.some((t) => t.branch && t.name.startsWith(`${t.branch}:`)));
   }
 }
 

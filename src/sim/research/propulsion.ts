@@ -50,7 +50,8 @@ function engineTechs(): Tech[] {
     family.tiers.forEach((tier, i) => {
       out.push({
         id: tier.id,
-        name: `${family.name}: ${tier.name}`,
+        name: tier.name,
+        branch: family.name,
         field: "power",
         cost: tier.cost,
         prereqs: i === 0 ? ENGINE_ENTRY[family.id] : [family.tiers[i - 1].id],
@@ -70,7 +71,8 @@ function powerTechs(): Tech[] {
     family.tiers.forEach((tier, i) => {
       out.push({
         id: tier.id,
-        name: `${family.name} Power: ${tier.name}`,
+        name: tier.name,
+        branch: `${family.name} Power`,
         field: "power",
         cost: tier.cost,
         prereqs: i === 0 ? POWER_ENTRY[family.id] : [family.tiers[i - 1].id],
@@ -87,22 +89,22 @@ const doubling = (first: number, i: number) => first * Math.pow(2, i);
 function secondary(): Tech[] {
   const out: Tech[] = [];
   ENGINE_SIZE_LADDER.forEach(([id, hs], i) => out.push({
-    id, name: `Engine Size ${hs} HS`, field: "power", cost: doubling(2000, i),
+    id, name: `${hs} Hull Spaces`, branch: "Engine Size", field: "power", cost: doubling(2000, i),
     prereqs: [i === 0 ? FIRST_ENGINE : ENGINE_SIZE_LADDER[i - 1][0]],
     description: `A single engine may be up to ${hs} hull spaces (the largest is 400).`,
   }));
   POWER_MODIFIER_LADDER.forEach(([id, value], i) => out.push({
-    id, name: `Maximum Engine Power Modifier x${value}`, field: "power", cost: doubling(2000, i),
+    id, name: `Power Modifier x${value}`, branch: "Power Modifier", field: "power", cost: doubling(2000, i),
     prereqs: [i === 0 ? FIRST_ENGINE : POWER_MODIFIER_LADDER[i - 1][0]],
     description: `Raises the engine power modifier ceiling to ${value}x: more thrust from the same engine, at a fuel premium that grows with its square.`,
   }));
   MINIATURE_LADDER.forEach(([id, value], i) => out.push({
-    id, name: `Engine Miniaturisation ${value}x`, field: "power", cost: doubling(1000, i),
+    id, name: `Miniaturisation ${value}x`, branch: "Miniaturisation", field: "power", cost: doubling(1000, i),
     prereqs: [i === 0 ? FIRST_ENGINE : MINIATURE_LADDER[i - 1][0]],
     description: `Engines take up only ${value}x the hull space for the same thrust, on every ship, existing ones included.`,
   }));
   FUEL_USE_LADDER.forEach(([id, value], i) => out.push({
-    id, name: `Fuel Efficiency ${value}x`, field: "power", cost: doubling(1000, i),
+    id, name: `Fuel Use ${value}x`, branch: "Fuel Efficiency", field: "power", cost: doubling(1000, i),
     prereqs: [i === 0 ? FIRST_ENGINE : FUEL_USE_LADDER[i - 1][0]],
     description: `Every engine burns fuel at ${value}x the rate, existing ships included.`,
   }));

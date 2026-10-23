@@ -284,21 +284,35 @@ async function shipSuite(browser) {
 
   await page.getByRole("button", { name: /^Propulsion/ }).click();
   await check("technology that is not available yet is hidden by default", async () =>
-    (await page.locator(".tech-node", { hasText: "Chemical Rockets: Pressure-fed Liquid" }).count()) === 0 &&
-    (await page.locator(".tech-node", { hasText: "Chemical Rockets: Solid Motor" }).count()) === 1);
+    (await page.locator(".tech-node", { hasText: "Pressure-fed Liquid" }).count()) === 0 &&
+    (await page.locator(".tech-node", { hasText: "Solid Motor" }).count()) === 1);
   await check("and the field tab only counts what is shown", async () =>
     /\d+\/\d+/.test(await page.locator(".research-tab", { hasText: "Propulsion" }).innerText()));
   await page.getByLabel("Show locked technologies").check();
   await check("ticking the box reveals the whole tree", async () =>
-    (await page.locator(".tech-node", { hasText: "Chemical Rockets: Pressure-fed Liquid" }).count()) === 1);
-  await page.locator(".tech-node", { hasText: "Chemical Rockets: Pressure-fed Liquid" }).first().click();
+    (await page.locator(".tech-node", { hasText: "Pressure-fed Liquid" }).count()) === 1);
+  await page.locator(".tech-node", { hasText: "Pressure-fed Liquid" }).first().click();
+  await check("technologies sit under their own sub-field headings", async () =>
+    (await page.locator(".branch-head", { hasText: "Chemical Rockets" }).count()) === 1 &&
+    (await page.locator(".branch-head", { hasText: "Fusion" }).count()) >= 1);
+  await check("and the tech names carry no family prefix", async () =>
+    (await page.locator(".tech-node .node-name", { hasText: "Chemical Rockets:" }).count()) === 0);
+  await page.getByRole("button", { name: "Sub-field Electric Drives" }).click();
+  await check("a sub-field chip shows just that sub-field", async () =>
+    (await page.locator(".branch").count()) === 1 && /resistojet/i.test(await page.locator(".branch").innerText()));
+  await page.getByRole("button", { name: /^Sub-field All/ }).click();
+  await page.locator(".branch-head", { hasText: "Chemical Rockets" }).click();
+  await check("a sub-field can be folded away", async () =>
+    (await page.locator(".branch", { hasText: "Chemical Rockets" }).locator(".tech-node").count()) === 0);
+  await page.locator(".branch-head", { hasText: "Chemical Rockets" }).click();
+  await page.locator(".tech-node", { hasText: "Pressure-fed Liquid" }).first().click();
   await check("a locked technology says what to research first", async () =>
-    /Research Chemical Rockets: Solid Motor first/.test(await page.locator(".research-side").innerText()));
+    /Research Solid Motor first/.test(await page.locator(".research-side").innerText()));
   await check("selecting a technology highlights what it needs", async () =>
     (await page.locator(".tech-node.is-prereq").count()) === 1);
   await check("and what it opens", async () =>
     (await page.locator(".tech-node.is-dependent").count()) >= 1);
-  await page.locator(".tech-node", { hasText: "Chemical Rockets: Solid Motor" }).first().click();
+  await page.locator(".tech-node", { hasText: "Solid Motor" }).first().click();
   await check("a technology says what it unlocks", async () =>
     /engines in the component designer/.test(await page.locator(".research-side").innerText()));
   await check("a ready technology offers a recommended start", async () =>
@@ -316,11 +330,11 @@ async function shipSuite(browser) {
     /Research Chemical Rockets/.test(await page.locator("#view-design .fleet-detail").innerText()));
 
   // --- research the drive in one click
-  await startResearch(page, "Chemical Rockets: Solid Motor", { freeUp: true });
+  await startResearch(page, "Solid Motor", { freeUp: true });
   await skip(14);
   await check("the engine is researched", async () => {
-    await page.locator(".research-search").fill("Chemical Rockets: Solid Motor");
-    return /Researched/.test(await page.locator(".tech-node", { hasText: "Chemical Rockets: Solid Motor" }).first().innerText());
+    await page.locator(".research-search").fill("Solid Motor");
+    return /Researched/.test(await page.locator(".tech-node", { hasText: "Solid Motor" }).first().innerText());
   });
 
   // --- the component designer

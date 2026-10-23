@@ -26,10 +26,10 @@ import {
   fieldProgress,
   freeLabs,
   freeScientists,
+  branchesInField,
   missingPrereqs,
   recommend,
   techState,
-  techsInField,
   unlocksOf,
   type TechState,
 } from "../../sim/research/graph";
@@ -56,6 +56,10 @@ export class ResearchView {
   private boardHost = el("div", "research-board");
 
   private tab: Tab = "ready";
+  /** The sub-field shown within a field, or "" for all of them. */
+  private branch = "";
+  /** Sub-fields folded away on the board. */
+  private folded = new Set<string>();
   private selected: string | null = null;
   private query = "";
   /** Kept across renders so typing is never interrupted by a redraw. */
@@ -94,6 +98,7 @@ export class ResearchView {
     const tech = TECH_BY_ID.get(techId);
     if (!tech) return;
     this.tab = tech.field;
+    this.branch = "";
     this.searchInput.value = "";
     this.query = "";
     this.selected = techId;
@@ -283,6 +288,7 @@ export class ResearchView {
       if (badge) btn.append(el("span", "tab-badge", badge));
       btn.classList.toggle("active", this.tab === id && !this.query);
       btn.addEventListener("click", () => {
+        if (this.tab !== id) this.branch = "";
         this.tab = id;
         this.searchInput.value = "";
         this.query = "";
@@ -323,7 +329,8 @@ export class ResearchView {
         (t) =>
           t.name.toLowerCase().includes(this.query) ||
           t.description.toLowerCase().includes(this.query) ||
-          FIELD_NAMES[t.field].toLowerCase().includes(this.query),
+          FIELD_NAMES[t.field].toLowerCase().includes(this.query) ||
+          (t.branch ?? "").toLowerCase().includes(this.query),
       );
       const matches = all.filter((t) => this.visible(t));
       this.boardHost.append(el("h3", "board-title", `${matches.length} match${matches.length === 1 ? "" : "es"}`));
@@ -360,21 +367,74 @@ export class ResearchView {
       return;
     }
 
-    // A field: the tree as columns, left to right.
+    // A field: its sub-fields, each a small tree as columns, left to right.
     const field = this.tab as ResearchField;
     this.boardHost.append(el("h3", "board-title", FIELD_NAMES[field]));
-    const board = el("div", "tier-board");
-    techsInField(field).forEach((column, index) => {
-      const shown = column.filter((t) => this.visible(t));
-      if (!shown.length) return;
-      const col = el("div", "tier-col");
-      col.append(el("div", "tier-head", index === 0 ? "Foundations" : `Tier ${index + 1}`));
-      for (const tech of shown) col.append(this.node(tech));
-      board.append(col);
-    });
-    this.boardHost.append(board);
-    if (!board.childElementCount) emptyNote(this.boardHost, "Nothing in this field is available yet.");
-    else if (!settings.showLocked) {
+    const branches = branchesInField(field)
+      .map((b) => ({ ...b, shown: b.columns.map((col) => col.filter((t) => this.visible(t))) }))
+      .filter((b) => b.shown.some((col) => col.length));
+    if (!branches.length) {
+      emptyNote(this.boardHost, "Nothing in this field is available yet.");
+      return;
+    }
+    if (this.branch && !branches.some((b) => b.name === this.branch)) this.branch = "";
+
+    // Chips to jump into one sub-field, or see them all.
+    if (branches.length > 1) {
+      const chips = el("div", "branch-chips");
+      const chip = (name: string, label: string, badge: string) => {
+        const btn = el("button", "branch-chip");
+        btn.append(el("span", undefined, label), el("span", "tab-badge", badge));
+        btn.classList.toggle("active", this.branch === name);
+        btn.setAttribute("aria-label", `Sub-field ${label}`);
+        btn.addEventListener("click", () => {
+          this.branch = name;
+          this.draw();
+        });
+        chips.append(btn);
+      };
+      chip("", "All", String(branches.length));
+      for (const b of branches) {
+        const done = b.columns.flat().filter((t) => empire.researched.has(t.id)).length;
+        chip(b.name, b.name, `${done}/${b.count}`);
+      }
+      this.boardHost.append(chips);
+    }
+
+    for (const b of branches) {
+      if (this.branch && b.name !== this.branch) continue;
+      const section = el("div", "branch");
+      section.dataset.branch = b.name;
+      const done = b.columns.flat().filter((t) => empire.researched.has(t.id)).length;
+      const folded = this.folded.has(`${field}:${b.name}`) && !this.branch;
+      const head = el("button", "branch-head");
+      head.append(
+        el("span", "branch-fold", folded ? "+" : "-"),
+        el("span", "branch-name", b.name),
+        el("span", "muted small", `${done} of ${b.count} researched`),
+      );
+      head.setAttribute("aria-expanded", String(!folded));
+      head.addEventListener("click", () => {
+        const key = `${field}:${b.name}`;
+        if (this.folded.has(key)) this.folded.delete(key);
+        else this.folded.add(key);
+        this.draw();
+      });
+      section.append(head);
+      if (!folded) {
+        const board = el("div", "tier-board");
+        b.shown.forEach((column, index) => {
+          if (!column.length) return;
+          const col = el("div", "tier-col");
+          col.append(el("div", "tier-head", index === 0 ? "Start" : `Tier ${index + 1}`));
+          for (const tech of column) col.append(this.node(tech));
+          board.append(col);
+        });
+        section.append(board);
+      }
+      this.boardHost.append(section);
+    }
+    if (!settings.showLocked) {
       this.boardHost.append(el("p", "muted research-hint", "Technology that is not available yet is hidden. Tick \"Show locked technologies\" to see the whole tree."));
     }
   }
@@ -386,13 +446,13 @@ export class ResearchView {
       const group = el("div", "node-group");
       group.append(el("div", "node-group-head", FIELD_NAMES[field]));
       const grid = el("div", "node-grid");
-      for (const tech of inField) grid.append(this.node(tech));
+      for (const tech of inField) grid.append(this.node(tech, true));
       group.append(grid);
       this.boardHost.append(group);
     }
   }
 
-  private node(tech: Tech): HTMLElement {
+  private node(tech: Tech, showBranch = false): HTMLElement {
     const { empire } = this.game;
     const state = techState(empire, tech);
     const node = el("div", `tech-node ${state}`);
@@ -406,6 +466,7 @@ export class ResearchView {
     }
 
     node.append(el("div", "node-name", tech.name));
+    if (showBranch && tech.branch) node.append(el("div", "node-branch", tech.branch));
     const meta = el("div", "node-meta");
     meta.append(el("span", "node-state", STATE_LABEL[state]));
     meta.append(el("span", "node-cost", state === "researched" ? "" : `${compact(tech.cost)} RP`));
@@ -466,7 +527,7 @@ export class ResearchView {
     title.append(el("div", "detail-title", tech.name));
     const sub = el("div", "tech-subline");
     sub.append(el("span", `state-pill ${state}`, STATE_LABEL[state]));
-    sub.append(el("span", "muted small", FIELD_NAMES[tech.field]));
+    sub.append(el("span", "muted small", tech.branch ? `${FIELD_NAMES[tech.field]} - ${tech.branch}` : FIELD_NAMES[tech.field]));
     sub.append(el("span", "muted small", `${num(tech.cost)} RP`));
     title.append(sub);
     body.append(title);
@@ -524,9 +585,10 @@ export class ResearchView {
   private techChip(tech: Tech): HTMLElement {
     const state = techState(this.game.empire, tech);
     const chip = el("button", `tech-chip ${state}`, tech.name);
-    chip.title = STATE_LABEL[state];
+    chip.title = `${STATE_LABEL[state]}${tech.branch ? ` - ${tech.branch}` : ""}`;
     chip.addEventListener("click", () => {
       this.tab = tech.field;
+      this.branch = "";
       this.searchInput.value = "";
       this.query = "";
       this.select(tech.id);
@@ -540,13 +602,14 @@ export class ResearchView {
     const sec = section(body, "Not yet available");
     sec.append(
       el("p", "notes",
-        `Research ${missing.map((m) => m.name).join(" and ")} first.`),
+        `Research ${missing.map((m) => (m.branch && m.branch !== tech.branch ? `${m.name} (${m.branch})` : m.name)).join(" and ")} first.`),
     );
     const next = missing.find((m) => techState(empire, m) === "available") ?? missing[0];
     if (next) {
       sec.append(
         button(`Go to ${next.name}`, () => {
           this.tab = next.field;
+          this.branch = "";
           this.select(next.id);
         }, "ghost-btn"),
       );

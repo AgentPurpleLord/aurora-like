@@ -547,6 +547,16 @@ stat, add an engine, or improve a part on every ship already built.
 Part-improving techs apply to ships already built, because a class's figures are always derived
 from what is researched.
 
+## Research sub-fields
+
+Each research field is split into **sub-fields** - Chemical Rockets, Electric Drives, Engine Size and
+so on under Propulsion; Armour, Shields and Damage Control under Defence; Mining, Finance & Trade and
+Administration under Construction. Within a field, each sub-field is its own small tree under its own
+heading (fold it with the heading, or click a chip to show just that one), so tech names no longer repeat
+their family. Flat lists (Ready now, Researched, search) show the sub-field under each name, and search
+matches sub-field names. A tech declares its sub-field with `branch`; techs that do not are placed by
+`src/sim/research/branches.ts`, which also sets the order.
+
 ## Engines and power systems
 
 The propulsion tree follows `src/sim/research/propusion-power-techs.ts`, which is the specification;

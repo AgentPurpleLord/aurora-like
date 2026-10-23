@@ -14,6 +14,7 @@ import { ENGINE_TYPES, KINDS, REACTOR_TYPES, SENSOR_TYPES, partTechNote } from "
 import { bonus, labCapacity, type Officer } from "../people/officers";
 import { RESEARCH_FIELDS, type ResearchField } from "./fields";
 import { TECHS, TECH_BY_ID, type Tech } from "./techs";
+import { FALLBACK_BRANCH, branchOrder } from "./branches";
 
 export type TechState = "researched" | "active" | "available" | "locked";
 
@@ -52,6 +53,44 @@ export function techsInField(field: ResearchField): Tech[][] {
     (columns[tier] ??= []).push(tech);
   }
   return columns.map((c) => c ?? []);
+}
+
+const branchTierCache = new Map<string, number>();
+
+/** Column within a branch: same-branch prerequisites only; links from elsewhere do not push a tech right. */
+export function branchTierOf(tech: Tech): number {
+  const cached = branchTierCache.get(tech.id);
+  if (cached !== undefined) return cached;
+  let tier = 0;
+  for (const id of tech.prereqs) {
+    const pre = TECH_BY_ID.get(id);
+    if (pre && pre.field === tech.field && pre.branch === tech.branch) tier = Math.max(tier, branchTierOf(pre) + 1);
+  }
+  branchTierCache.set(tech.id, tier);
+  return tier;
+}
+
+export interface Branch {
+  name: string;
+  field: ResearchField;
+  columns: Tech[][];
+  count: number;
+}
+
+/** A field's sub-fields, in order, each laid out as its own tree. */
+export function branchesInField(field: ResearchField): Branch[] {
+  const byBranch = new Map<string, Tech[]>();
+  for (const tech of TECHS) {
+    if (tech.field !== field) continue;
+    const name = tech.branch ?? FALLBACK_BRANCH;
+    (byBranch.get(name) ?? byBranch.set(name, []).get(name)!).push(tech);
+  }
+  return branchOrder(field, byBranch.keys()).map((name) => {
+    const techs = byBranch.get(name) ?? [];
+    const columns: Tech[][] = [];
+    for (const tech of techs) (columns[branchTierOf(tech)] ??= []).push(tech);
+    return { name, field, columns: columns.map((c) => c ?? []), count: techs.length };
+  });
 }
 
 export function dependentsOf(techId: string): Tech[] {
