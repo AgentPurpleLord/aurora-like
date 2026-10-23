@@ -7,9 +7,9 @@
  */
 
 import type { Game } from "../../state/game";
-import { installationCount } from "../../state/colony";
 import { INSTALLATIONS, INSTALLATION_BY_ID, SHIPYARD_TONS } from "../../sim/economy/installations";
 import { shipyardCapacity } from "../../sim/economy/production";
+import { YARD_KIND_NAMES, isMilitaryDesign, yardLimit } from "../../sim/economy/shipyards";
 import { previewOrder } from "../../sim/economy/ledger";
 import { MINERALS, type MineralName } from "../../sim/minerals";
 import { SURVEY_POINTS_NEEDED } from "../../sim/ships/components";
@@ -574,14 +574,20 @@ export class FleetsView {
 
       // A hull that will not fit the slipways never starts.
       const colony = empire.colony(this.buildColony);
-      if (colony && stats.tons > shipyardCapacity(colony)) {
+      const military = isMilitaryDesign(empire, design.id);
+      if (colony && military && !colony.yards.some((y) => y.kind === "military" && y.slipways > 0) && shipyardCapacity(colony) > 0) {
+        card.append(
+          el("div", "project-warning",
+            `${this.game.galaxy.byId.get(this.buildColony)?.name} has no military shipyard, and this class needs one. Create one on the colony's Shipyards tab.`),
+        );
+      } else if (colony && stats.tons > shipyardCapacity(colony, military)) {
         card.append(
           el("div", "project-warning",
             `${this.game.galaxy.byId.get(this.buildColony)?.name} can lay down ${num(
-              shipyardCapacity(colony),
-            )} t; this class is ${num(stats.tons)} t. Build more shipyards (${num(
+              shipyardCapacity(colony, military),
+            )} t in one ${military ? "military " : ""}yard; this class is ${num(stats.tons)} t. Add slipways (${num(
               SHIPYARD_TONS,
-            )} t each).`),
+            )} t each) on the colony's Shipyards tab.`),
         );
       } else if (colony && !stats.problems.length) {
         const preview = previewOrder(
@@ -604,13 +610,14 @@ export class FleetsView {
 
     const yardNote = section(body, "Shipyards");
     for (const colony of [...empire.colonies.values()]) {
-      const count = installationCount(colony, "shipyard");
-      if (!count) continue;
-      stat(
-        yardNote,
-        this.game.galaxy.byId.get(colony.bodyId)?.name ?? colony.bodyId,
-        `${count} yards - ${num(shipyardCapacity(colony))} t`,
-      );
+      for (const yard of colony.yards) {
+        if (yard.slipways <= 0) continue;
+        stat(
+          yardNote,
+          `${this.game.galaxy.byId.get(colony.bodyId)?.name ?? colony.bodyId} - ${yard.name}`,
+          `${YARD_KIND_NAMES[yard.kind]}, ${yard.slipways} slipways - ${num(yardLimit(yard))} t`,
+        );
+      }
     }
   }
 }

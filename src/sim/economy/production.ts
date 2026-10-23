@@ -21,7 +21,9 @@ import type { EmpireStats } from "../research/techs";
 import { TECH_BY_ID } from "../research/techs";
 import { MINERALS, type MineralName } from "../minerals";
 import { DAYS_PER_YEAR } from "../orbit";
-import { INSTALLATION_BY_ID, SHIPYARD_TONS } from "./installations";
+import { INSTALLATION_BY_ID } from "./installations";
+import { MILITARY_TECH } from "../ships/components";
+import { hullCapacity, isMilitaryDesign, syncYards, yardFor } from "./shipyards";
 import { recomputeEnvironment } from "../system";
 import {
   GAS_BY_ID,
@@ -602,17 +604,18 @@ function buildFromQueue(
 ): number {
   let remaining = budget;
   let spent = 0;
-  const capacity = shipyardCapacity(colony);
 
   for (const order of [...colony.buildQueue]) {
     if (remaining <= 0) break;
     const buildable = empire.buildableOf(order);
     if (!buildable) continue;
 
-    // A hull needs a slipway long enough to lay it down in.
+    // A hull needs a yard of the right kind with slipways long enough to lay it down in.
     if (buildable.isShip) {
       const tons = empire.statsOf(order.designId)?.tons ?? 0;
-      if (tons > capacity) {
+      const military = isMilitaryDesign(empire, order.designId);
+      const fits = colony.yards.length ? yardFor(colony, tons, military) !== null : tons <= shipyardCapacity(colony);
+      if (!fits) {
         order.starved = true;
         continue;
       }
@@ -656,6 +659,13 @@ function buildFromQueue(
         commissionShips(empire, system, colony, order.designId, completed, bodyName, now);
       } else {
         deliver(empire, system, colony, order.installationId, completed, order.destination, bodyName, now);
+        // Slipways go where they were ordered; anything else joins the first yard.
+        const yard = order.yardId ? colony.yards.find((y) => y.id === order.yardId) : undefined;
+        if (order.installationId === "shipyard" && !order.destination) {
+          if (yard) yard.slipways += completed;
+          syncYards(colony, empire.researched.has(MILITARY_TECH));
+          if (yard) empire.addLog(now, "construction", `${bodyName}: ${completed} slipway${completed === 1 ? "" : "s"} finished at ${yard.name}.`, { view: "colonies", bodyId: colony.bodyId }, true);
+        }
       }
 
       if (order.quantity <= 0) {
@@ -674,9 +684,9 @@ function buildFromQueue(
   return spent;
 }
 
-/** The largest hull a colony's shipyards can lay down, in tons. */
-export function shipyardCapacity(colony: Colony): number {
-  return installationCount(colony, "shipyard") * SHIPYARD_TONS;
+/** The largest hull a colony's shipyards can lay down, in tons. Pass `military` for a warship. */
+export function shipyardCapacity(colony: Colony, military = false): number {
+  return hullCapacity(colony, military);
 }
 
 /**

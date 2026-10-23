@@ -6,6 +6,11 @@
  * event log.
  */
 
+import {
+  MAX_NEW_SLIPWAYS, MILITARY_YARD_COST, YARD_KIND_BLURB, YARD_KIND_NAMES, abandonYard, addSlipways, canBuildMilitary,
+  convertYard, createYard, isMilitaryDesign, pendingSlipways, syncYards, yardFor, yardLimit, type YardKind,
+} from "../../sim/economy/shipyards";
+import { SHIPYARD_TONS } from "../../sim/economy/installations";
 import { FACTIONS } from "../../sim/politics";
 import { GOODS, POP_BY_ID, computeMarket, fertility, popStability } from "../../sim/economy/goods";
 import { stabilityLabel, stabilityTarget } from "../../sim/economy/finance";
@@ -182,6 +187,7 @@ export class EconomyView {
       { id: "overview", label: "Overview", badge: alerts.length ? String(alerts.length) : undefined },
       { id: "production", label: "Production", badge: colony.buildQueue.length ? String(colony.buildQueue.length) : undefined },
       { id: "people", label: "People", badge: colony.starving ? "!" : undefined },
+      { id: "yards", label: "Shipyards", badge: colony.yards.length ? String(colony.yards.length) : undefined },
       { id: "mining", label: "Mining & stores" },
       ...(terraformAvailable ? [{ id: "terraform", label: "Terraforming" }] : []),
       { id: "automation", label: "Automation", badge: colony.policy !== "none" || empire.standingOrdersFor(colony.bodyId).length ? "on" : undefined },
@@ -218,6 +224,9 @@ export class EconomyView {
         break;
       case "people":
         this.renderPeople(scroll, body, colony);
+        break;
+      case "yards":
+        this.renderYards(scroll, body, colony);
         break;
       case "terraform":
         this.renderTerraforming(scroll, body, colony);
@@ -412,6 +421,130 @@ export class EconomyView {
         bonuses.append(chip);
       }
       sec.append(bonuses);
+    }
+  }
+
+  private yardForm = { name: "", kind: "commercial" as YardKind, slipways: 2, add: 1 };
+  private yardMessage: string | null = null;
+
+  /** Named yards, commercial or military, with their slipways; and a form to found another. */
+  private renderYards(parent: HTMLElement, body: Body, colony: Colony): void {
+    const { empire } = this.game;
+    syncYards(colony, canBuildMilitary(empire));
+    const act = (fn: () => string | null) => () => {
+      this.yardMessage = fn();
+      this.game.emit();
+      this.render();
+    };
+
+    if (this.yardMessage) parent.append(el("p", "project-warning", this.yardMessage));
+
+    const yards = section(parent, `Shipyards at ${body.name} (${colony.yards.length})`);
+    if (!colony.yards.length) emptyNote(yards, "No shipyards here yet. Found one below.");
+    for (const yard of colony.yards) {
+      const card = el("div", "event-card yard-card");
+      const head = el("div", "event-title");
+      head.append(el("span", undefined, yard.name));
+      head.append(el("span", `chip ${yard.kind === "military" ? "warn" : "good"}`, YARD_KIND_NAMES[yard.kind]));
+      card.append(head);
+      const pending = pendingSlipways(colony, yard.id);
+      card.append(el("div", "muted small",
+        yard.slipways > 0
+          ? `${yard.slipways} slipway${yard.slipways === 1 ? "" : "s"}: hulls up to ${num(yardLimit(yard))} t. ${YARD_KIND_BLURB[yard.kind]}`
+          : `No slipways finished yet. ${YARD_KIND_BLURB[yard.kind]}`));
+      if (pending > 0) card.append(el("div", "small warn", `${pending} slipway${pending === 1 ? "" : "s"} waiting in the build queue (Production tab).`));
+
+      const row = el("div", "form-actions");
+      const addCount = numberInput(this.yardForm.add, (v) => (this.yardForm.add = v), 1, MAX_NEW_SLIPWAYS);
+      const add = button("Add slipways", act(() => addSlipways(empire, colony.bodyId, yard.id, this.yardForm.add)), "ghost-btn");
+      add.setAttribute("aria-label", `Add slipways to ${yard.name}`);
+      add.title = yard.kind === "military" ? `Each costs ${MILITARY_YARD_COST.toLocaleString()} wealth plus the installation.` : "Queues Shipyard installations for this yard.";
+      row.append(addCount, add);
+      if (yard.kind === "commercial") {
+        const convert = button("Convert to military", act(() => convertYard(empire, colony.bodyId, yard.id, "military")), "ghost-btn");
+        convert.disabled = !canBuildMilitary(empire);
+        convert.title = canBuildMilitary(empire)
+          ? `Costs ${(MILITARY_YARD_COST * Math.max(1, yard.slipways)).toLocaleString()} wealth.`
+          : "Needs the Military Specification.";
+        convert.setAttribute("aria-label", `Convert ${yard.name} to military`);
+        row.append(convert);
+      } else {
+        const convert = button("Convert to commercial", act(() => convertYard(empire, colony.bodyId, yard.id, "commercial")), "ghost-btn");
+        convert.setAttribute("aria-label", `Convert ${yard.name} to commercial`);
+        row.append(convert);
+      }
+      if (yard.slipways <= 0) {
+        const drop = button("Abandon", act(() => abandonYard(empire, colony.bodyId, yard.id)), "ghost-btn");
+        drop.setAttribute("aria-label", `Abandon ${yard.name}`);
+        row.append(drop);
+      }
+      card.append(row);
+      yards.append(card);
+    }
+
+    // --- found a new yard
+    const found = section(parent, "Found a new shipyard");
+    const nameRow = el("div", "field-row");
+    const nameInput = el("input", "select name-input");
+    nameInput.type = "text";
+    nameInput.placeholder = "Yard name";
+    nameInput.value = this.yardForm.name;
+    nameInput.setAttribute("aria-label", "Yard name");
+    nameInput.addEventListener("input", () => (this.yardForm.name = nameInput.value));
+    nameRow.append(el("label", "field-label", "Name"), nameInput);
+    found.append(nameRow);
+
+    const militaryOpen = canBuildMilitary(empire);
+    if (!militaryOpen && this.yardForm.kind === "military") this.yardForm.kind = "commercial";
+    const kindRow = el("div", "field-row");
+    const kindSelect = select(
+      [
+        { value: "commercial", label: "Commercial" },
+        { value: "military", label: militaryOpen ? "Military" : "Military (needs Military Specification)" },
+      ],
+      this.yardForm.kind,
+      (value) => {
+        this.yardForm.kind = value as YardKind;
+        this.render();
+      },
+    );
+    kindSelect.setAttribute("aria-label", "Yard type");
+    kindRow.append(el("label", "field-label", "Type"), kindSelect);
+    found.append(kindRow);
+    found.append(el("p", "muted small", YARD_KIND_BLURB[this.yardForm.kind]));
+
+    const slipRow = el("div", "field-row");
+    slipRow.append(
+      el("label", "field-label", "Slipways"),
+      numberInput(this.yardForm.slipways, (v) => { this.yardForm.slipways = v; this.render(); }, 1, MAX_NEW_SLIPWAYS),
+    );
+    found.append(slipRow);
+    const hull = this.yardForm.slipways * SHIPYARD_TONS;
+    const cost = this.yardForm.kind === "military" ? MILITARY_YARD_COST * this.yardForm.slipways : 0;
+    found.append(el("p", "muted small",
+      `Hulls up to ${num(hull)} t. Queues ${this.yardForm.slipways} Shipyard installation${this.yardForm.slipways === 1 ? "" : "s"}${cost ? ` and costs ${num(cost)} wealth` : ""}; the slipways appear as they are built.`));
+    const create = button("Found shipyard", act(() => {
+      const problem = createYard(empire, colony.bodyId, this.yardForm.name, this.yardForm.kind, this.yardForm.slipways);
+      if (!problem) this.yardForm.name = "";
+      return problem;
+    }), "primary-btn");
+    found.append(create);
+
+    // --- hulls in the queue and where they will be laid down
+    const ships = colony.buildQueue.filter((o) => o.designId);
+    if (ships.length) {
+      const sec = section(parent, "Hulls on order");
+      for (const order of ships) {
+        const design = empire.design(order.designId);
+        const stats = empire.statsOf(order.designId);
+        if (!design || !stats) continue;
+        const military = isMilitaryDesign(empire, design.id);
+        const yard = yardFor(colony, stats.tons, military);
+        const row = el("div", "queue-row pop-row");
+        row.append(el("span", undefined, `${order.quantity} x ${design.name} (${num(stats.tons)} t${military ? ", military" : ""})`));
+        row.append(el("span", `chip ${yard ? "good" : "bad"}`, yard ? yard.name : military && !colony.yards.some((y) => y.kind === "military") ? "needs a military yard" : "no slipway big enough"));
+        sec.append(row);
+      }
     }
   }
 

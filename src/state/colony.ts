@@ -1,5 +1,6 @@
 /** A populated (or merely occupied) body, and what it is building. */
 
+import type { Shipyard } from "../sim/economy/shipyards";
 import { defaultPops, type PopGroup } from "../sim/economy/goods";
 import { MINERALS, type MineralName } from "../sim/minerals";
 import type { GovernorPolicy } from "../sim/governors";
@@ -21,6 +22,8 @@ export interface BuildOrder {
   starved: boolean;
   /** Ship class being built, when this is a hull rather than an installation. */
   designId: string | null;
+  /** The yard a Shipyard order adds its slipways to. */
+  yardId?: string | null;
   /** Queued by a standing order rather than by hand. */
   auto: boolean;
 }
@@ -47,6 +50,8 @@ export interface Colony {
   stability: number;
   /** The groups of people who live here; see economy/goods.ts. */
   pops: PopGroup[];
+  /** Named shipyards; see economy/shipyards.ts. */
+  yards: Shipyard[];
   /** Set while the colony is in famine, to log it once. */
   starving?: boolean;
 }
@@ -72,6 +77,7 @@ export function createColony(bodyId: string, founded: number): Colony {
     founded,
     stability: 70,
     pops: defaultPops(),
+    yards: [],
   };
 }
 

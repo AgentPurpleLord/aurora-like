@@ -5,6 +5,7 @@
  * The per-cycle economic simulation itself lives in sim/economy/production.
  */
 
+import { syncYards } from "../sim/economy/shipyards";
 import { defaultPops } from "../sim/economy/goods";
 import { defaultPolitics, politicalFactors, type PoliticsState } from "../sim/politics";
 import { OfficerPool, type Assignment, type Branch, type Officer } from "../sim/people/officers";
@@ -24,6 +25,7 @@ import {
 } from "../sim/ships/design";
 import {
   ENGINE_TYPES,
+  MILITARY_TECH,
   SENSOR_TYPES,
   componentStats,
   defaultParams,
@@ -372,6 +374,7 @@ export class Empire {
     destination: string | null = null,
     auto = false,
     designId: string | null = null,
+    yardId: string | null = null,
   ): void {
     const colony = this.colonies.get(bodyId);
     if (!colony || quantity <= 0) return;
@@ -380,7 +383,8 @@ export class Empire {
       (o) =>
         o.installationId === installationId &&
         o.destination === target &&
-        o.designId === designId,
+        o.designId === designId &&
+        (o.yardId ?? null) === yardId,
     );
     if (existing) {
       existing.quantity += quantity;
@@ -395,6 +399,7 @@ export class Empire {
       starved: false,
       auto,
       designId,
+      yardId,
     });
   }
 
@@ -966,6 +971,8 @@ export class Empire {
     for (const colony of data.colonies) {
       colony.stability ??= 70;
       colony.pops ??= defaultPops();
+      colony.yards ??= [];
+      syncYards(colony, this.researched.has(MILITARY_TECH));
       this.colonies.set(colony.bodyId, colony);
     }
     this.ships.clear();

@@ -1373,6 +1373,42 @@ async function turnSuite(browser) {
   await page.close();
 }
 
+async function yardSuite(browser) {
+  console.log("\nShipyards");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.goto(`${BASE}?debug&new&seed=sol-1&events=off`);
+  await page.waitForSelector("#view-tabs");
+  await nav(page, "Colonies").click();
+  await page.locator("#view-colonies .colony-tab", { hasText: "Shipyards" }).click();
+  await page.waitForTimeout(200);
+  const tab = page.locator("#view-colonies .detail-body");
+  await check("the Shipyards tab lists Earth's commercial yard", async () => {
+    const t = await tab.innerText();
+    return /terran commercial yard/i.test(t) && /commercial/i.test(t) && /2 slipways/i.test(t);
+  });
+  await check("military yards are locked until researched", async () =>
+    /needs military specification/i.test(await page.getByLabel("Yard type").locator("option").nth(1).innerText()));
+  await page.getByLabel("Yard name").fill("Orbital Slip");
+  await page.getByRole("button", { name: "Found shipyard", exact: true }).click();
+  await page.waitForTimeout(200);
+  await check("a new yard can be founded from the tab", async () => /orbital slip/i.test(await tab.innerText()));
+  await check("its slipways wait in the build queue", async () =>
+    (await page.evaluate(() => window.__game.empire.colony("earth").buildQueue.some((o) => o.installationId === "shipyard" && o.yardId))));
+  await page.evaluate(() => { window.__game.empire.research("military-specification"); window.__game.emit(); });
+  await page.waitForTimeout(200);
+  await page.getByLabel("Yard type").selectOption("military");
+  await page.getByLabel("Yard name").fill("Naval Dockyard");
+  await page.getByRole("button", { name: "Found shipyard", exact: true }).click();
+  await page.waitForTimeout(200);
+  await check("a military yard can be founded once it is researched", async () => /naval dockyard/i.test(await tab.innerText()) && /military/i.test(await tab.innerText()));
+  await check("no console errors", () => errors.length === 0);
+  if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
+  await page.close();
+}
+
 const browser = await chromium.launch(launch);
 try {
   await desktopSuite(browser);
@@ -1386,6 +1422,7 @@ try {
   await financeSuite(browser);
   await politicsSuite(browser);
   await turnSuite(browser);
+  await yardSuite(browser);
   await mobileSuite(browser);
 } finally {
   await browser.close();

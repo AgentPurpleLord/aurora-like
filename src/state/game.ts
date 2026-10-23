@@ -138,6 +138,7 @@ export class Game {
       spaceport: 1,
       shipyard: 2,
     };
+    earth.yards = [{ id: "earth:yard:1", name: "Terran Commercial Yard", kind: "commercial", slipways: 2 }];
     earth.stockpile = emptyStockpile();
     for (const mineral of MINERALS) earth.stockpile[mineral] = 50_000;
     earth.fuel = 2_000_000;

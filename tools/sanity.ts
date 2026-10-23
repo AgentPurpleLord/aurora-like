@@ -33,6 +33,9 @@ import {
   GOODS, baseMood, computeMarket, fertility, invalidateMarket, popInfluence, summarisePops, targetShares,
 } from "../src/sim/economy/goods";
 import { labReport, projectRoom } from "../src/sim/research/labs";
+import {
+  abandonYard, addSlipways, convertYard, createYard, hullCapacity, isMilitaryDesign, pendingSlipways, renameYard, yardFor,
+} from "../src/sim/economy/shipyards";
 import { invalidateTrade, tradeConnections } from "../src/sim/economy/trade";
 import { budgetOf } from "../src/sim/economy/budget";
 import type { Empire } from "../src/state/empire";
@@ -1953,6 +1956,65 @@ console.log("");
     assert("nothing absorbable is left idle", labReport(le)[0].absorbable === 0);
     const report = labReport(le)[0];
     assert("a blocked colony says why", report.idle === 0 || (report.blocker?.length ?? 0) > 0);
+  }
+
+  // --- shipyards
+  {
+    const yg = new Game("yards");
+    const ye = yg.empire;
+    const yEarth = ye.colony("earth")!;
+    check("Earth starts with one commercial yard of two slipways", yEarth.yards.length * 100 + yEarth.yards[0].slipways, 102, 0);
+    assert("it is commercial", yEarth.yards[0].kind === "commercial");
+    check("hulls up to 10,000 t", hullCapacity(yEarth), 10_000, 0);
+    assert("but no military hull", hullCapacity(yEarth, true) === 0);
+    ye.research("nuclear-thermal");
+    ye.addStandardComponents(0);
+    const yHauler = ye.addStandardClasses(0).find((d) => d.name === "Hauler")!;
+    const warship = ye.addDesign("Warlike", yHauler.components, 0, "destroyer");
+    assert("a warship hull is a military class", isMilitaryDesign(ye, warship.id) && !isMilitaryDesign(ye, yHauler.id));
+    assert("no commercial yard can take it", yardFor(yEarth, 6000, true) === null);
+    assert("a commercial one takes the Hauler", yardFor(yEarth, 5700, false)?.name === "Terran Commercial Yard");
+
+    assert("a military yard needs the tech", createYard(ye, "earth", "Naval Yard", "military", 2) !== null);
+    assert("a yard needs a name", createYard(ye, "earth", "  ", "commercial", 1) !== null);
+    assert("and a unique one", createYard(ye, "earth", "terran commercial yard", "commercial", 1) !== null);
+    ye.research("military-specification");
+    ye.treasury = 100;
+    assert("a military yard needs the money", createYard(ye, "earth", "Naval Yard", "military", 2) !== null);
+    ye.treasury = 50_000;
+    const before = ye.treasury;
+    assert("a funded military yard is founded", createYard(ye, "earth", "Naval Yard", "military", 3) === null);
+    check("it costs wealth", before - ye.treasury, 4500, 0);
+    const naval = yEarth.yards.find((y) => y.name === "Naval Yard")!;
+    check("its slipways are queued", pendingSlipways(yEarth, naval.id), 3, 0);
+    const installsBefore = yEarth.installations.shipyard;
+    for (let i = 0; i < 80 && naval.slipways < 3; i++) yg.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    check("they are built into the new yard", naval.slipways, 3, 0);
+    check("and counted as installations", yEarth.installations.shipyard, installsBefore + 3, 0);
+    check("the first yard is untouched", yEarth.yards[0].slipways, 2, 0);
+    assert("now the warship has a yard", yardFor(yEarth, 6000, true)?.id === naval.id);
+    check("military hulls up to 15,000 t", hullCapacity(yEarth, true), 15_000, 0);
+    assert("slipways can be added", addSlipways(ye, "earth", naval.id, 2) === null && pendingSlipways(yEarth, naval.id) === 2);
+    assert("a yard can be renamed", renameYard(ye, "earth", naval.id, "Fleet Dockyard") === null && naval.name === "Fleet Dockyard");
+    assert("a yard with slipways cannot be abandoned", abandonYard(ye, "earth", naval.id) !== null);
+    assert("a commercial yard converts at a price", convertYard(ye, "earth", yEarth.yards[0].id, "military") === null && yEarth.yards[0].kind === "military");
+    const fresh = createYard(ye, "earth", "Slip", "commercial", 1);
+    assert("a commercial yard is free", fresh === null);
+    const slip = yEarth.yards.find((y) => y.name === "Slip")!;
+    assert("an unbuilt yard can be abandoned", abandonYard(ye, "earth", slip.id) === null && !yEarth.buildQueue.some((o) => o.yardId === slip.id));
+    // the build refuses a warship without the right yard
+    yEarth.yards[0].kind = "commercial";
+    naval.kind = "commercial";
+    yEarth.buildQueue = [];
+    ye.queueShip("earth", warship.id, 1);
+    const queued = yEarth.buildQueue.find((o) => o.designId === warship.id)!;
+    yg.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    assert("a warship with only commercial yards does not start", queued.starved && queued.progress === 0);
+    naval.kind = "military";
+    yg.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    assert("with a military yard it does", queued.progress > 0 || !yEarth.buildQueue.includes(queued) || ye.ships.size > 0);
+    const rt = gameFromSave(parseSave(JSON.stringify(makeSave(yg, "y", "y", "manual"))));
+    assert("yards survive a save", rt.empire.colony("earth")!.yards.length === yEarth.yards.length);
   }
 }
 
