@@ -26,10 +26,26 @@ export function hashString(s: string): number {
 }
 
 export class Random {
-  private next: () => number;
+  private a: number;
 
   constructor(seed: number | string) {
-    this.next = mulberry32(typeof seed === "string" ? hashString(seed) : seed);
+    this.a = (typeof seed === "string" ? hashString(seed) : seed) >>> 0;
+  }
+
+  /** The generator's whole state, so a saved campaign continues the same stream. */
+  get state(): number {
+    return this.a;
+  }
+
+  set state(value: number) {
+    this.a = value >>> 0;
+  }
+
+  private next(): number {
+    this.a = (this.a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(this.a ^ (this.a >>> 15), 1 | this.a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   }
 
   float(min = 0, max = 1): number {

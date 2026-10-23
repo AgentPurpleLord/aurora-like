@@ -9,12 +9,16 @@
  */
 
 import type { Empire } from "../../state/empire";
-import type { StarSystem } from "../system";
+import type { Galaxy } from "../galaxy";
 import type { MineralName } from "../minerals";
 import { MINERALS } from "../minerals";
 import { AU_KM, vecLength, vecSub, type Vec3 } from "../orbit";
 import { INSTALLATION_BY_ID } from "../economy/installations";
 import { bonus } from "../people/officers";
+import { SURVEY_POINTS_NEEDED } from "./components";
+import { planProgram } from "./programs";
+import { routeFor } from "./routing";
+import { GATE_POINTS_NEEDED, JUMP_SURVEY_POINTS } from "./components";
 
 export interface Ship {
   id: string;
@@ -35,7 +39,13 @@ export type FleetOrder =
   | { kind: "load-minerals"; mineral: MineralName; amount: number }
   | { kind: "unload-minerals" }
   | { kind: "refuel" }
-  | { kind: "survey" };
+  | { kind: "survey" }
+  /** Cross the jump point the fleet is at, into the system on the other side. */
+  | { kind: "jump" }
+  /** Search the system for jump points with gravitational sensors. */
+  | { kind: "gravsurvey" }
+  /** Stabilise the jump point the fleet is at, so any ship can cross it. */
+  | { kind: "build-gate" };
 
 export interface FleetCargo {
   installations: Record<string, number>;
@@ -46,8 +56,12 @@ export interface FleetCargo {
 
 export interface Fleet {
   id: string;
+  /** The system the fleet is in. `position` is relative to that system's star. */
+  systemId: string;
   name: string;
   shipIds: string[];
+  /** Survey points banked on the body the fleet is currently surveying. */
+  surveyProgress: number;
   /** Heliocentric position in AU. */
   position: Vec3;
   /** Body the fleet is sitting at, if any. A parked fleet orbits with it. */
@@ -57,6 +71,52 @@ export interface Fleet {
   commanderId: string | null;
   /** Set when the fleet cannot execute its orders. */
   note: string | null;
+  /** Finished orders go to the back of the queue instead of away. */
+  loop: boolean;
+  /** A standing programme the fleet follows whenever it has nothing else to do. */
+  program: FleetProgram | null;
+  /** Simulation time before which an idle programme is not re-planned. */
+  waitUntil: number;
+  /** What the programme is doing or waiting for, in words. */
+  programStatus: string | null;
+  /** Gate construction points banked at the jump point the fleet is at. */
+  gateProgress: number;
+}
+
+/** What a freight leg carries. */
+export type CargoSpec =
+  | { kind: "minerals"; mineral: MineralName | "all"; keep: number }
+  | { kind: "installations"; installationId: string | "all" }
+  | { kind: "colonists"; amount: number };
+
+export type FleetProgram =
+  /** Survey every unsurveyed body, nearest first, refuelling as needed. */
+  | { kind: "survey"; maxAu: number; systemId?: string }
+  /**
+   * Explore: find the jump points in each system, cross the ones nobody has
+   * been through, and carry on until the whole known network is mapped,
+   * going home to refuel whenever the tanks say so.
+   */
+  | { kind: "explore" }
+  /**
+   * Shuttle between two colonies. `there` is carried from `fromId` to `toId`
+   * (the fleet waits at the source until there is something to take);
+   * `back` is carried the other way if there is anything to bring.
+   */
+  | { kind: "freight"; fromId: string; toId: string; there: CargoSpec | null; back: CargoSpec | null };
+
+/**
+ * Finish the order at the head of the queue. A fleet set to repeat sends it
+ * to the back instead, so the same circuit runs again.
+ */
+function retire(fleet: Fleet): void {
+  const done = fleet.orders.shift();
+  if (done && fleet.loop) fleet.orders.push(done);
+}
+
+/** Routine work of an automated fleet is logged but does not interrupt. */
+function routine(fleet: Fleet): boolean {
+  return fleet.loop || fleet.program !== null;
 }
 
 export function emptyCargo(): FleetCargo {
@@ -78,6 +138,14 @@ export interface FleetStats {
   cargoUsed: number;
   colonistCapacity: number;
   canSurvey: boolean;
+  /** Survey points per day across every geological sensor in the fleet. */
+  surveyRate: number;
+  /** Gravitational survey points per day. */
+  gravRate: number;
+  /** Tons of fleet the drives aboard can carry through a jump point. */
+  jumpCapacity: number;
+  /** Gate construction points per day. */
+  gateRate: number;
   /** AU the fleet can still cover on the fuel aboard. */
   rangeAu: number;
 }
@@ -104,7 +172,10 @@ export function fleetStats(empire: Empire, fleet: Fleet): FleetStats {
   let fuelPerHour = 0;
   let cargoCapacity = 0;
   let colonistCapacity = 0;
-  let canSurvey = false;
+  let surveyRate = 0;
+  let gravRate = 0;
+  let jumpCapacity = 0;
+  let gateRate = 0;
   let dry = false;
 
   for (const shipId of fleet.shipIds) {
@@ -118,7 +189,10 @@ export function fleetStats(empire: Empire, fleet: Fleet): FleetStats {
     fuelPerHour += stats.fuelPerHour;
     cargoCapacity += stats.cargoCapacity;
     colonistCapacity += stats.colonistCapacity;
-    if (stats.survey.geological) canSurvey = true;
+    surveyRate += stats.survey.geological;
+    gravRate += stats.survey.gravitational;
+    jumpCapacity += stats.jumpCapacity;
+    gateRate += stats.gateRate;
     if (ship.fuel <= 0) dry = true;
   }
 
@@ -140,17 +214,21 @@ export function fleetStats(empire: Empire, fleet: Fleet): FleetStats {
     cargoCapacity,
     cargoUsed: cargoTons(fleet.cargo),
     colonistCapacity,
-    canSurvey,
+    canSurvey: surveyRate > 0,
+    surveyRate,
+    gravRate,
+    jumpCapacity,
+    gateRate,
     rangeAu: (finalSpeed * 3600 * enduranceHours) / AU_KM,
   };
 }
 
 /** Seconds until the fleet reaches its current destination, if it has one. */
-export function fleetEta(empire: Empire, system: StarSystem, fleet: Fleet): number | null {
+export function fleetEta(empire: Empire, system: Galaxy, fleet: Fleet): number | null {
   const destination = destinationOf(fleet);
   if (!destination) return null;
   const target = system.byId.get(destination);
-  if (!target) return null;
+  if (!target || target.systemId !== fleet.systemId) return null;
   const stats = fleetStats(empire, fleet);
   if (stats.speed <= 0) return null;
   const distance = vecLength(vecSub(target.world, fleet.position));
@@ -174,7 +252,7 @@ export function destinationOf(fleet: Fleet): string | null {
  * Advance every fleet by `seconds` of simulated time. Called from the frame
  * loop, not the production cycle, so travel is continuous.
  */
-export function updateFleets(empire: Empire, system: StarSystem, seconds: number): void {
+export function updateFleets(empire: Empire, system: Galaxy, seconds: number): void {
   if (seconds <= 0) return;
 
   for (const fleet of empire.fleets.values()) {
@@ -191,12 +269,44 @@ export function updateFleets(empire: Empire, system: StarSystem, seconds: number
     let budget = seconds;
     let guard = 0;
     while (budget > 0 && guard++ < 16) {
-      const order = fleet.orders[0];
+      let order = fleet.orders[0];
+      // Out of orders: a fleet with a standing programme works out its next move.
+      if (!order && fleet.program && empire.lastTick >= fleet.waitUntil) {
+        planProgram(empire, system, fleet);
+        executeArrivalOrders(empire, system, fleet);
+        order = fleet.orders[0];
+      }
+      if (order?.kind === "survey" && fleet.anchorId) {
+        budget = spendSurveyTime(empire, system, fleet, budget);
+        continue;
+      }
+      if (order?.kind === "gravsurvey" && fleet.anchorId) {
+        budget = spendGravTime(empire, system, fleet, budget);
+        continue;
+      }
+      if (order?.kind === "build-gate" && fleet.anchorId) {
+        budget = spendGateTime(empire, system, fleet, budget);
+        continue;
+      }
       if (!order || order.kind !== "move") break;
 
       const target = system.byId.get(order.bodyId);
       if (!target) {
         fleet.orders.shift();
+        continue;
+      }
+
+      // A destination in another system is reached by way of the jump points:
+      // work out the route and put the crossings in front of the order.
+      if (target.systemId !== fleet.systemId) {
+        const stats = fleetStats(empire, fleet);
+        const route = routeFor(empire, system, fleet, target.systemId, stats.tons, stats.jumpCapacity);
+        if (!route || !route.length) {
+          fleet.note = `No known route to ${system.systemById.get(target.systemId)?.name ?? "that system"}`;
+          break;
+        }
+        fleet.note = null;
+        fleet.orders.splice(0, 1, { kind: "move", bodyId: route[0] }, { kind: "jump" }, order);
         continue;
       }
 
@@ -217,9 +327,12 @@ export function updateFleets(empire: Empire, system: StarSystem, seconds: number
 
         fleet.position = { ...target.world };
         fleet.anchorId = target.id;
-        fleet.orders.shift();
+        retire(fleet);
         fleet.note = null;
-        empire.addLog(empire.lastTick, "fleet", `${fleet.name} has arrived at ${target.name}.`);
+        empire.addLog(
+          empire.lastTick, "fleet", `${fleet.name} has arrived at ${target.name}.`,
+          { view: "fleets", fleetId: fleet.id }, routine(fleet),
+        );
         executeArrivalOrders(empire, system, fleet);
         continue;
       }
@@ -231,11 +344,195 @@ export function updateFleets(empire: Empire, system: StarSystem, seconds: number
         z: fleet.position.z + delta.z * scale,
       };
       fleet.anchorId = null;
+      fleet.surveyProgress = 0;
       fleet.note = null;
       burnFuel(empire, fleet, budget);
       budget = 0;
     }
   }
+}
+
+/**
+ * Survey a body for as long as the budget allows. Returns the budget left.
+ * Completing a survey reveals the body's deposits and moves on to the next
+ * order.
+ */
+function spendSurveyTime(empire: Empire, system: Galaxy, fleet: Fleet, budget: number): number {
+  const bodyId = fleet.anchorId!;
+  const stats = fleetStats(empire, fleet);
+  if (stats.surveyRate <= 0) {
+    fleet.note = "No survey sensors aboard";
+    return 0;
+  }
+  fleet.note = null;
+
+  const needed = SURVEY_POINTS_NEEDED - fleet.surveyProgress;
+  const secondsNeeded = (needed / stats.surveyRate) * 86_400;
+
+  if (budget < secondsNeeded) {
+    fleet.surveyProgress += (stats.surveyRate * budget) / 86_400;
+    return 0;
+  }
+
+  fleet.surveyProgress = 0;
+  retire(fleet);
+  empire.surveyed.add(bodyId);
+  const body = system.byId.get(bodyId);
+  const deposits = body?.minerals.length ?? 0;
+  empire.addLog(
+    empire.lastTick,
+    "fleet",
+    `${fleet.name} has surveyed ${body?.name ?? bodyId}: ${
+      deposits ? `${deposits} mineral deposits found` : "no deposits found"
+    }.`,
+    { view: "map", bodyId },
+    // A survey programme reports once, when it is done, not for every body.
+    fleet.program?.kind === "survey",
+  );
+  executeArrivalOrders(empire, system, fleet);
+  return budget - secondsNeeded;
+}
+
+/**
+ * Search the system for jump points. Banked points are shared across every
+ * fleet working the same system; each JUMP_SURVEY_POINTS reveals the next
+ * hidden jump point. The order ends when none are left to find.
+ */
+function spendGravTime(empire: Empire, system: Galaxy, fleet: Fleet, budget: number): number {
+  const stats = fleetStats(empire, fleet);
+  if (stats.gravRate <= 0) {
+    fleet.note = "No gravitational sensors aboard";
+    return 0;
+  }
+  fleet.note = null;
+  const hidden = () =>
+    system.jumpPointsIn(fleet.systemId)
+      .filter((b) => !empire.knownJumpPoints.has(b.id))
+      .sort((a, b) => a.id.localeCompare(b.id));
+
+  let left = budget;
+  while (left > 0) {
+    const next = hidden()[0];
+    if (!next) {
+      retire(fleet);
+      executeArrivalOrders(empire, system, fleet);
+      return left;
+    }
+    const banked = empire.gravProgress[fleet.systemId] ?? 0;
+    const secondsNeeded = ((JUMP_SURVEY_POINTS - banked) / stats.gravRate) * 86_400;
+    if (left < secondsNeeded) {
+      empire.gravProgress[fleet.systemId] = banked + (stats.gravRate * left) / 86_400;
+      return 0;
+    }
+    left -= secondsNeeded;
+    empire.gravProgress[fleet.systemId] = 0;
+    empire.knownJumpPoints.add(next.id);
+    const where = system.systemById.get(fleet.systemId)?.name ?? fleet.systemId;
+    empire.addLog(
+      empire.lastTick,
+      "fleet",
+      `${fleet.name} has located a jump point in ${where}: ${next.name}. It leads somewhere unexplored.`,
+      { view: "map", bodyId: next.id },
+      // An exploration programme reports first visits, not every discovery.
+      fleet.program?.kind === "explore",
+    );
+  }
+  return 0;
+}
+
+/** Build a gate at the jump point the fleet is sitting at. */
+function spendGateTime(empire: Empire, system: Galaxy, fleet: Fleet, budget: number): number {
+  const here = fleet.anchorId!;
+  const body = system.byId.get(here);
+  if (!body || body.cls !== "jump-point") {
+    fleet.note = "Gates are built at jump points";
+    return 0;
+  }
+  if (empire.gates.has(here)) {
+    retire(fleet);
+    executeArrivalOrders(empire, system, fleet);
+    return budget;
+  }
+  if (!empire.exploredJumpPoints.has(here)) {
+    fleet.note = "Cross this jump point once before gating it";
+    return 0;
+  }
+  const stats = fleetStats(empire, fleet);
+  if (stats.gateRate <= 0) {
+    fleet.note = "No gate construction modules aboard";
+    return 0;
+  }
+  fleet.note = null;
+  const secondsNeeded = ((GATE_POINTS_NEEDED - fleet.gateProgress) / stats.gateRate) * 86_400;
+  if (budget < secondsNeeded) {
+    fleet.gateProgress += (stats.gateRate * budget) / 86_400;
+    return 0;
+  }
+  fleet.gateProgress = 0;
+  empire.gates.add(here);
+  const far = system.otherEnd(here);
+  if (far) empire.gates.add(far.id);
+  empire.addLog(
+    empire.lastTick,
+    "fleet",
+    `${fleet.name} has finished a jump gate at ${body.name}${far ? ` - ${system.systemById.get(far.systemId)?.name} is now open to every ship` : ""}.`,
+    { view: "map", bodyId: here },
+  );
+  retire(fleet);
+  executeArrivalOrders(empire, system, fleet);
+  return budget - secondsNeeded;
+}
+
+/** Cross the jump point the fleet is at. Returns false if it could not. */
+function jump(empire: Empire, system: Galaxy, fleet: Fleet): boolean {
+  const here = fleet.anchorId ? system.byId.get(fleet.anchorId) : undefined;
+  if (!here || here.cls !== "jump-point") {
+    fleet.note = "Not at a jump point";
+    return false;
+  }
+  if (!empire.knownJumpPoints.has(here.id)) {
+    fleet.note = "This jump point has not been located";
+    return false;
+  }
+  const stats = fleetStats(empire, fleet);
+  if (!empire.gates.has(here.id) && stats.jumpCapacity < stats.tons) {
+    fleet.note = stats.jumpCapacity > 0
+      ? `Jump drives can carry ${Math.round(stats.jumpCapacity).toLocaleString()} t; the fleet is ${Math.round(stats.tons).toLocaleString()} t`
+      : "No jump drive, and no gate here";
+    return false;
+  }
+  const far = system.otherEnd(here.id);
+  if (!far) {
+    fleet.note = "This jump point leads nowhere";
+    return false;
+  }
+
+  const first = !empire.knownSystems.has(far.systemId);
+  fleet.systemId = far.systemId;
+  fleet.anchorId = far.id;
+  fleet.position = { ...far.world };
+  fleet.surveyProgress = 0;
+  fleet.gateProgress = 0;
+  fleet.note = null;
+  for (const id of [here.id, far.id]) {
+    empire.exploredJumpPoints.add(id);
+    empire.knownJumpPoints.add(id);
+  }
+  empire.knownSystems.add(far.systemId);
+
+  const name = system.systemById.get(far.systemId)?.name ?? far.systemId;
+  if (first) {
+    const worlds = system.systemById.get(far.systemId)?.bodies.filter((b) => b.cls === "planet").length ?? 0;
+    empire.addLog(
+      empire.lastTick,
+      "fleet",
+      `${fleet.name} has entered ${name} for the first time: ${worlds} planets await survey.`,
+      { view: "map", bodyId: far.id },
+    );
+  } else {
+    empire.addLog(empire.lastTick, "fleet", `${fleet.name} has jumped to ${name}.`, { view: "fleets", fleetId: fleet.id }, routine(fleet));
+  }
+  return true;
 }
 
 function burnFuel(empire: Empire, fleet: Fleet, seconds: number): void {
@@ -250,7 +547,7 @@ function burnFuel(empire: Empire, fleet: Fleet, seconds: number): void {
     const before = ship.fuel;
     ship.fuel = Math.max(0, ship.fuel - burn);
     if (before > 0 && ship.fuel <= 0) {
-      empire.addLog(empire.lastTick, "fleet", `${ship.name} has run out of fuel.`);
+      empire.addLog(empire.lastTick, "fleet", `${ship.name} has run out of fuel.`, { view: "fleets", fleetId: fleet.id });
     }
   }
 }
@@ -261,7 +558,7 @@ function burnFuel(empire: Empire, fleet: Fleet, seconds: number): void {
  * Work through every order at the head of the queue that can be carried out
  * where the fleet is standing. Stops at the next move order.
  */
-export function executeArrivalOrders(empire: Empire, system: StarSystem, fleet: Fleet): void {
+export function executeArrivalOrders(empire: Empire, system: Galaxy, fleet: Fleet): void {
   let guard = 0;
   while (fleet.orders.length && fleet.orders[0].kind !== "move" && guard++ < 32) {
     const order = fleet.orders[0];
@@ -269,25 +566,38 @@ export function executeArrivalOrders(empire: Empire, system: StarSystem, fleet: 
 
     if (order.kind === "survey") {
       if (!fleet.anchorId) break;
-      const stats = fleetStats(empire, fleet);
-      if (!stats.canSurvey) {
-        fleet.note = "No survey sensors aboard";
-        break;
+      // Already known: nothing to do. Otherwise surveying takes time, which
+      // updateFleets spends; here the order simply waits its turn.
+      if (empire.surveyed.has(fleet.anchorId)) {
+        retire(fleet);
+        fleet.surveyProgress = 0;
+        continue;
       }
-      if (!empire.surveyed.has(fleet.anchorId)) {
-        empire.surveyed.add(fleet.anchorId);
-        const body = system.byId.get(fleet.anchorId);
-        const deposits = body?.minerals.length ?? 0;
-        empire.addLog(
-          empire.lastTick,
-          "fleet",
-          `${fleet.name} has surveyed ${body?.name ?? fleet.anchorId}: ${
-            deposits ? `${deposits} mineral deposits found` : "no deposits found"
-          }.`,
-        );
-      }
-      fleet.orders.shift();
+      if (!fleetStats(empire, fleet).canSurvey) fleet.note = "No survey sensors aboard";
+      break;
+    }
+
+    if (order.kind === "jump") {
+      if (!jump(empire, system, fleet)) break;
+      retire(fleet);
       continue;
+    }
+    if (order.kind === "gravsurvey") {
+      if (!fleet.anchorId) break;
+      if (!system.jumpPointsIn(fleet.systemId).some((b) => !empire.knownJumpPoints.has(b.id))) {
+        retire(fleet);
+        continue;
+      }
+      if (fleetStats(empire, fleet).gravRate <= 0) fleet.note = "No gravitational sensors aboard";
+      break;
+    }
+    if (order.kind === "build-gate") {
+      if (!fleet.anchorId) break;
+      if (empire.gates.has(fleet.anchorId)) {
+        retire(fleet);
+        continue;
+      }
+      break;
     }
 
     if (!colony) {
@@ -317,6 +627,7 @@ export function executeArrivalOrders(empire: Empire, system: StarSystem, fleet: 
           if (count <= 0) continue;
           colony.installations[id] = (colony.installations[id] ?? 0) + count;
         }
+        if (routine(fleet)) logDelivery(empire, system, fleet, colony.bodyId, "installations");
         fleet.cargo.installations = {};
         break;
       }
@@ -338,6 +649,8 @@ export function executeArrivalOrders(empire: Empire, system: StarSystem, fleet: 
             `${Math.round(fleet.cargo.colonists).toLocaleString()} colonists have landed on ${
               system.byId.get(colony.bodyId)?.name ?? colony.bodyId
             }.`,
+            { view: "colonies", bodyId: colony.bodyId },
+            routine(fleet),
           );
         }
         fleet.cargo.colonists = 0;
@@ -358,6 +671,7 @@ export function executeArrivalOrders(empire: Empire, system: StarSystem, fleet: 
           const amount = fleet.cargo.minerals[mineral] ?? 0;
           if (amount > 0) colony.stockpile[mineral] += amount;
         }
+        if (routine(fleet)) logDelivery(empire, system, fleet, colony.bodyId, "minerals");
         fleet.cargo.minerals = {};
         break;
       }
@@ -375,6 +689,29 @@ export function executeArrivalOrders(empire: Empire, system: StarSystem, fleet: 
       }
     }
 
-    fleet.orders.shift();
+    retire(fleet);
   }
+}
+
+/** A quiet line in the log for goods an automated fleet has just set down. */
+function logDelivery(
+  empire: Empire,
+  system: Galaxy,
+  fleet: Fleet,
+  bodyId: string,
+  kind: "minerals" | "installations",
+): void {
+  const total = kind === "minerals"
+    ? Object.values(fleet.cargo.minerals).reduce<number>((sum, n) => sum + (n ?? 0), 0)
+    : Object.values(fleet.cargo.installations).reduce((sum, n) => sum + n, 0);
+  if (total <= 0) return;
+  empire.addLog(
+    empire.lastTick,
+    "fleet",
+    `${fleet.name} delivered ${Math.round(total).toLocaleString()}${kind === "minerals" ? " t of minerals" : " installations"} to ${
+      system.byId.get(bodyId)?.name ?? bodyId
+    }.`,
+    { view: "fleets", fleetId: fleet.id },
+    true,
+  );
 }

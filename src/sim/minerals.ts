@@ -59,7 +59,7 @@ const AUTHORED: Record<string, [MineralName, number, number][]> = {
 };
 
 export function mineralsFor(def: BodyDef): MineralDeposit[] {
-  if (def.cls === "star") return [];
+  if (def.cls === "star" || def.cls === "jump-point") return [];
 
   const authored = AUTHORED[def.id];
   if (authored) {
@@ -68,7 +68,7 @@ export function mineralsFor(def: BodyDef): MineralDeposit[] {
     }));
   }
 
-  const rng = mulberry32(hashString(`minerals:${def.id}`));
+  const rng = mulberry32(hashString(`minerals:${def.mineralSeed ?? def.id}`));
 
   const gasGiant = def.cls === "planet" && def.massKg > 5e25;
   if (gasGiant) {
@@ -88,13 +88,18 @@ export function mineralsFor(def: BodyDef): MineralDeposit[] {
   const chance = small ? 0.3 : 0.45;
 
   const deposits: MineralDeposit[] = [];
+  // Generated worlds carry an overall richness and a few minerals they are
+  // especially rich in, so each is worth a different visit.
+  const overall = def.richness ?? 1;
+  const favoured = new Set(def.favoured ?? []);
   for (const mineral of MINERALS) {
-    if (rng() > chance) continue;
-    const richness = rng() ** 2;
+    const loved = favoured.has(mineral);
+    if (rng() > (loved ? 1 : chance * Math.min(1.4, overall))) continue;
+    const richness = rng() ** 2 * (loved ? 3 : 1) * overall;
     const amount = Math.round(richness * massScale * 250_000 + 1_000);
     if (amount < 2_000) continue;
     // Small bodies are undifferentiated, so what is there is easy to reach.
-    const base = small ? 0.5 + rng() * 0.5 : 0.1 + rng() * 0.8;
+    const base = Math.min(1, (small ? 0.5 + rng() * 0.5 : 0.1 + rng() * 0.8) + (loved ? 0.2 : 0));
     deposits.push({
       mineral,
       amount,

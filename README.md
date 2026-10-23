@@ -107,6 +107,182 @@ carries a **since you last looked** strip - population, treasury, technologies
 and construction since your last visit - and the event log marks where you had
 read up to.
 
+## UI refresh
+
+A pass across every screen to make the game easier to read and drive without
+hiding any of the detail.
+
+- **Command palette** (`Ctrl/Cmd+K` or `/`): jump to any screen, colony, body,
+  fleet, technology or ship class, or run a command, by typing.
+- **Time and events**: speeds are a compact 1m-30d row, with quick jumps and a
+  **Next event** button (`N`) that runs until something worth stopping for
+  happens. Choose which event categories pause the clock in Settings.
+  Important events appear as toasts that link straight to what they are about.
+- **Tab badges** mark screens with something waiting; the top bar is split into
+  navigation, tools and a status bar for time and treasury.
+- **Colony screen**: a sticky vitals strip and tabs (Overview, Production,
+  Mining & stores, Terraforming, Automation) replace one very long page.
+- **Map lenses**: Natural, Habitability, Territory and Minerals tint the bodies,
+  with a legend and a hover card; the detail panel offers context actions
+  (open colony, settle, send a fleet, survey).
+- **Empire dashboard**: a guided goals list for the Earth-only start and
+  sparkline trends for treasury, population and output.
+- **Foldable sections** (state remembered), **glossary hints** on statistics
+  and a **density** setting (comfortable or compact).
+- **Phone**: a short tab bar with a More sheet for the remaining screens.
+
+## Saving, the digest and fleet automation
+
+**Saving.** The game autosaves every couple of minutes while you play (a ring
+of four slots, so you can rewind) and when the tab is hidden or closed, and
+it resumes from the latest save when you come back. `F5` quicksaves, `F9`
+quickloads, and `Ctrl+S` opens the save dialog: named saves, export to a
+file, import from a file, and **New game**. Everything derived (issues,
+previews, goals, research figures, ship statistics) is rebuilt on load, and a
+loaded game plays on identically to the one that was saved - the model
+checks play both forward and compare them.
+
+**The return digest.** After a long run of time with news in it, a toast
+offers **Review digest** once the clock is stopped; it is also in the command
+palette and on the dashboard. It reports the changes in numbers, what wants a
+decision now, and the events grouped by kind, each one a link to where it
+happened. "Mark as read" starts the next period.
+
+**Repeating orders.** Tick *Repeat these orders* on a fleet and finished orders
+go to the back of the queue, so a circuit runs again and again.
+
+**Fleet programmes** are standing orders for ships: the fleet follows a rule
+whenever it has nothing queued, writing its own orders as it goes.
+
+- *Survey*: the nearest unsurveyed body each time, in the whole system or out
+  to a chosen range. It tops up fuel before leaving a colony, only goes where
+  it can reach and come home from, will not chase a body another fleet is
+  already heading for, and goes home when done. The command palette can start
+  one on any fleet with survey sensors.
+- *Freight line*: shuttle between two colonies. Carry minerals (all or one,
+  leaving a reserve behind), stored installations, or colonists one way, and
+  optionally something back. The fleet waits at the first colony until there
+  is cargo, refuels at either end, and shows a forecast of round-trip time and
+  tonnage a year before you commit.
+
+Routine movements of automated fleets are logged quietly: they never stop
+the clock or raise a toast, and the digest only counts them. Problems - out
+of fuel, a target out of range, no sensors aboard - are still raised.
+
+## The galaxy, jump points and exploration
+
+Sol is not alone. Fifteen real stars within about forty light years - Alpha
+Centauri, Proxima, Barnard's Star, Sirius, Tau Ceti, TRAPPIST-1 and the rest -
+are in the game at their true distances and directions. Their mass,
+luminosity and temperature are catalogue values, and where astronomers have
+actually detected planets (Proxima b, the TRAPPIST-1 seven, Tau Ceti e and f,
+Epsilon Eridani b, Gliese 1061's three...) those keep their measured periods
+and minimum masses, with the orbit following from Kepler's third law.
+
+Everything *unknown* is rolled from the campaign seed: how many more planets
+there are and where, whether each is rocky, icy or gaseous, whether it holds
+an atmosphere (decided by comparing escape velocity with temperature, with
+flaring red dwarfs stripping the air from close-in worlds), what the air is
+made of, how warm it ends up (equilibrium temperature plus the game's own
+greenhouse model), and what is buried in it - each world gets an overall
+richness and a few minerals it is especially rich in. Most worlds are bleak;
+a few are temperate and breathable; many are terraformable. A new campaign
+rolls a new galaxy; the seed is kept in saves, and `?seed=name` in the address
+picks one. Sol itself is never rolled.
+
+**Jump points** link the systems, and the network is not geography: a point
+in Sol may lead to Ross 128 or to TRAPPIST-1. Every system has several, none
+known at the start.
+
+- **Finding them.** A ship with a gravitational survey sensor sits in a system
+  (the *Search for jump points* order) and banks survey points; every 1,000
+  points reveals the next jump point. Points are shared by all fleets working
+  the same system.
+- **Crossing them.** A ship needs a *jump drive* (a component, rated in tons -
+  200 t per hull space - and pooled across the fleet), or the connection needs
+  a gate. The first crossing reveals the far system and its planets; minerals
+  still need a geological survey.
+- **Gates.** A ship with a *gate construction module* sitting at a jump point
+  the empire has already crossed builds a gate in a number of days set by the
+  module's size. After that any ship, drive or not, can use the connection,
+  and civilian shipping (migration, installations delivered between colonies)
+  follows gated routes. Mass drivers still reach only within a system.
+- **Routes are automatic.** A plain *Move to* order for a body in another
+  system is expanded into the crossings along the shortest known route that
+  the fleet can use; "No known route" is reported if there is none.
+- **Settling.** The first colony in a new system needs a ship with cryogenic
+  berths in orbit; after that the system can be settled freely.
+
+**The Explore programme** automates all of it: search each system for jump
+points, cross the ones nobody has been through, and carry on until the known
+network is charted. It checks before each hop that the fuel left covers the
+trip and the way home, turns back to refuel at the nearest reachable colony,
+and says so plainly when it is stranded far from home. Survey programmes now
+belong to a system, and freight lines work across gated connections. Routine
+discoveries are logged quietly; the first visit to a new system is not.
+
+**The Galaxy tab** shows the sky: visited systems bright, the rest dim ink with
+real names and positions, crossed links in cyan, gates in green, and a `?` stub
+for each jump point found but not followed. Pick a star for its facts and, if
+visited, its planets; double-click or *Open in the system map* to switch the
+map to it. The system map has a system picker, view presets that fit each
+system, and shows jump points as diamonds (hollow until crossed, ringed once
+gated). Not yet modelled: companion stars, the jump network changing, and
+anything hostile on the other side.
+
+## Random events
+
+Things happen that you did not plan. Once per production cycle the event
+engine rolls the dice - on average about one event a year at the *normal*
+setting (Off, Rare, Normal and Often are in Settings; `?events=off` overrides it
+for a visit), never within 18 days of the last, and never raising a fourth
+decision while three are waiting. What happens is a weighted draw over the
+events whose conditions the empire currently meets, so a fuel depot fire needs a
+depot with fuel in it and a scandal needs a governor.
+
+Fourteen events are written, each concrete and each using only things the game
+already has:
+
+- **Good news** (applied at once, reported by a toast): a richer mineral seam,
+  a research breakthrough, an endowment, a scientist's career-best work, a baby
+  boom, a wave of recruits, a gravitational ripple that reveals a jump point.
+- **Bad news**: a market slump, a solar flare that leaks fuel from a fleet.
+- **Decisions** (a popup, which stops the clock): an industrial accident, a
+  work stoppage, an epidemic, a fuel depot fire, a governor's scandal, and a
+  derelict found in old survey data. Each option states its cost or risk before
+  you choose it, options you cannot afford are disabled with the reason, and a
+  decision nobody makes lapses into its stated fallback after 90 days.
+
+Pending decisions are saved with the game and offered again after a load.
+Events draw from their own random stream, so the rest of the simulation is
+unaffected by whether they are on.
+
+**The Events tab** is the log: decisions waiting at the top, answerable
+inline or as a popup, and below them every event that has happened - date,
+tone, what occurred, what you chose and what it did - with filters for good,
+bad and decisions and a text search. The tab carries a badge while a decision
+waits, the command palette lists each one, and the return digest groups events
+with the rest of what happened. "Popup for every event" in Settings gives good
+and bad news the popup treatment too.
+
+## Hosting and installing
+
+The game is static files, so it can be hosted anywhere. A GitHub Actions
+workflow (`.github/workflows/pages.yml`) runs the model checks, builds, and
+publishes to **GitHub Pages** on every push to `main`. One-time setup: in the
+repository's *Settings > Pages*, set *Source* to **GitHub Actions**. The site
+then lives at `https://<user>.github.io/<repo>/`.
+
+The build uses relative URLs, so it also works unchanged on Cloudflare Pages,
+Netlify, Vercel or any folder on any web server. It is an installable web app:
+on a phone, open the site and choose *Add to Home Screen* (iOS: Share, then Add
+to Home Screen; Android Chrome: menu, then Install app) to run it full screen,
+and a service worker caches it so it also runs offline after the first visit.
+
+Saves live in each browser's local storage, so a phone and a computer keep
+separate games; use *Save and load > Export* and *Import* to move one between
+them.
+
 ## Terraforming
 
 ![a terraforming programme](docs/terraforming.png)
@@ -149,14 +325,9 @@ rather than pretending otherwise.
 
 ![the class designer](docs/designer.png)
 
-**Classes are designed, not chosen.** A hull is a bag of components - engines,
-fuel tanks, crew quarters, cargo holds, cryogenic berths, survey sensors - and
-every figure about the ship is derived from them: tonnage, speed, endurance,
-range, crew, build cost and minerals. Nothing is stored twice, so researching a
-better fuel efficiency improves every ship already flying.
-
-Each component is gated on a technology, which is what finally gives the
-engine and sensor branches of the tree something to do. At the start of a
+**Classes come from the designers above.** Every figure about a ship is
+derived from its components, so nothing is stored twice and researching a
+better fuel efficiency improves every ship already flying. At the start of a
 campaign no engine has been researched, so nothing can be built; Nuclear
 Thermal Engine Technology is the first thing that puts a hull in space.
 
@@ -276,18 +447,77 @@ results.
 
 ## Research
 
-![research](docs/research.png)
+![the research view](docs/research.png)
 
-55 technologies across the eight Aurora research fields. A tech becomes
-available once its prerequisites are researched, and its effects are
-declarative - the empire's working figures are always recomputed from the set
-of researched techs, so there is no incremental state to drift.
+Research is organised around four questions, asked in order: *what is
+happening, what can I start, what does it do, and what is stopping me?*
 
-A project needs three things: a tech, a scientist, and laboratories on a
-colony. A scientist can only direct as many labs as their administration rating
-allows, so a brilliant researcher with poor administration is a specialist, not
-a department head. Techs marked *future system* are real research targets whose
-effects arrive with ship design, surveying and combat.
+- **What is happening.** A summary strip (output, laboratories working,
+  scientists free, technologies ready) and the projects under way sit at the
+  top, so the state of research is visible without clicking anything. A
+  project that has stalled says so on its card.
+- **What can I start.** The default tab is **Ready now**: every technology
+  whose prerequisites are done, grouped by field. You do not have to know the
+  tree to find a next step.
+- **What does it do.** Select a technology and the side panel says, in plain
+  words, what it unlocks ("Ion Drive engines in the component designer"), what
+  it improves ("Mine output becomes 12 t/year per mine"), and what it opens
+  next. Techs whose effects belong to systems not built yet are marked
+  *future* rather than pretending to do something.
+- **What is stopping me.** A locked technology names the prerequisite to
+  research first and links straight to it. If nothing is free to do the work,
+  it says whether the missing thing is a scientist or a laboratory.
+
+![a branch of the tree](docs/research-tree.png)
+
+Each field is a board of columns by tier, so the shape of a branch is
+visible. Selecting a technology outlines what it needs in amber and what it
+opens in blue. Starting one is a single click: the panel proposes the best free
+scientist (a specialist in the field first), the colony with the most free
+laboratories, and as many labs as that scientist can direct, with a finishing
+estimate. Everything can still be changed.
+
+A scientist can direct only as many laboratories as their administration
+rating allows, so a brilliant researcher with poor administration is a
+specialist, not a department head - and the panel tells you when that is the
+limit. On a phone the tiers stack and selecting a technology scrolls its
+details into view.
+
+## Ship design
+
+![the component designer](docs/component-designer.png)
+
+Ships are not picked from a catalogue. As in Aurora, **you design the
+components, then assemble them into classes**.
+
+**Component designer.** Choose a kind and its parameters, and every figure is
+recomputed as you edit. An engine has a type (set by what you have researched),
+a size, and a **power modifier**: push it above 1.0 for thrust at a steep fuel
+premium (fuel per unit of power rises with the square of the modifier), or
+below 1.0 to buy range. Fuel tanks, crew quarters, cargo holds, cryogenic
+berths and survey sensors are designed by size; a survey sensor's size sets how
+many days a survey takes. Names follow the parameters until you type your own.
+
+Engine types, sensor types and the modifier ceiling come from the technology
+tree, so researching Nuclear Pulse really does add a new engine to design.
+A component already built into a class is **superseded, not rewritten**: save a
+new one and mark the old one obsolete, so ships already flying are never
+altered by an edit.
+
+![the ship designer](docs/ship-designer.png)
+
+**Ship designer.** Assemble a class from your saved components and watch the
+derived figures: tonnage and hull spaces, speed, engine power, fuel, burn,
+endurance, range, crew against berths, cargo, colonists, survey rate, build
+cost and minerals, and the slipway it needs against the largest yard you have.
+Common mistakes are caught as you make them - no engine, no fuel, too few
+berths, a hull too big for any slipway - and the commonest, crew, has a
+one-click fix. Classes can be duplicated, superseded, and built from the Fleets
+view. *Add standard set* and *Add standard classes* give you a working Hauler,
+Pioneer and Surveyor in one step.
+
+Surveying is now a timed activity: it takes survey points, so a ship with a
+bigger sensor finishes sooner, and a progress bar shows on the fleet.
 
 ## People
 
@@ -309,7 +539,7 @@ rank nudged by their best skill, and retire from about 58 onward.
 
 | Input | Action |
 | --- | --- |
-| `E` `M` `C` `F` `R` `O` | Empire / Map / Colonies / Fleets / Research / Officers |
+| `E` `M` `C` `F` `D` `R` `O` | Empire / Map / Colonies / Fleets / Design / Research / Officers |
 | Drag | Pan the map |
 | Scroll | Zoom at the cursor |
 | Click | Select a body |
@@ -337,7 +567,8 @@ src/
               economy/        installations, the production cycle, the ledger,
                               order previews, templates, standing orders
               governors.ts    policies, and the proposals they file
-              ships/          components, class design, fleets and movement
+              research/graph.ts  tiers, unlocks and recommendations for the tree
+              ships/          component designs, class design, fleets, movement
               research/       the eight fields and the technology tree
               people/         officer generation, promotion, retirement
   data/       bodies.ts       the Sol dataset: elements and physical data
@@ -348,7 +579,7 @@ src/
               colony.ts       a colony and its build queue
   ui/         app.ts          input, the frame loop, view switching
               triageRail.ts   the persistent attention rail
-              views/          empire, colony, research and officer views
+              views/          empire, colony, fleet, design, research, officer views
               bodyTree.ts, detailPanel.ts, timeControls.ts, widgets.ts
 tools/        sanity.ts       the checks behind `npm run check`
               ui-test.mjs     the browser checks behind `npm run ui`
@@ -384,6 +615,13 @@ invariants - among them:
   researched; standing orders deliver their target and then stop, counting what
   is already on its way; a governor proposes only with a policy and a governor,
   and stops once the policy is satisfied.
+- Component designs: engine power is size x type x modifier, fuel per
+  power-hour falls with the square of the modifier, an overdriven modifier is
+  clamped until its technology is researched, parameters carry no float noise,
+  a component built into a class refuses to be rewritten, and standard classes
+  use standard parts even after custom ones exist.
+- Surveying takes the time its sensor size says (a 4 HS sensor: five days),
+  not an instant.
 - A class's tonnage, speed, capacity and crew match the components it is made
   of; a hull larger than the slipways never starts; fuel burn matches the
   design's hourly rate; cargo and colonists are carried, not created; a dry
@@ -415,7 +653,7 @@ With 48 colonies, 5,000 ships and 1,555 belt objects, on one core:
 | One five-day production cycle | 0.68 ms |
 | Empire mineral ledger | 0.35 ms |
 | Attention list | 0.91 ms |
-| Kepler solves | ~4.2 million/second |
+| Kepler solves | ~3.6-4.2 million/second |
 
 That is **1.2 ms of a 16.7 ms frame** - 7% of the budget at sixty frames a
 second. At ten times the navy (50,000 ships) it is 6.2 ms, still inside budget.
@@ -439,10 +677,11 @@ game.
 
 ## Not built yet
 
-Ground forces; sensors, surveying and
-combat and armour; jump points and other star systems; sector administration;
+Ground forces; armour, shields and weapons in the component designer (they need
+combat); sensors, surveying and
+combat and armour; sector administration;
 ship maintenance and crew grade. Terraforming cannot yet be done from orbit by
 a ship, only by installations on the ground. Ordnance
 factories, maintenance facilities, tracking stations and spaceports can be
 built but do nothing yet, and mineral and colonist transport is handled by the
-civilian-shipping stand-in described above rather than by freighters you build.
+civilian-shipping stand-in described above rather than by freighters you build - though freight lines now let freighters do the job by hand, with civilian shipping off.

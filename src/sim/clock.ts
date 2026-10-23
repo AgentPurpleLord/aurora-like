@@ -38,10 +38,19 @@ export const TIME_INCREMENTS: { label: string; seconds: number }[] = [
   { label: "+30d", seconds: 30 * SECONDS_PER_DAY },
 ];
 
+/** "18 Mar 2025" for any simulation time. */
+export function formatShortDate(seconds: number): string {
+  const date = new Date(J2000_UNIX_MS + seconds * 1000);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${date.getUTCDate()} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+}
+
 export class GameClock {
   /** Simulated seconds since J2000.0. */
   seconds = CAMPAIGN_START_SECONDS;
   rateIndex = 0;
+  /** The speed to return to when the player resumes from a pause. */
+  private resumeIndex = 4;
 
   get rate(): TimeRate {
     return TIME_RATES[this.rateIndex];
@@ -66,14 +75,30 @@ export class GameClock {
 
   setRate(index: number): void {
     this.rateIndex = Math.max(0, Math.min(TIME_RATES.length - 1, index));
+    if (this.rateIndex > 0) this.resumeIndex = this.rateIndex;
   }
 
+  /** Pause, or resume at the speed that was running before. */
   togglePause(): void {
-    this.rateIndex = this.rateIndex === 0 ? 4 : 0;
+    this.setRate(this.rateIndex === 0 ? this.resumeIndex : 0);
   }
 
   toDate(): Date {
     return new Date(J2000_UNIX_MS + this.seconds * 1000);
+  }
+
+  /** "18 Mar 2025" - the date alone, for a headline readout. */
+  formatDate(): string {
+    const d = this.toDate();
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  }
+
+  /** "23:57" - the time of day, which matters only at the slowest speeds. */
+  formatTime(): string {
+    const d = this.toDate();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
   }
 
   /** "15th January 2025  04:32:10", close to Aurora's date line. */

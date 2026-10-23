@@ -8,7 +8,7 @@
  */
 
 import type { Empire } from "../../state/empire";
-import type { StarSystem } from "../system";
+import type { Galaxy } from "../galaxy";
 import { installationCount } from "../../state/colony";
 import { effectiveColonyCost } from "./production";
 
@@ -59,7 +59,7 @@ export function describeRule(rule: StandingRule, installationName: (id: string) 
 /** How much work a rule wants queued right now. Zero when satisfied. */
 export function shortfallFor(
   empire: Empire,
-  system: StarSystem,
+  system: Galaxy,
   order: StandingOrder,
 ): { installationId: string; quantity: number } | null {
   const colony = empire.colonies.get(order.colonyId);
@@ -85,7 +85,7 @@ export function shortfallFor(
 }
 
 /** Run every enabled standing order. Returns a line per order that queued work. */
-export function evaluateStandingOrders(empire: Empire, system: StarSystem): string[] {
+export function evaluateStandingOrders(empire: Empire, system: Galaxy): string[] {
   const notes: string[] = [];
 
   for (const order of empire.standingOrders) {

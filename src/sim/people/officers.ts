@@ -213,6 +213,16 @@ export class OfficerPool {
     return [...this.officers.values()];
   }
 
+  exportState(): { officers: Officer[]; nextId: number } {
+    return { officers: this.list, nextId: this.nextId };
+  }
+
+  importState(data: { officers: Officer[]; nextId: number }): void {
+    this.officers.clear();
+    for (const officer of data.officers) this.officers.set(officer.id, officer);
+    this.nextId = data.nextId;
+  }
+
   byBranch(branch: Branch): Officer[] {
     return this.list.filter((o) => o.branch === branch);
   }

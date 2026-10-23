@@ -12,18 +12,8 @@ import { INSTALLATIONS, INSTALLATION_BY_ID, SHIPYARD_TONS } from "../../sim/econ
 import { shipyardCapacity } from "../../sim/economy/production";
 import { previewOrder } from "../../sim/economy/ledger";
 import { MINERALS, type MineralName } from "../../sim/minerals";
-import {
-  CATEGORY_NAMES,
-  availableComponents,
-  type ComponentCategory,
-} from "../../sim/ships/components";
-import {
-  bestEngine,
-  describeDesign,
-  designStats,
-  starterDesigns,
-  type DesignComponent,
-} from "../../sim/ships/design";
+import { SURVEY_POINTS_NEEDED } from "../../sim/ships/components";
+import { describeDesign } from "../../sim/ships/design";
 import {
   cargoTons,
   destinationOf,
@@ -37,6 +27,8 @@ import { fullName } from "../../sim/people/officers";
 import { compact, el, num } from "../format";
 import { button, emptyNote, numberInput, progressBar, section, select, stat } from "../widgets";
 import { formatYears } from "./economyView";
+import { FleetAutomation } from "./fleetAutomation";
+import { describeProgram } from "../../sim/ships/programs";
 
 type OrderKind = FleetOrder["kind"];
 
@@ -50,6 +42,9 @@ const ORDER_LABELS: Record<OrderKind, string> = {
   "unload-minerals": "Unload minerals",
   refuel: "Refuel",
   survey: "Survey this body",
+  jump: "Cross this jump point",
+  gravsurvey: "Search for jump points",
+  "build-gate": "Build a gate here",
 };
 
 export class FleetsView {
@@ -57,8 +52,6 @@ export class FleetsView {
   private mainPane: HTMLElement;
   private sidePane: HTMLElement;
 
-  private mode: "fleet" | "design" = "fleet";
-  private editing: { id: string | null; name: string; components: DesignComponent[] } | null = null;
   private orderKind: OrderKind = "move";
   private orderBody = "";
   private orderInstallation = "infrastructure";
@@ -66,9 +59,15 @@ export class FleetsView {
   private orderAmount = 1;
   private buildColony = "";
   private buildQuantity = 1;
+  private automation: FleetAutomation;
 
-  constructor(private root: HTMLElement, private game: Game) {
+  constructor(
+    private root: HTMLElement,
+    private game: Game,
+    private actions: { openDesigner: (classId: string | null) => void },
+  ) {
     this.root.classList.add("view-fleets");
+    this.automation = new FleetAutomation(game, () => this.render());
     this.listPane = el("aside", "panel panel-left");
     this.mainPane = el("section", "fleet-detail");
     this.sidePane = el("aside", "panel panel-right");
@@ -77,8 +76,7 @@ export class FleetsView {
 
   render(): void {
     this.renderFleetList();
-    if (this.mode === "design") this.renderDesigner();
-    else this.renderFleet();
+    this.renderFleet();
     this.renderClasses();
   }
 
@@ -95,7 +93,7 @@ export class FleetsView {
     const rows = el("div", "tree");
     const fleets = [...game.empire.fleets.values()];
     if (!fleets.length) {
-      emptyNote(this.listPane, "No ships yet. Design a class, then lay one down at a shipyard.");
+      emptyNote(this.listPane, "No ships yet. Design a class in the designer, then lay one down at a shipyard.");
     }
 
     for (const fleet of fleets) {
@@ -107,6 +105,13 @@ export class FleetsView {
       dot.style.background = stats.speed > 0 ? "#8fd0ff" : "#6a7684";
       row.append(dot, el("span", "tree-name", fleet.name));
       row.append(el("span", "tree-meta", `${stats.ships} ship${stats.ships === 1 ? "" : "s"}`));
+      if (fleet.program) {
+        const tag = el("span", "chip program-chip", fleet.program.kind === "survey" ? "survey" : "freight");
+        tag.title = describeProgram(fleet.program, (id) => game.galaxy.byId.get(id)?.name ?? id);
+        row.append(tag);
+      } else if (fleet.loop) {
+        row.append(el("span", "chip program-chip", "repeat"));
+      }
       if (fleet.note) {
         const flag = el("span", "colony-flag", "!");
         flag.title = fleet.note;
@@ -114,7 +119,6 @@ export class FleetsView {
       }
       row.addEventListener("click", () => {
         game.selectFleet(fleet.id);
-        this.mode = "fleet";
         this.render();
       });
       rows.append(row);
@@ -143,6 +147,15 @@ export class FleetsView {
     this.mainPane.append(body);
 
     if (fleet.note) body.append(el("div", "project-warning", fleet.note));
+    if (fleet.surveyProgress > 0 && fleet.anchorId) {
+      const bar = el("div", "survey-line");
+      bar.append(
+        el("span", "muted small",
+          `Surveying ${this.game.galaxy.byId.get(fleet.anchorId)?.name ?? fleet.anchorId}`),
+        progressBar(fleet.surveyProgress / SURVEY_POINTS_NEEDED),
+      );
+      body.append(bar);
+    }
 
     const summary = section(body, "Fleet");
     summary.classList.add("two-col");
@@ -160,6 +173,7 @@ export class FleetsView {
 
     this.renderCommander(body, fleet);
     this.renderOrders(body, fleet);
+    this.automation.render(body, fleet);
     this.renderCargo(body, fleet, stats.colonistCapacity);
     this.renderShips(body, fleet);
   }
@@ -167,12 +181,12 @@ export class FleetsView {
   private locationOf(fleet: Fleet): string {
     const { game } = this;
     if (fleet.anchorId) {
-      return `At ${game.system.byId.get(fleet.anchorId)?.name ?? fleet.anchorId}`;
+      return `At ${game.galaxy.byId.get(fleet.anchorId)?.name ?? fleet.anchorId}`;
     }
     const destination = destinationOf(fleet);
     if (destination) {
-      const eta = fleetEta(game.empire, game.system, fleet);
-      const name = game.system.byId.get(destination)?.name ?? destination;
+      const eta = fleetEta(game.empire, game.galaxy, fleet);
+      const name = game.galaxy.byId.get(destination)?.name ?? destination;
       return eta === null
         ? `Under way to ${name}`
         : `Under way to ${name} - ${formatYears(eta / (365.25 * 86400))}`;
@@ -223,11 +237,14 @@ export class FleetsView {
     const { game } = this;
     const sec = section(parent, "Orders");
 
-    if (!fleet.orders.length) emptyNote(sec, "No orders. The fleet is holding station.");
+    if (!fleet.orders.length) {
+      emptyNote(sec, fleet.program ? "No queued orders: the programme writes its own." : "No orders. The fleet is holding station.");
+    }
     fleet.orders.forEach((order, index) => {
       const row = el("div", "queue-row order-row");
       row.append(el("span", "queue-name", this.describeOrder(order)));
       if (index === 0) row.append(el("span", "chip", "current"));
+      if (fleet.loop && index === fleet.orders.length - 1) row.append(el("span", "chip", "then repeats"));
       row.append(
         button("x", () => {
           fleet.orders.splice(index, 1);
@@ -254,13 +271,21 @@ export class FleetsView {
     );
 
     if (this.orderKind === "move") {
-      const bodies = game.system.bodies.filter((b) => b.cls !== "star" || true);
+      // Only places the empire knows about.
+      const bodies = game.galaxy.bodies.filter(
+        (b) =>
+          game.empire.knownSystems.has(b.systemId) &&
+          (b.cls !== "jump-point" || game.empire.knownJumpPoints.has(b.id)),
+      );
       if (!bodies.some((b) => b.id === this.orderBody)) {
         this.orderBody = game.empire.capital;
       }
       form.append(
         select(
-          bodies.map((b) => ({ value: b.id, label: b.name })),
+          bodies.map((b) => ({
+            value: b.id,
+            label: b.systemId === "sol" ? b.name : `${b.name}${b.cls === "star" ? "" : ` - ${game.galaxy.systemById.get(b.systemId)?.name}`}`,
+          })),
           this.orderBody,
           (value) => (this.orderBody = value),
         ),
@@ -304,6 +329,7 @@ export class FleetsView {
       ),
     );
     sec.append(form);
+    this.automation.renderRepeat(sec, fleet);
 
     if (fleet.orders.length) {
       sec.append(
@@ -332,6 +358,9 @@ export class FleetsView {
       case "unload-minerals": return { kind: "unload-minerals" };
       case "refuel": return { kind: "refuel" };
       case "survey": return { kind: "survey" };
+      case "jump": return { kind: "jump" };
+      case "gravsurvey": return { kind: "gravsurvey" };
+      case "build-gate": return { kind: "build-gate" };
       default: return null;
     }
   }
@@ -339,7 +368,7 @@ export class FleetsView {
   private describeOrder(order: FleetOrder): string {
     switch (order.kind) {
       case "move":
-        return `Move to ${this.game.system.byId.get(order.bodyId)?.name ?? order.bodyId}`;
+        return `Move to ${this.game.galaxy.byId.get(order.bodyId)?.name ?? order.bodyId}`;
       case "load-installation":
         return `Load ${num(order.quantity)} ${
           INSTALLATION_BY_ID.get(order.installationId)?.name ?? order.installationId
@@ -409,7 +438,7 @@ export class FleetsView {
       );
       row.append(
         button("Detach", () => {
-          const split = empire.createFleet(`${ship.name} Group`, fleet.position, fleet.anchorId);
+          const split = empire.createFleet(`${ship.name} Group`, fleet.position, fleet.anchorId, fleet.systemId);
           fleet.shipIds = fleet.shipIds.filter((id) => id !== shipId);
           split.shipIds.push(shipId);
           ship.fleetId = split.id;
@@ -450,132 +479,6 @@ export class FleetsView {
     }
   }
 
-  // -------------------------------------------------------------- designer
-
-  private renderDesigner(): void {
-    const { empire } = this.game;
-    this.mainPane.textContent = "";
-    const editing = this.editing;
-    if (!editing) {
-      emptyNote(this.mainPane, "Pick a class to edit, or start a new one.");
-      return;
-    }
-
-    const head = el("div", "detail-head");
-    head.append(el("div", "detail-title", editing.name || "New Class"));
-    head.append(el("div", "detail-sub", "Class design"));
-    this.mainPane.append(head);
-
-    const body = el("div", "detail-body");
-    this.mainPane.append(body);
-
-    const nameRow = el("div", "add-order");
-    const nameInput = el("input", "select");
-    nameInput.type = "text";
-    nameInput.value = editing.name;
-    nameInput.placeholder = "Class name";
-    nameInput.addEventListener("change", () => (editing.name = nameInput.value));
-    nameRow.append(nameInput);
-    body.append(nameRow);
-
-    const draft = { id: "draft", name: editing.name, components: editing.components, created: 0 };
-    const stats = designStats(draft, empire.researched, empire.stats);
-
-    const figures = section(body, "Derived");
-    figures.classList.add("two-col");
-    stat(figures, "Tonnage", `${num(stats.tons)} t`);
-    stat(figures, "Speed", `${num(stats.speed)} km/s`);
-    stat(figures, "Fuel", `${compact(stats.fuelCapacity)} l`);
-    stat(figures, "Burn", `${num(stats.fuelPerHour)} l/hour`);
-    stat(figures, "Range", `${stats.rangeAu.toFixed(2)} AU`);
-    stat(figures, "Crew", `${num(stats.crewRequired)} of ${num(stats.berths)} berths`,
-      stats.berths < stats.crewRequired ? "bad" : undefined);
-    if (stats.cargoCapacity) stat(figures, "Cargo", `${compact(stats.cargoCapacity)} t`);
-    if (stats.colonistCapacity) stat(figures, "Colonists", compact(stats.colonistCapacity));
-    stat(figures, "Build Cost", `${num(stats.buildCost)} BP`);
-    stat(figures, "Role", describeDesign(stats));
-
-    for (const problem of stats.problems) {
-      body.append(el("div", "project-warning", problem));
-    }
-
-    const mineralLine = Object.entries(stats.minerals)
-      .map(([mineral, tons]) => `${mineral} ${num(tons ?? 0)}`)
-      .join(", ");
-    body.append(el("p", "muted small", mineralLine ? `Minerals: ${mineralLine}` : ""));
-
-    // --- component picker
-    const byCategory = new Map<ComponentCategory, HTMLElement>();
-    for (const component of availableComponents(empire.researched)) {
-      let host = byCategory.get(component.category);
-      if (!host) {
-        host = section(body, CATEGORY_NAMES[component.category]);
-        byCategory.set(component.category, host);
-      }
-      const entry = editing.components.find((c) => c.componentId === component.id);
-      const count = entry?.count ?? 0;
-
-      const row = el("div", "component-row");
-      const name = el("span", "install-name", component.name);
-      name.title = component.blurb;
-      row.append(name);
-      row.append(
-        el("span", "muted small", `${num(component.tons)} t  ${num(component.cost)} BP`),
-      );
-      row.append(el("span", "install-count", num(count)));
-      row.append(
-        button("-", () => this.adjust(component.id, -1), "step-btn"),
-        button("+", () => this.adjust(component.id, 1), "step-btn"),
-      );
-      host.append(row);
-    }
-
-    const actions = el("div", "form-actions");
-    actions.append(
-      button(
-        editing.id ? "Save class" : "Create class",
-        () => {
-          const name = editing.name.trim() || "Unnamed Class";
-          const components = editing.components.filter((c) => c.count > 0);
-          if (!components.length) return;
-          if (editing.id) {
-            empire.updateDesign(editing.id, name, components);
-          } else {
-            const created = empire.addDesign(name, components, this.game.clock.seconds);
-            empire.addLog(
-              this.game.clock.seconds,
-              "fleet",
-              `${created.name} class design completed: ${describeDesign(
-                designStats(created, empire.researched, empire.stats),
-              )}.`,
-            );
-          }
-          this.editing = null;
-          this.mode = "fleet";
-          this.game.emit();
-        },
-        "primary-btn",
-      ),
-    );
-    actions.append(
-      button("Cancel", () => {
-        this.editing = null;
-        this.mode = "fleet";
-        this.render();
-      }),
-    );
-    body.append(actions);
-  }
-
-  private adjust(componentId: string, delta: number): void {
-    const editing = this.editing;
-    if (!editing) return;
-    const entry = editing.components.find((c) => c.componentId === componentId);
-    if (entry) entry.count = Math.max(0, entry.count + delta);
-    else if (delta > 0) editing.components.push({ componentId, count: delta });
-    this.render();
-  }
-
   // --------------------------------------------------------------- classes
 
   private renderClasses(): void {
@@ -588,40 +491,16 @@ export class FleetsView {
     const body = el("div", "detail-body");
     this.sidePane.append(body);
 
-    const engine = bestEngine(empire.researched);
-    if (!engine) {
-      emptyNote(
-        body,
-        "No engine has been researched. Nuclear Thermal Engine Technology is the first one.",
-      );
-      return;
-    }
-
     const actions = el("div", "template-actions");
-    actions.append(
-      button("New class", () => {
-        this.editing = { id: null, name: "", components: [] };
-        this.mode = "design";
-        this.render();
-      }, "primary-btn"),
-    );
-    const starters = starterDesigns(empire.researched).filter(
-      (s) => !empire.designs.some((d) => d.name === s.name),
-    );
-    if (starters.length) {
-      actions.append(
-        button(`Add ${starters.length} standard classes`, () => {
-          for (const starter of starters) {
-            empire.addDesign(starter.name, starter.components, this.game.clock.seconds);
-          }
-          this.game.emit();
-        }),
-      );
-    }
+    actions.append(button("Open the designer", () => this.actions.openDesigner(null), "primary-btn"));
     body.append(actions);
 
-    if (!empire.designs.length) {
-      emptyNote(body, "No classes yet.");
+    const classes = empire.designs.filter((d) => !d.obsolete);
+    if (!classes.length) {
+      emptyNote(
+        body,
+        "No ship classes yet. Design components, then assemble them into a class in the designer.",
+      );
       return;
     }
 
@@ -630,7 +509,7 @@ export class FleetsView {
       this.buildColony = yards[0]?.bodyId ?? "";
     }
 
-    for (const design of empire.designs) {
+    for (const design of classes) {
       const stats = empire.statsOf(design.id)!;
       const card = el("div", "project-card");
       card.append(el("div", "project-name", design.name));
@@ -642,30 +521,17 @@ export class FleetsView {
 
       const flying = [...empire.ships.values()].filter((s) => s.designId === design.id).length;
       if (flying) card.append(el("div", "muted small", `${flying} in service`));
-
-      for (const problem of stats.problems) {
-        card.append(el("div", "project-warning", problem));
-      }
+      for (const problem of stats.problems) card.append(el("div", "project-warning", problem));
 
       const row = el("div", "project-controls");
-      row.append(
-        button("Edit", () => {
-          this.editing = {
-            id: design.id,
-            name: design.name,
-            components: design.components.map((c) => ({ ...c })),
-          };
-          this.mode = "design";
-          this.render();
-        }, "step-btn"),
-      );
+      row.append(button("Edit", () => this.actions.openDesigner(design.id), "step-btn"));
 
       if (!stats.problems.length && yards.length) {
         row.append(
           select(
             yards.map((c) => ({
               value: c.bodyId,
-              label: this.game.system.byId.get(c.bodyId)?.name ?? c.bodyId,
+              label: this.game.galaxy.byId.get(c.bodyId)?.name ?? c.bodyId,
             })),
             this.buildColony,
             (value) => {
@@ -689,27 +555,21 @@ export class FleetsView {
       if (colony && stats.tons > shipyardCapacity(colony)) {
         card.append(
           el("div", "project-warning",
-            `${this.game.system.byId.get(this.buildColony)?.name} can lay down ${num(
+            `${this.game.galaxy.byId.get(this.buildColony)?.name} can lay down ${num(
               shipyardCapacity(colony),
             )} t; this class is ${num(stats.tons)} t. Build more shipyards (${num(
               SHIPYARD_TONS,
             )} t each).`),
         );
-      } else if (colony) {
+      } else if (colony && !stats.problems.length) {
         const preview = previewOrder(
-          empire,
-          this.game.system,
-          colony,
-          "ship",
-          this.buildQuantity,
-          undefined,
-          design.id,
+          empire, this.game.galaxy, colony, "ship", this.buildQuantity, undefined, design.id,
         );
         if (preview) {
           card.append(
             el("div", "muted small",
               `${num(preview.buildPoints)} BP at ${
-                this.game.system.byId.get(colony.bodyId)?.name
+                this.game.galaxy.byId.get(colony.bodyId)?.name
               } - ${formatYears(preview.years)}`),
           );
           if (!preview.affordable) {
@@ -722,12 +582,12 @@ export class FleetsView {
 
     const yardNote = section(body, "Shipyards");
     for (const colony of [...empire.colonies.values()]) {
-      const yards = installationCount(colony, "shipyard");
-      if (!yards) continue;
+      const count = installationCount(colony, "shipyard");
+      if (!count) continue;
       stat(
         yardNote,
-        this.game.system.byId.get(colony.bodyId)?.name ?? colony.bodyId,
-        `${yards} yards - ${num(shipyardCapacity(colony))} t`,
+        this.game.galaxy.byId.get(colony.bodyId)?.name ?? colony.bodyId,
+        `${count} yards - ${num(shipyardCapacity(colony))} t`,
       );
     }
   }

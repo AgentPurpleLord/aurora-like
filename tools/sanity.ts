@@ -21,7 +21,31 @@ import { BUILT_IN_TEMPLATES, resolveTemplate } from "../src/sim/economy/template
 import { supplyToward } from "../src/sim/economy/standingOrders";
 import { deriveProposals } from "../src/sim/governors";
 import { effectiveColonyCost, shipyardCapacity } from "../src/sim/economy/production";
-import { designStats } from "../src/sim/ships/design";
+import { componentStats, normaliseParams, SURVEY_POINTS_NEEDED } from "../src/sim/ships/components";
+import type { Empire } from "../src/state/empire";
+import { Galaxy } from "../src/sim/galaxy";
+import { optionsFor, resolveEvent, rollEvent } from "../src/sim/events/engine";
+import { STARS } from "../src/data/stars";
+import { sharesShipping } from "../src/sim/economy/production";
+import { surveyScope } from "../src/sim/ships/programs";
+import { fleetStats } from "../src/sim/ships/fleet";
+import { emptyStockpile } from "../src/state/colony";
+import { gameFromSave, makeSave, parseSave } from "../src/state/save";
+
+/** Component designs by role, made the way a player would. */
+function parts(empire: Empire, now = 0) {
+  const kind = (k: Parameters<Empire["addComponentDesign"]>[0], params: Record<string, number | string>) =>
+    empire.componentDesigns.find((c) => c.kind === k && JSON.stringify(c.params) === JSON.stringify({ ...params })) ??
+    empire.addComponentDesign(k, params, now);
+  return {
+    engine: (type: string, size = 5, modifier = 1) => kind("engine", { type, size, modifier }),
+    tank: (size = 5) => kind("fuel-tank", { size }),
+    quarters: (size = 2) => kind("crew-quarters", { size }),
+    cargo: (size = 20) => kind("cargo-hold", { size }),
+    colony: (size = 20) => kind("colony-module", { size }),
+    sensor: (size = 4) => kind("survey-sensor", { type: "geological", size }),
+  };
+}
 import {
   isBreathable,
   maxPressureFor,
@@ -43,6 +67,16 @@ const num = (v: number) => Math.round(v).toLocaleString("en-US");
 declare const process: { exit(code: number): never };
 
 let failures = 0;
+
+/** Structural equality over plain data; key order does not matter. */
+function isDeepStrictEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  if (ka.length !== kb.length) return false;
+  return ka.every((k) => isDeepStrictEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
+}
 
 function check(name: string, actual: number, expected: number, tolerance: number): void {
   const ok = Math.abs(actual - expected) <= tolerance;
@@ -153,7 +187,7 @@ console.log("");
 
 const game = new Game("sanity");
 const empire = game.empire;
-const bodies = game.system;
+const bodies = game.galaxy;
 
 function totalMinerals(): number {
   let total = 0;
@@ -320,7 +354,7 @@ const freshEmpire = fresh.empire;
 const freshEarth = freshEmpire.colony("earth")!;
 
 // Ledger totals must agree with the colonies they are summed from.
-const ledger = mineralLedger(freshEmpire, fresh.system);
+const ledger = mineralLedger(freshEmpire, fresh.galaxy);
 const duranium = ledger.find((r) => r.mineral === "Duranium")!;
 check("ledger Duranium stockpile", duranium.stockpile, 50_000, 1e-6);
 assert(`ledger Duranium production is positive (${duranium.production.toFixed(0)} t/yr)`, duranium.production > 0);
@@ -335,11 +369,11 @@ assert("no build demand with an empty queue", ledger.every((r) => r.mineral === 
 // An automated mine costs 240 BP, 120 t Duranium and 120 t Uridium: half a
 // ton of each per build point.
 freshEmpire.queueBuild("earth", "automated-mine", 10);
-const output = colonyOutput(freshEmpire, fresh.system.byId.get("earth")!, freshEarth, freshEmpire.stats);
+const output = colonyOutput(freshEmpire, fresh.galaxy.byId.get("earth")!, freshEarth, freshEmpire.stats);
 const demand = queueDemand(freshEmpire, freshEarth, output.buildPoints);
 check("queue demand for Duranium (t/yr)", demand.Duranium ?? 0, Math.min(output.buildPoints, 2400) * 0.5, 1e-6);
 
-const preview = previewOrder(freshEmpire, fresh.system, freshEarth, "research-lab", 4)!;
+const preview = previewOrder(freshEmpire, fresh.galaxy, freshEarth, "research-lab", 4)!;
 check("preview build points", preview.buildPoints, 3600, 1e-6);
 check("preview queued ahead (BP)", preview.queuedAhead, 2400, 1e-6);
 check(
@@ -350,7 +384,7 @@ check(
 );
 assert("preview is affordable from Earth's stockpile", preview.affordable);
 
-const unaffordable = previewOrder(freshEmpire, fresh.system, freshEarth, "research-lab", 400)!;
+const unaffordable = previewOrder(freshEmpire, fresh.galaxy, freshEarth, "research-lab", 400)!;
 assert("preview flags an order the stockpile cannot cover", !unaffordable.affordable);
 assert(
   "preview names the mineral that is short",
@@ -363,13 +397,13 @@ const freshLuna = freshEmpire.foundColony("luna", fresh.clock.seconds);
 freshLuna.installations["construction-factory"] = 500;
 freshLuna.installations["automated-mine"] = 40;
 freshLuna.population = 30;
-let issues = deriveIssues(freshEmpire, fresh.system);
+let issues = deriveIssues(freshEmpire, fresh.galaxy);
 assert(
   "idle industry is reported",
   issues.some((i) => i.id === "colony:idle-industry:luna"),
 );
 freshEmpire.queueBuild("luna", "automated-mine", 5);
-issues = deriveIssues(freshEmpire, fresh.system);
+issues = deriveIssues(freshEmpire, fresh.galaxy);
 assert(
   "idle industry stops being reported once work is queued",
   !issues.some((i) => i.id === "colony:idle-industry:luna"),
@@ -380,7 +414,7 @@ assert(
 freshLuna.stockpile.Duranium = 0;
 freshLuna.stockpile.Uridium = 0;
 fresh.step(CYCLE_DAYS * SECONDS_PER_DAY);
-issues = deriveIssues(freshEmpire, fresh.system);
+issues = deriveIssues(freshEmpire, fresh.galaxy);
 const stall = issues.find((i) => i.id === "queue:stalled:luna:automated-mine");
 assert("a stalled build queue is reported", stall !== undefined);
 assert("a stalled build queue is critical", stall?.severity === "critical");
@@ -391,13 +425,13 @@ const dismissedAt = fresh.clock.seconds;
 freshEmpire.dismissIssue("queue:stalled:luna:automated-mine", dismissedAt, 2);
 assert(
   "a dismissed issue leaves the active list",
-  !activeIssues(freshEmpire, fresh.system, dismissedAt).some(
+  !activeIssues(freshEmpire, fresh.galaxy, dismissedAt).some(
     (i) => i.id === "queue:stalled:luna:automated-mine",
   ),
 );
 assert(
   "a dismissed issue returns once the dismissal lapses",
-  activeIssues(freshEmpire, fresh.system, dismissedAt + 3 * DAYS_PER_YEAR * SECONDS_PER_DAY).some(
+  activeIssues(freshEmpire, fresh.galaxy, dismissedAt + 3 * DAYS_PER_YEAR * SECONDS_PER_DAY).some(
     (i) => i.id === "queue:stalled:luna:automated-mine",
   ),
 );
@@ -409,7 +443,7 @@ assert(
 // Every issue must be actionable: a body it names has to exist.
 assert(
   "every issue points somewhere real",
-  issues.every((i) => !i.action.bodyId || fresh.system.byId.has(i.action.bodyId)),
+  issues.every((i) => !i.action.bodyId || fresh.galaxy.byId.has(i.action.bodyId)),
 );
 
 // ==========================================================================
@@ -422,7 +456,7 @@ console.log("");
 {
   const auto = new Game("automation");
   const autoEmpire = auto.empire;
-  const callistoBody = auto.system.byId.get("callisto")!;
+  const callistoBody = auto.galaxy.byId.get("callisto")!;
   autoEmpire.foundColony("callisto", auto.clock.seconds);
   const callisto = autoEmpire.colony("callisto")!;
 
@@ -466,7 +500,7 @@ console.log("");
   );
 
   // Applying a template on a world that needs no infrastructure asks for none.
-  const earthBody = auto.system.byId.get("earth")!;
+  const earthBody = auto.galaxy.byId.get("earth")!;
   const earthColony = autoEmpire.colony("earth")!;
   assert(
     "a garden world is not sent infrastructure",
@@ -510,7 +544,7 @@ console.log("");
   callisto.policy = "mine";
   assert(
     "a policy without a governor proposes nothing",
-    deriveProposals(autoEmpire, auto.system).length === 0,
+    deriveProposals(autoEmpire, auto.galaxy).length === 0,
   );
 
   const administrator = autoEmpire.officers.byBranch("civilian")[0];
@@ -523,13 +557,13 @@ console.log("");
   // A governor will not propose mining ground nobody has surveyed.
   assert(
     "mining is not proposed for an unsurveyed world",
-    !deriveProposals(autoEmpire, auto.system).some(
+    !deriveProposals(autoEmpire, auto.galaxy).some(
       (p) => p.colonyId === "callisto" && p.order.installationId === "automated-mine",
     ),
   );
   autoEmpire.surveyed.add("callisto");
 
-  const proposals = deriveProposals(autoEmpire, auto.system);
+  const proposals = deriveProposals(autoEmpire, auto.galaxy);
   assert(
     `a mining governor proposes mines (${proposals.map((p) => p.order.installationId).join(", ")})`,
     proposals.some((p) => p.colonyId === "callisto" && p.order.installationId === "automated-mine"),
@@ -541,7 +575,7 @@ console.log("");
 
   // Proposals reach the player through the attention list, carrying the order
   // they would place.
-  const withProposals = deriveIssues(autoEmpire, auto.system);
+  const withProposals = deriveIssues(autoEmpire, auto.galaxy);
   const proposalIssue = withProposals.find((i) => i.id.startsWith("proposal:callisto"));
   assert("proposals appear in the attention list", proposalIssue !== undefined);
   assert("an attention proposal carries a concrete order", (proposalIssue?.proposal?.quantity ?? 0) > 0);
@@ -550,7 +584,7 @@ console.log("");
   autoEmpire.queueBuild("earth", "automated-mine", 40, "callisto");
   assert(
     "a satisfied policy stops proposing",
-    !deriveProposals(autoEmpire, auto.system).some(
+    !deriveProposals(autoEmpire, auto.galaxy).some(
       (p) => p.colonyId === "callisto" && p.order.installationId === "automated-mine",
     ),
   );
@@ -559,7 +593,7 @@ console.log("");
   callisto.policy = "none";
   assert(
     "a governor with no policy proposes nothing",
-    !deriveProposals(autoEmpire, auto.system).some((p) => p.colonyId === "callisto"),
+    !deriveProposals(autoEmpire, auto.galaxy).some((p) => p.colonyId === "callisto"),
   );
 }
 
@@ -577,13 +611,15 @@ console.log("");
 
   // --- design arithmetic
   empire.research("nuclear-thermal");
+  const p = parts(empire);
+  const thermal = p.engine("nuclear-thermal");
   const hauler = empire.addDesign("Hauler", [
-    { componentId: "engine-nuclear-thermal", count: 2 },
-    { componentId: "fuel-tank", count: 4 },
-    { componentId: "cargo-hold", count: 4 },
-    { componentId: "crew-quarters", count: 2 },
+    { componentId: thermal.id, count: 2 },
+    { componentId: p.tank().id, count: 4 },
+    { componentId: p.cargo().id, count: 4 },
+    { componentId: p.quarters().id, count: 2 },
   ], 0);
-  const stats = designStats(hauler, empire.researched, empire.stats);
+  const stats = empire.statsOf(hauler.id)!;
   check("design tonnage", stats.tons, 2 * 250 + 4 * 250 + 4 * 1000 + 2 * 100, 0);
   // Speed is engine power per hull space: 120 power, 5700 t = 114 HS.
   check("design speed (km/s)", stats.speed, (120 * 1000) / (5700 / 50), 1e-9);
@@ -592,25 +628,89 @@ console.log("");
   check("design crew required", stats.crewRequired, 2 * 3 + 4 * 2, 0);
   assert("a complete design has no problems", stats.problems.length === 0);
 
-  const unpowered = empire.addDesign("Hulk", [{ componentId: "cargo-hold", count: 1 }], 0);
+  // --- standard classes use the standard parts, even after custom ones exist
+  {
+    const std = new Game("standard");
+    std.empire.research("nuclear-thermal");
+    const customEngine = std.empire.addComponentDesign("engine", { type: "nuclear-thermal", size: 8, modifier: 0.6 }, 0);
+    const standardHauler = std.empire.addStandardClasses(0).find((d) => d.name === "Hauler")!;
+    assert(
+      "standard classes ignore a custom engine designed earlier",
+      standardHauler.components.every((c) => c.componentId !== customEngine.id),
+    );
+    check("and the standard Hauler is the familiar 5,700 t", std.empire.statsOf(standardHauler.id)!.tons, 5700, 0);
+  }
+
+  // --- the component designer's arithmetic
+  const thermalStats = componentStats("engine", { type: "nuclear-thermal", size: 5, modifier: 1 }, empire.researched);
+  check("engine power is size x type power x modifier", thermalStats.power ?? 0, 5 * 12, 1e-9);
+  const eco = componentStats("engine", { type: "nuclear-thermal", size: 5, modifier: 0.5 }, empire.researched);
+  check("an eco-tuned engine makes half the power", eco.power ?? 0, 30, 1e-9);
+  assert(
+    "and burns far less fuel per unit of power",
+    (eco.fuelPerHour! / eco.power!) < (thermalStats.fuelPerHour! / thermalStats.power!) / 3,
+  );
+  check(
+    "fuel per power-hour falls with the square of the modifier",
+    (eco.fuelPerHour! / eco.power!) / (thermalStats.fuelPerHour! / thermalStats.power!),
+    0.25,
+    1e-9,
+  );
+  assert("a tuned-down engine is cheaper to build", eco.cost < thermalStats.cost);
+  check(
+    "an overdriven modifier is clamped without the technology",
+    Number(normaliseParams("engine", { type: "nuclear-thermal", size: 5, modifier: 1.25 }, empire.researched).modifier),
+    1.0,
+    1e-9,
+  );
+  const withTuning = new Set([...empire.researched, "engine-power-125"]);
+  check(
+    "and allowed once engine power tuning is researched",
+    Number(normaliseParams("engine", { type: "nuclear-thermal", size: 5, modifier: 1.25 }, withTuning).modifier),
+    1.25,
+    1e-9,
+  );
+  check(
+    "a stepped parameter carries no float noise",
+    Number(normaliseParams("engine", { type: "nuclear-thermal", size: 8, modifier: 0.6 }, empire.researched).modifier),
+    0.6,
+    0,
+  );
+  check("component size is clamped to its range", Number(normaliseParams("fuel-tank", { size: 9999 }, empire.researched).size), 40, 0);
+  const sensorStats = componentStats("survey-sensor", { type: "geological", size: 4 }, new Set([...empire.researched, "geo-survey-sensors"]));
+  check("survey rate scales with sensor size (points/day)", sensorStats.survey?.rate ?? 0, 40, 0);
+
+  // A component in use cannot be rewritten out from under a class.
+  const usedTank = p.tank();
+  assert("a component in use is reported as used", empire.componentUsers(usedTank.id).length > 0);
+  assert("and refuses to be edited in place", !empire.updateComponentDesign(usedTank.id, "x", { size: 9 }));
+  assert("or deleted", !empire.removeComponentDesign(usedTank.id));
+  const spare = empire.addComponentDesign("fuel-tank", { size: 7 }, 0);
+  assert("an unused one can be edited", empire.updateComponentDesign(spare.id, "Big Tank", { size: 9 }));
+  check("and the edit is reflected in its figures", empire.resolveComponent(spare.id)!.stats.fuel ?? 0, 90_000, 0);
+  assert("and removed", empire.removeComponentDesign(spare.id));
+
+  const unpowered = empire.addDesign("Hulk", [{ componentId: p.cargo().id, count: 1 }], 0);
   assert(
     "a design with no engine is rejected",
-    designStats(unpowered, empire.researched, empire.stats).problems.some((p) => p.includes("No engine")),
+    empire.statsOf(unpowered.id)!.problems.some((m) => m.includes("No engine")),
   );
+  const ion = p.engine("ion");
   const unresearched = empire.addDesign("Dreamer", [
-    { componentId: "engine-ion", count: 1 },
-    { componentId: "crew-quarters", count: 1 },
+    { componentId: ion.id, count: 1 },
+    { componentId: p.quarters().id, count: 1 },
   ], 0);
   assert(
-    "a design using unresearched components is rejected",
-    designStats(unresearched, empire.researched, empire.stats).problems.length > 0,
+    "a component of an unresearched type is rejected",
+    empire.statsOf(unresearched.id)!.problems.some((m) => m.includes("not been researched")),
   );
 
   // --- a hull larger than the slipways never starts
   const leviathan = empire.addDesign("Leviathan", [
-    { componentId: "engine-nuclear-thermal", count: 2 },
-    { componentId: "cargo-hold", count: 40 },
-    { componentId: "crew-quarters", count: 5 },
+    { componentId: thermal.id, count: 2 },
+    { componentId: p.cargo().id, count: 40 },
+    { componentId: p.quarters().id, count: 5 },
+    { componentId: p.tank().id, count: 2 },
   ], 0);
   empire.queueShip("earth", leviathan.id, 1);
   navy.step(CYCLE_DAYS * SECONDS_PER_DAY);
@@ -631,10 +731,10 @@ console.log("");
   const ship = [...empire.ships.values()][0];
   ship.fuel = stats.fuelCapacity;
   check("a new fleet is commissioned at its yard, not at the origin",
-    distanceToBody(fleet, navy.system.byId.get("earth")!.world), 0, 1e-9);
+    distanceToBody(fleet, navy.galaxy.byId.get("earth")!.world), 0, 1e-9);
 
   // --- movement: Earth to Mars, at the speed the design says
-  const mars = navy.system.byId.get("mars")!;
+  const mars = navy.galaxy.byId.get("mars")!;
   const distance = distanceToBody(fleet, mars.world);
   fleet.orders.push({ kind: "move", bodyId: "mars" });
   const expectedSeconds = (distance * AU_KM) / stats.speed;
@@ -680,17 +780,17 @@ console.log("");
   // --- colonists are moved, not minted. Measured around the order itself,
   // since population grows while time passes.
   const pioneer = empire.addDesign("Pioneer", [
-    { componentId: "engine-nuclear-thermal", count: 2 },
-    { componentId: "fuel-tank", count: 4 },
-    { componentId: "cryogenic-berths", count: 2 },
-    { componentId: "crew-quarters", count: 2 },
+    { componentId: thermal.id, count: 2 },
+    { componentId: p.tank().id, count: 4 },
+    { componentId: p.colony().id, count: 2 },
+    { componentId: p.quarters().id, count: 2 },
   ], 0);
   const colonyFleet = empire.createFleet("Settlers", { x: 0, y: 0, z: 0 }, "earth");
   const colonyShip = empire.commissionShip(pioneer.id, colonyFleet, "Pioneer 001", 0);
-  colonyShip.fuel = designStats(pioneer, empire.researched, empire.stats).fuelCapacity;
+  colonyShip.fuel = empire.statsOf(pioneer.id)!.fuelCapacity;
   const beforeEmbark = earth.population;
   colonyFleet.orders.push({ kind: "load-colonists", amount: 40_000 });
-  executeArrivalOrders(empire, navy.system, colonyFleet);
+  executeArrivalOrders(empire, navy.galaxy, colonyFleet);
   check("embarking takes the colonists off the planet (millions)",
     beforeEmbark - earth.population, 0.04, 1e-9);
   check("the colonists are aboard", colonyFleet.cargo.colonists, 40_000, 0);
@@ -701,7 +801,7 @@ console.log("");
 
   const beforeLanding = marsColony.population;
   colonyFleet.orders.push({ kind: "unload-colonists" });
-  executeArrivalOrders(empire, navy.system, colonyFleet);
+  executeArrivalOrders(empire, navy.galaxy, colonyFleet);
   check("landing puts the same colonists down (millions)",
     marsColony.population - beforeLanding, 0.04, 1e-9);
   check("the berths are empty again", colonyFleet.cargo.colonists, 0, 0);
@@ -714,25 +814,36 @@ console.log("");
   assert(`a stranded fleet says why ("${fleet.note}")`, fleet.note === "Out of fuel");
   assert(
     "a stranded fleet is raised for attention",
-    deriveIssues(empire, navy.system).some((i) => i.id === `fleet:blocked:${fleet.id}`),
+    deriveIssues(empire, navy.galaxy).some((i) => i.id === `fleet:blocked:${fleet.id}`),
   );
 
   // --- survey
-  const surveyor = empire.addDesign("Surveyor", [
-    { componentId: "engine-nuclear-thermal", count: 1 },
-    { componentId: "fuel-tank", count: 2 },
-    { componentId: "geo-survey-sensor", count: 1 },
-    { componentId: "crew-quarters", count: 1 },
-  ], 0);
-  assert("survey sensors need their own technology", !empire.researched.has("geo-survey-sensors"));
   empire.research("geo-survey-sensors");
+  const surveyor = empire.addDesign("Surveyor", [
+    { componentId: thermal.id, count: 1 },
+    { componentId: p.tank().id, count: 2 },
+    { componentId: p.sensor().id, count: 1 },
+    { componentId: p.quarters().id, count: 1 },
+  ], 0);
   const surveyFleet = empire.createFleet("Survey Group", { x: 0, y: 0, z: 0 }, "earth");
   const surveyShip = empire.commissionShip(surveyor.id, surveyFleet, "Surveyor 001", 0);
-  surveyShip.fuel = designStats(surveyor, empire.researched, empire.stats).fuelCapacity;
+  surveyShip.fuel = empire.statsOf(surveyor.id)!.fuelCapacity;
   assert("Callisto starts unsurveyed", !empire.surveyed.has("callisto"));
   surveyFleet.orders.push({ kind: "move", bodyId: "callisto" }, { kind: "survey" });
-  for (let i = 0; i < 400 && surveyFleet.orders.length; i++) navy.step(SECONDS_PER_DAY);
+  let arrived = -1;
+  let finished = -1;
+  for (let day = 0; day < 600 && finished < 0; day++) {
+    navy.step(SECONDS_PER_DAY / 4);
+    if (arrived < 0 && surveyFleet.anchorId === "callisto") arrived = day;
+    if (empire.surveyed.has("callisto")) finished = day;
+  }
   assert("the survey ship reached Callisto and surveyed it", empire.surveyed.has("callisto"));
+  // 4 HS of sensor is 40 points a day against 200 points: five days, not instant.
+  const rateDays = SURVEY_POINTS_NEEDED / 40;
+  assert(
+    `surveying took about ${rateDays} days, not an instant (${((finished - arrived) / 4).toFixed(1)} days)`,
+    (finished - arrived) / 4 >= rateDays - 1.5 && (finished - arrived) / 4 <= rateDays + 1.5,
+  );
 
   // --- with civilian shipping off, finished work waits for a ship
   empire.queueBuild("earth", "automated-mine", 1, "mars");
@@ -752,8 +863,8 @@ console.log("");
 // Scoped so these fixtures cannot collide with the campaign above.
 {
   const world = new Game("terraform");
-  const earthBody = world.system.byId.get("earth")!;
-  const marsBody = world.system.byId.get("mars")!;
+  const earthBody = world.galaxy.byId.get("earth")!;
+  const marsBody = world.galaxy.byId.get("mars")!;
 
   // The observed atmospheres read correctly through the gas model.
   check("Earth's atmosphere is one bar", totalPressure(earthBody.atmosphere), 1.0043, 0.001);
@@ -764,7 +875,7 @@ console.log("");
   check("an untouched world reads its observed temperature", marsBody.tempK, 210, 0.5);
   assert(
     "Venus is poisonous as well as hot",
-    toxicGases(world.system.byId.get("venus")!.atmosphere).some((t) => t.gas.id === "carbon-dioxide"),
+    toxicGases(world.galaxy.byId.get("venus")!.atmosphere).some((t) => t.gas.id === "carbon-dioxide"),
   );
 
   // A gas with no greenhouse effect does not warm a world.
@@ -788,7 +899,7 @@ console.log("");
   // Back to where we started, and run a real programme.
   const fresh = new Game("terraform-run");
   const freshEmpire = fresh.empire;
-  const mars = fresh.system.byId.get("mars")!;
+  const mars = fresh.galaxy.byId.get("mars")!;
   freshEmpire.research("terraforming");
   freshEmpire.surveyed.add("mars");
   const colony = freshEmpire.foundColony("mars", fresh.clock.seconds);
@@ -857,7 +968,7 @@ console.log("");
   assert("and the world recovers", isBreathable(mars.atmosphere));
 
   // A world can only hold the air its gravity allows.
-  const luna = fresh.system.byId.get("luna")!;
+  const luna = fresh.galaxy.byId.get("luna")!;
   const lunaColony = freshEmpire.foundColony("luna", fresh.clock.seconds);
   lunaColony.population = 5;
   lunaColony.installations = { infrastructure: 50_000, terraforming: 500 };
@@ -870,6 +981,496 @@ console.log("");
     } atm)`,
     totalPressure(luna.atmosphere) <= cap + 1e-9,
   );
+}
+
+// ==========================================================================
+// Saving and loading
+// ==========================================================================
+
+console.log("");
+
+{
+  const original = new Game("persist");
+  const e = original.empire;
+  e.research("nuclear-thermal");
+  e.research("geo-survey-sensors");
+  const pp = parts(e);
+  const ship = e.addDesign("Scout", [
+    { componentId: pp.engine("nuclear-thermal").id, count: 1 },
+    { componentId: pp.tank().id, count: 2 },
+    { componentId: pp.sensor().id, count: 1 },
+    { componentId: pp.quarters().id, count: 1 },
+  ], 0);
+  const fleet = e.createFleet("Scouts", { x: 0, y: 0, z: 0 }, "earth");
+  e.commissionShip(ship.id, fleet, "Scout 001", 0).fuel = 1e5;
+  fleet.orders.push({ kind: "move", bodyId: "mars" }, { kind: "survey" });
+  e.queueBuild("earth", "mine", 5);
+  const mars = original.galaxy.byId.get("mars")!;
+  mars.atmosphere["nitrogen"] = (mars.atmosphere["nitrogen"] ?? 0) + 0.2;
+  recomputeEnvironment(mars);
+  for (let i = 0; i < 40; i++) original.step(CYCLE_DAYS * SECONDS_PER_DAY);
+
+  // Key order is not state; compare the data itself.
+  const same = (a: unknown, b: unknown) => isDeepStrictEqual(JSON.parse(JSON.stringify(a)), JSON.parse(JSON.stringify(b)));
+  const file = makeSave(original, "test", "Test", "manual");
+  const text = JSON.stringify(file);
+  const loaded = gameFromSave(parseSave(text));
+  assert(
+    "a saved game restores to exactly the state that was saved",
+    same(loaded.exportState(), original.exportState()),
+  );
+  check("the clock comes back", loaded.clock.seconds, original.clock.seconds, 0);
+  check("the changed atmosphere comes back", loaded.galaxy.byId.get("mars")!.atmosphere["nitrogen"] ?? 0,
+    mars.atmosphere["nitrogen"] ?? 0, 1e-12);
+  check("and the colony cost follows from it", loaded.galaxy.byId.get("mars")!.colonyCost, mars.colonyCost, 1e-9);
+  assert("fleets and ships come back", loaded.empire.fleets.size === 1 && loaded.empire.ships.size === 1);
+  assert("derived ship figures work on a loaded game", loaded.empire.statsOf(ship.id)?.speed === e.statsOf(ship.id)?.speed);
+
+  // The strongest test of a save: play on from both and expect no difference.
+  for (let i = 0; i < 120; i++) {
+    original.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    loaded.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  }
+  assert(
+    "a loaded game plays on identically to the original",
+    same(loaded.exportState(), original.exportState()),
+  );
+
+  let rejected = 0;
+  for (const bad of ["not json", "{}", JSON.stringify({ ...file, version: 999 })]) {
+    try { parseSave(bad); } catch { rejected++; }
+  }
+  check("damaged or future saves are refused with an error", rejected, 3, 0);
+}
+
+// ==========================================================================
+// Fleet programmes and repeating orders
+// ==========================================================================
+
+console.log("");
+
+{
+  const game = new Game("programmes");
+  const e = game.empire;
+  e.research("nuclear-thermal");
+  e.research("geo-survey-sensors");
+  const pp = parts(e);
+  const scout = e.addDesign("Scout", [
+    { componentId: pp.engine("nuclear-thermal").id, count: 2 },
+    { componentId: pp.tank().id, count: 6 },
+    { componentId: pp.sensor().id, count: 2 },
+    { componentId: pp.quarters().id, count: 1 },
+  ], 0);
+  const freighter = e.addDesign("Freighter", [
+    { componentId: pp.engine("nuclear-thermal").id, count: 2 },
+    { componentId: pp.tank().id, count: 4 },
+    { componentId: pp.cargo().id, count: 4 },
+    { componentId: pp.quarters().id, count: 2 },
+  ], 0);
+
+  // --- survey everything
+  const survey = e.createFleet("Survey Wing", { x: 0, y: 0, z: 0 }, "earth");
+  e.commissionShip(scout.id, survey, "Scout 001", 0); // arrives with dry tanks
+  survey.program = { kind: "survey", maxAu: 6, systemId: "sol" };
+  const inScope = surveyScope(game.galaxy, "sol", 6);
+  assert(`the survey scope is the bodies within 6 AU (${inScope.length})`, inScope.length > 10);
+  for (let day = 0; day < 4000 && survey.program; day++) game.step(SECONDS_PER_DAY);
+  assert("a survey programme finishes by itself", survey.program === null);
+  assert(
+    "every body in scope was surveyed",
+    inScope.every((b) => e.surveyed.has(b.id)),
+  );
+  assert("the programme reported once, not per body",
+    e.log.filter((l) => l.category === "fleet" && !l.quiet && /survey programme/.test(l.text)).length === 1);
+  assert("routine survey results were logged quietly",
+    e.log.filter((l) => /has surveyed/.test(l.text)).every((l) => l.quiet));
+  for (let day = 0; day < 400 && survey.anchorId !== "earth"; day++) game.step(SECONDS_PER_DAY);
+  assert("and the ship was sent home afterwards", survey.anchorId === "earth" || survey.orders.length > 0);
+
+  // --- two fleets share the work
+  const game2 = new Game("programmes-2");
+  const e2 = game2.empire;
+  e2.research("nuclear-thermal");
+  e2.research("geo-survey-sensors");
+  const pp2 = parts(e2);
+  const scout2 = e2.addDesign("Scout", [
+    { componentId: pp2.engine("nuclear-thermal").id, count: 2 },
+    { componentId: pp2.tank().id, count: 6 },
+    { componentId: pp2.sensor().id, count: 2 },
+    { componentId: pp2.quarters().id, count: 1 },
+  ], 0);
+  const one = e2.createFleet("One", { x: 0, y: 0, z: 0 }, "earth");
+  const two = e2.createFleet("Two", { x: 0, y: 0, z: 0 }, "earth");
+  e2.commissionShip(scout2.id, one, "S1", 0);
+  e2.commissionShip(scout2.id, two, "S2", 0);
+  one.program = { kind: "survey", maxAu: 2.5, systemId: "sol" };
+  two.program = { kind: "survey", maxAu: 2.5, systemId: "sol" };
+  game2.step(SECONDS_PER_DAY * 3);
+  const targets = (f: typeof one) => f.orders.filter((o) => o.kind === "move").map((o) => (o as { bodyId: string }).bodyId);
+  assert("two survey fleets are not sent to the same body",
+    targets(one).every((t) => !targets(two).includes(t)));
+
+  // --- a programme without sensors says so
+  const blind = e.createFleet("Blind", { x: 0, y: 0, z: 0 }, "earth");
+  const freightShip = e.commissionShip(freighter.id, blind, "F0", 0);
+  freightShip.fuel = 1;
+  blind.program = { kind: "survey", maxAu: 0, systemId: "sol" };
+  game.step(SECONDS_PER_DAY * 2);
+  assert("a programme that cannot work explains why", blind.note === "No survey sensors aboard");
+  blind.program = null;
+  blind.note = null;
+
+  // --- a freight line
+  const mars = e.foundColony("mars", game.clock.seconds);
+  mars.population = 1;
+  mars.stockpile = emptyStockpile();
+  const earth = e.colony("earth")!;
+  for (const m of MINERALS) earth.stockpile[m] = 900_000;
+  earth.fuel = 5_000_000;
+  const line = e.createFleet("Mars Run", { x: 0, y: 0, z: 0 }, "earth");
+  e.commissionShip(freighter.id, line, "Hauler 1", 0);
+  line.program = {
+    kind: "freight", fromId: "earth", toId: "mars",
+    there: { kind: "minerals", mineral: "Duranium", keep: 10_000 }, back: null,
+  };
+  const earthBefore = earth.stockpile.Duranium;
+  const capacity = fleetStats(e, line).cargoCapacity;
+  for (let day = 0; day < 1500 && mars.stockpile.Duranium <= 0; day++) game.step(SECONDS_PER_DAY);
+  assert(`the freight line delivered minerals to Mars (${num(mars.stockpile.Duranium)} t)`, mars.stockpile.Duranium > 0);
+  assert("what Mars received left Earth's stockpile",
+    Math.abs((earthBefore - earth.stockpile.Duranium) - mars.stockpile.Duranium) < 1e-6 + capacity);
+  const minHeld = earth.stockpile.Duranium;
+  for (let day = 0; day < 3000; day++) game.step(SECONDS_PER_DAY);
+  assert("the line keeps running trip after trip", mars.stockpile.Duranium > capacity * 1.5);
+  assert("the line leaves the reserve it was told to keep", earth.stockpile.Duranium >= 10_000 - 1 || earth.stockpile.Duranium >= minHeld - capacity * 20);
+  assert("freight arrivals do not stop the clock",
+    e.log.filter((l) => /Mars Run/.test(l.text)).every((l) => l.quiet || /out of fuel/.test(l.text)));
+
+  // --- waiting for cargo is a state, not an error
+  for (const m of MINERALS) earth.stockpile[m] = 0;
+  for (let day = 0; day < 400; day++) game.step(SECONDS_PER_DAY);
+  assert("with nothing to carry, the line waits",
+    /Waiting for duranium/.test(line.programStatus ?? "") && line.note === null);
+  assert("and a waiting line is not raised as an idle fleet",
+    !deriveIssues(e, game.galaxy).some((i) => i.id === `fleet:idle:${line.id}`));
+
+  // --- installations from the store, colonists
+  earth.stored["mine"] = 30;
+  line.program = {
+    kind: "freight", fromId: "earth", toId: "mars",
+    there: { kind: "installations", installationId: "all" }, back: null,
+  };
+  const minesBefore = mars.installations["mine"] ?? 0;
+  for (let day = 0; day < 1500 && (earth.stored["mine"] ?? 0) > 0; day++) game.step(SECONDS_PER_DAY);
+  for (let day = 0; day < 600; day++) game.step(SECONDS_PER_DAY);
+  assert("stored installations were carried and installed",
+    (mars.installations["mine"] ?? 0) > minesBefore && (earth.stored["mine"] ?? 0) < 30);
+
+  // --- repeating orders
+  const loop = e.createFleet("Shuttle", { x: 0, y: 0, z: 0 }, "earth");
+  const loopShip = e.commissionShip(freighter.id, loop, "Shuttle 1", 0);
+  loopShip.fuel = empire_fuel(e, freighter.id);
+  loop.orders.push({ kind: "move", bodyId: "mars" }, { kind: "move", bodyId: "earth" }, { kind: "refuel" });
+  loop.loop = true;
+  for (let day = 0; day < 4000; day++) game.step(SECONDS_PER_DAY / 2);
+  const arrivals = e.log.filter((l) => /Shuttle has arrived/.test(l.text)).length;
+  assert(`a repeating fleet goes round again and again (${arrivals} arrivals)`, arrivals >= 4);
+  assert("its orders are never used up", loop.orders.length === 3);
+  assert("and its arrivals were logged quietly",
+    e.log.filter((l) => /Shuttle has arrived/.test(l.text)).every((l) => l.quiet));
+
+  function empire_fuel(emp: typeof e, designId: string): number {
+    return emp.statsOf(designId)!.fuelCapacity;
+  }
+}
+
+// ==========================================================================
+// The galaxy, jump points and exploration
+// ==========================================================================
+
+console.log("");
+
+{
+  const a = new Galaxy("alpha");
+  const a2 = new Galaxy("alpha");
+  const b = new Galaxy("beta");
+  assert(`the galaxy has Sol and ${STARS.length} real neighbours`, a.systems.length === STARS.length + 1);
+
+  // --- real data survives
+  const trappist = a.systemById.get("trappist-1")!;
+  const tPlanets = trappist.bodies.filter((x) => x.cls === "planet");
+  assert("TRAPPIST-1 keeps its seven known planets", tPlanets.length === 7);
+  const proxima = a.byId.get("proxima-centauri-b")!;
+  check("Proxima b's orbit comes from its measured 11.19-day period", proxima.def.orbit!.a, 0.0485, 0.001);
+  check("a star's mass is the real one", a.byId.get("tau-ceti")!.def.massKg / 1.989e30, 0.78, 1e-9);
+  check("Alpha Centauri is 4.37 light years from Sol", a.distanceLy("sol", "alpha-centauri"), 4.37, 0.02);
+  check("Sirius is 8.6 light years from Sol", a.distanceLy("sol", "sirius"), 8.6, 0.05);
+
+  // --- the unknown is random, but repeatable
+  const sig = (g: Galaxy) => JSON.stringify(g.bodies.map((x) => [x.id, x.def.massKg, x.def.tempK, x.atmosphere, x.minerals.map((m) => m.amount)]));
+  assert("the same seed makes the same galaxy", sig(a) === sig(a2));
+  assert("a different seed makes a different one", sig(a) !== sig(b));
+  const mismatch = a.bodies.filter((x) => x.systemId !== "sol" && x.cls === "planet" &&
+    JSON.stringify(x.minerals.map((m) => m.amount)) !== JSON.stringify(b.byId.get(x.id)?.minerals.map((m) => m.amount)));
+  assert("the same world holds different minerals in a different campaign", mismatch.length > 10);
+  assert("Sol itself is never rolled", JSON.stringify(a.sol.bodies.filter((x) => x.cls !== "jump-point").map((x) => x.minerals)) ===
+    JSON.stringify(b.sol.bodies.filter((x) => x.cls !== "jump-point").map((x) => x.minerals)));
+
+  // --- the network
+  const adj = new Map<string, Set<string>>();
+  for (const l of a.links) {
+    const x = a.byId.get(l.a)!.systemId;
+    const y = a.byId.get(l.b)!.systemId;
+    if (!adj.has(x)) adj.set(x, new Set());
+    if (!adj.has(y)) adj.set(y, new Set());
+    adj.get(x)!.add(y);
+    adj.get(y)!.add(x);
+  }
+  const seen = new Set(["sol"]);
+  const todo = ["sol"];
+  while (todo.length) for (const n of adj.get(todo.pop()!) ?? []) if (!seen.has(n)) { seen.add(n); todo.push(n); }
+  assert("every system can be reached from Sol", seen.size === a.systems.length);
+  assert("Sol opens onto at least two systems", (adj.get("sol")?.size ?? 0) >= 2);
+  assert("jump points come in linked pairs",
+    a.links.every((l) => a.byId.get(l.a)!.def.jumpTo === l.b && a.byId.get(l.b)!.def.jumpTo === l.a));
+  assert("jump points have no minerals and cannot be settled",
+    a.bodies.filter((x) => x.cls === "jump-point").every((x) => x.minerals.length === 0 && !Number.isFinite(x.colonyCost)));
+
+  // --- exploring, end to end
+  const game = new Game("explore");
+  const e = game.empire;
+  for (const tech of ["nuclear-thermal", "geo-survey-sensors", "grav-survey-sensors", "nuclear-pulse", "jump-point-theory", "jump-gate-construction"]) {
+    e.research(tech);
+  }
+  const pp = parts(e);
+  const jumpDrive = e.addComponentDesign("jump-drive", { size: 30 }, 0);
+  const gateModule = e.addComponentDesign("gate-module", { size: 40 }, 0);
+  const gravSensor = e.addComponentDesign("survey-sensor", { type: "gravitational", size: 4 }, 0);
+  const explorer = e.addDesign("Explorer", [
+    { componentId: pp.engine("nuclear-thermal").id, count: 4 },
+    { componentId: pp.tank().id, count: 10 },
+    { componentId: gravSensor.id, count: 1 },
+    { componentId: jumpDrive.id, count: 1 },
+    { componentId: pp.quarters().id, count: 2 },
+  ], 0);
+  const xs = e.statsOf(explorer.id)!;
+  assert(`the explorer's drive carries its own weight (${num(xs.jumpCapacity)} of ${num(xs.tons)} t)`, xs.jumpCapacity >= xs.tons);
+
+  const fleet = e.createFleet("Pathfinder", { x: 0, y: 0, z: 0 }, "earth");
+  const ship = e.commissionShip(explorer.id, fleet, "Pathfinder 1", 0);
+  ship.fuel = xs.fuelCapacity;
+  assert("Sol's jump points start out hidden", game.galaxy.jumpPointsIn("sol").every((jp) => !e.knownJumpPoints.has(jp.id)));
+  assert("and only Sol is known", e.knownSystems.size === 1);
+
+  // A ship with no drive cannot cross, even to a jump point it knows.
+  const jp0 = game.galaxy.jumpPointsIn("sol")[0];
+  e.knownJumpPoints.add(jp0.id);
+  const blind = e.createFleet("Driveless", { x: 0, y: 0, z: 0 }, "earth");
+  const hauler = e.addDesign("Plain", [
+    { componentId: pp.engine("nuclear-thermal").id, count: 2 },
+    { componentId: pp.tank().id, count: 6 },
+    { componentId: pp.quarters().id, count: 1 },
+  ], 0);
+  const plain = e.commissionShip(hauler.id, blind, "Plain 1", 0);
+  plain.fuel = e.statsOf(hauler.id)!.fuelCapacity;
+  blind.orders.push({ kind: "move", bodyId: jp0.id }, { kind: "jump" });
+  for (let d = 0; d < 400 && blind.anchorId !== jp0.id; d++) game.step(SECONDS_PER_DAY);
+  for (let d = 0; d < 3; d++) game.step(SECONDS_PER_DAY);
+  assert("a ship with no jump drive cannot cross an ungated jump point",
+    blind.systemId === "sol" && /jump drive/i.test(blind.note ?? ""));
+  blind.orders = [];
+  blind.note = null;
+  e.knownJumpPoints.delete(jp0.id);
+
+  fleet.program = { kind: "explore" };
+  const before = e.log.length;
+  let guard = 0;
+  while (e.knownSystems.size < 4 && guard++ < 9000) game.step(SECONDS_PER_DAY);
+  assert(`the explorer found jump points and crossed them (${e.knownSystems.size} systems known after ${guard} days)`, e.knownSystems.size >= 4);
+  assert("it located jump points by survey", e.knownJumpPoints.size > e.exploredJumpPoints.size / 2);
+  assert("it reported each new system loudly, once",
+    e.log.slice(0, e.log.length - before).filter((l) => /for the first time/.test(l.text) && !l.quiet).length === e.knownSystems.size - 1);
+  assert("it never ran dry", ship.fuel > 0);
+  assert("the fleet knows which system it is in", game.galaxy.byId.get(fleet.anchorId ?? "")?.systemId === fleet.systemId || fleet.anchorId === null);
+
+  // --- a gate opens a route to any ship
+  const crossed = [...e.exploredJumpPoints].map((id) => game.galaxy.byId.get(id)!).find((b) => b.systemId === "sol")!;
+  const far = game.galaxy.otherEnd(crossed.id)!;
+  const builder = e.createFleet("Gatewright", crossed.world, crossed.id, "sol");
+  const buildShip = e.addDesign("Gate Layer", [
+    { componentId: pp.engine("nuclear-thermal").id, count: 2 },
+    { componentId: pp.tank().id, count: 4 },
+    { componentId: gateModule.id, count: 1 },
+    { componentId: pp.quarters().id, count: 2 },
+  ], 0);
+  e.commissionShip(buildShip.id, builder, "Gate Layer 1", 0).fuel = 1e5;
+  builder.orders.push({ kind: "build-gate" });
+  assert("a gate is not there before it is built", !e.gates.has(crossed.id));
+  for (let d = 0; d < 200 && builder.orders.length; d++) game.step(SECONDS_PER_DAY);
+  assert("the gate was built, at both ends", e.gates.has(crossed.id) && e.gates.has(far.id));
+  assert("and building it took time, not an instant", e.log.some((l) => /finished a jump gate/.test(l.text)));
+
+  // The driveless ship can now go through, by way of a plain move order.
+  const target = game.galaxy.systemById.get(far.systemId)!.root;
+  blind.orders.push({ kind: "move", bodyId: target.id });
+  for (let d = 0; d < 800 && blind.systemId === "sol"; d++) game.step(SECONDS_PER_DAY);
+  assert("a ship with no drive crosses a gated jump point on an ordinary move order", blind.systemId === far.systemId);
+  for (let d = 0; d < 400 && blind.anchorId !== target.id; d++) game.step(SECONDS_PER_DAY);
+  assert("and carries on to its destination", blind.anchorId === target.id);
+
+  // --- civilian shipping follows the gates
+  assert("civilian shipping runs within a system", sharesShipping(e, game.galaxy, "earth", "mars"));
+  assert("and across a gated connection", sharesShipping(e, game.galaxy, "earth", target.id));
+  const other = [...game.galaxy.systems].find((s) => s.id !== "sol" && s.id !== far.systemId)!;
+  assert("but not to a system without gates", !sharesShipping(e, game.galaxy, "earth", other.root.id));
+}
+
+// ==========================================================================
+// Random events
+// ==========================================================================
+
+console.log("");
+
+{
+  // --- off means off, and costs nothing
+  const quiet = new Game("quiet");
+  for (let i = 0; i < 400; i++) quiet.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  assert("with events off, none happen", quiet.empire.events.length === 0);
+
+  // --- a long run at a high rate
+  const make = () => {
+    const g = new Game("eventful");
+    g.empire.eventFrequency = 2.5;
+    return g;
+  };
+  const game = make();
+  const e = game.empire;
+  e.research("geo-survey-sensors");
+  e.research("grav-survey-sensors");
+  const mars = e.foundColony("mars", game.clock.seconds);
+  mars.population = 5;
+  mars.installations = { "construction-factory": 80, mine: 40 };
+  mars.fuel = 400_000;
+  const governor = [...e.officers.byBranch("civilian")][1];
+  e.assignOfficer(governor.id, { kind: "governor", targetId: "mars", since: 0 });
+  e.surveyed.add("callisto");
+  e.queueBuild("earth", "mine", 40);
+  const pp = parts(e);
+  e.research("nuclear-thermal");
+  const probe = e.addDesign("Probe", [
+    { componentId: pp.engine("nuclear-thermal").id, count: 1 },
+    { componentId: pp.tank().id, count: 2 },
+    { componentId: pp.quarters().id, count: 1 },
+  ], 0);
+  const wing = e.createFleet("Wing", { x: 0, y: 0, z: 0 }, "earth");
+  e.commissionShip(probe.id, wing, "Probe 1", 0).fuel = 50_000;
+
+  const seen = new Set<string>();
+  let maxPending = 0;
+  for (let i = 0; i < 1500; i++) {
+    game.step(CYCLE_DAYS * SECONDS_PER_DAY);
+    for (const ev of e.events) seen.add(ev.defId);
+    maxPending = Math.max(maxPending, e.pendingEvents.length);
+    // Someone is playing: answer every decision with its first affordable option.
+    for (const ev of e.pendingEvents) {
+      if (i % 3 !== 0) continue;
+      const options = optionsFor(e, game.galaxy, ev, game.clock.seconds);
+      const pick = options.find((o) => !o.disabled);
+      if (pick) resolveEvent(e, game.galaxy, ev.id, pick.id, game.clock.seconds);
+    }
+  }
+  assert(`a long run produces a spread of events (${e.events.length} events, ${seen.size} kinds)`, e.events.length > 30 && seen.size >= 8);
+  assert("decisions never pile up past three", maxPending <= 3);
+  assert("nothing went non-finite", Number.isFinite(e.treasury) && [...e.colonies.values()].every((c) => Number.isFinite(c.population) && Number.isFinite(c.fuel)));
+  assert("populations and stores never go negative",
+    [...e.colonies.values()].every((c) => c.population >= 0 && c.fuel >= -1e-6));
+  assert("every event is in the log with its outcome",
+    e.events.filter((x) => x.status !== "pending").every((x) => typeof x.outcome === "string" && x.outcome.length > 0));
+  assert("decisions are logged as decisions", e.log.some((l) => l.decision === true && l.category === "event"));
+  assert("news is not logged as needing a decision",
+    e.events.filter((x) => !x.decision).every((x) => x.status === "resolved"));
+
+  // --- same seed, same events
+  const twinA = make();
+  const twinB = make();
+  for (let i = 0; i < 300; i++) { twinA.step(CYCLE_DAYS * SECONDS_PER_DAY); twinB.step(CYCLE_DAYS * SECONDS_PER_DAY); }
+  const story = (g: Game) => JSON.stringify(g.empire.events.map((x) => [x.defId, x.time, x.outcome]));
+  assert(`events replay identically from the same seed (${twinA.empire.events.length} events)`,
+    twinA.empire.events.length > 5 && story(twinA) === story(twinB));
+  const other = new Game("different");
+  other.empire.eventFrequency = 2.5;
+  for (let i = 0; i < 300; i++) other.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  assert("and a different seed tells a different story", story(other) !== story(twinA));
+
+  // --- expiry: an unanswered decision settles itself
+  const slow = new Game("slow");
+  const se = slow.empire;
+  se.treasury = 100_000;
+  const sc = se.colony("earth")!;
+  const raised = rollEvent({ empire: se, galaxy: slow.galaxy, now: slow.clock.seconds, rng: se.eventRng }, "epidemic");
+  assert("an epidemic raises a decision", raised !== null && raised.status === "pending" && raised.decision);
+  const popBefore = sc.population;
+  for (let i = 0; i < 30; i++) slow.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  assert("left alone, it lapses into its fallback", raised!.status === "expired" && /no decision/i.test(se.log.find((l) => /Outbreak/.test(l.text))?.text ?? ""));
+  assert("and the fallback has its cost", sc.population < popBefore);
+
+  // --- each decision's options do what they say
+  const lab = new Game("lab");
+  const le = lab.empire;
+  le.treasury = 200_000;
+  const lc = le.colony("earth")!;
+  le.assignOfficer(le.officers.byBranch("civilian")[0].id, { kind: "governor", targetId: "earth", since: 0 });
+  const ctx = () => ({ empire: le, galaxy: lab.galaxy, now: lab.clock.seconds, rng: le.eventRng });
+  const take = (defId: string, option: string) => {
+    const ev = rollEvent(ctx(), defId);
+    if (!ev) return null;
+    const options = optionsFor(le, lab.galaxy, ev, lab.clock.seconds);
+    resolveEvent(le, lab.galaxy, ev.id, option, lab.clock.seconds);
+    return { ev, options };
+  };
+
+  let factories = lc.installations["construction-factory"];
+  let treasury = le.treasury;
+  const reviewed = take("accident", "review");
+  assert("a paid safety review costs money and loses little",
+    reviewed !== null && le.treasury < treasury && factories - lc.installations["construction-factory"] <= Math.ceil(factories * 0.011));
+  factories = lc.installations["construction-factory"];
+  take("accident", "carry-on");
+  assert("carrying on is free but loses more", lc.installations["construction-factory"] < factories);
+
+  treasury = le.treasury;
+  const funded = take("epidemic", "quarantine");
+  assert("a quarantine is paid for", funded !== null && le.treasury < treasury);
+
+  const fuelBefore = lc.fuel;
+  take("refinery-fire", "burn");
+  assert("a fuel fire burns fuel", lc.fuel < fuelBefore);
+
+  treasury = le.treasury;
+  take("scandal", "hush");
+  assert("hushing a scandal costs the treasury", le.treasury < treasury);
+  take("scandal", "prosecute");
+  assert("prosecuting removes the governor", le.governorOf("earth") === undefined);
+
+  le.queueBuild("earth", "mine", 5);
+  const queue = lc.buildQueue[0];
+  queue.progress = 1000;
+  take("strike", "hold");
+  assert("holding firm through a strike spoils half the current build", queue.progress === 500);
+
+  const poor = new Game("poor");
+  poor.empire.treasury = 10;
+  const pev = rollEvent({ empire: poor.empire, galaxy: poor.galaxy, now: 0, rng: poor.empire.eventRng }, "epidemic");
+  const popts = optionsFor(poor.empire, poor.galaxy, pev!, 0);
+  assert("an option you cannot afford is disabled, with the reason",
+    popts.find((o) => o.id === "quarantine")?.disabled !== undefined && resolveEvent(poor.empire, poor.galaxy, pev!.id, "quarantine", 0) === null);
+
+  // --- pending decisions survive a save
+  const saved = gameFromSave(parseSave(JSON.stringify(makeSave(lab, "ev", "ev", "manual"))));
+  assert("events survive a save, pending ones included",
+    saved.empire.events.length === le.events.length &&
+    saved.empire.pendingEvents.length === le.pendingEvents.length);
+  assert("the event stream carries on from the same point", saved.empire.eventRng.state === le.eventRng.state);
 }
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);

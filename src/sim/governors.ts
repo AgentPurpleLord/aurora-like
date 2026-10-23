@@ -11,7 +11,7 @@
  */
 
 import type { Empire } from "../state/empire";
-import type { StarSystem } from "./system";
+import type { Galaxy } from "./galaxy";
 import { installationCount } from "../state/colony";
 import { effectiveColonyCost, populationCapacity } from "./economy/production";
 import { supplyToward } from "./economy/standingOrders";
@@ -60,7 +60,7 @@ function bestSource(empire: Empire): string | null {
   return best;
 }
 
-export function deriveProposals(empire: Empire, system: StarSystem): Proposal[] {
+export function deriveProposals(empire: Empire, system: Galaxy): Proposal[] {
   const proposals: Proposal[] = [];
   const source = bestSource(empire);
   if (!source) return proposals;

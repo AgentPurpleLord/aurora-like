@@ -111,7 +111,7 @@ export class OfficersView {
     const assignment = officer.assignment;
     if (!assignment) return "unassigned";
     if (assignment.kind === "governor") {
-      return `Governor, ${this.game.system.byId.get(assignment.targetId)?.name ?? assignment.targetId}`;
+      return `Governor, ${this.game.galaxy.byId.get(assignment.targetId)?.name ?? assignment.targetId}`;
     }
     if (assignment.kind === "fleet") {
       const fleet = empire.fleets.get(assignment.targetId);
@@ -173,7 +173,7 @@ export class OfficersView {
         { value: "", label: "- unassigned -" },
         ...[...empire.colonies.values()].map((c) => ({
           value: c.bodyId,
-          label: `Governor, ${this.game.system.byId.get(c.bodyId)?.name ?? c.bodyId}`,
+          label: `Governor, ${this.game.galaxy.byId.get(c.bodyId)?.name ?? c.bodyId}`,
         })),
       ];
       sec.append(

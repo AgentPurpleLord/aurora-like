@@ -27,6 +27,11 @@ export class TriageRail {
     private onToggle: () => void,
   ) {}
 
+  /** The attention items as of the last render. */
+  get current(): Issue[] {
+    return this.issues;
+  }
+
   get isCollapsed(): boolean {
     return this.collapsed;
   }
@@ -39,7 +44,7 @@ export class TriageRail {
   }
 
   render(): void {
-    this.issues = activeIssues(this.game.empire, this.game.system, this.game.clock.seconds);
+    this.issues = activeIssues(this.game.empire, this.game.galaxy, this.game.clock.seconds);
     this.root.classList.toggle("collapsed", this.collapsed);
     this.root.textContent = "";
     if (this.collapsed) this.renderStrip();

@@ -8,7 +8,7 @@
  */
 
 import type { Empire } from "../state/empire";
-import type { StarSystem } from "./system";
+import type { Galaxy } from "./galaxy";
 import { installationCount } from "../state/colony";
 import { INSTALLATION_BY_ID } from "./economy/installations";
 import { colonyOutput, populationCapacity } from "./economy/production";
@@ -16,12 +16,12 @@ import { mineralLedger, queuedBuildPoints } from "./economy/ledger";
 import { TECH_BY_ID } from "./research/techs";
 import { labCapacity } from "./people/officers";
 import { deriveProposals, proposalLabel } from "./governors";
-import { bestEngine } from "./ships/design";
+import { ENGINE_TYPES } from "./ships/components";
 
 export type Severity = "critical" | "warning" | "info";
 
 /** Where an issue is resolved. Mirrors the view ids the UI uses. */
-export type IssueView = "empire" | "colonies" | "fleets" | "research" | "officers" | "map";
+export type IssueView = "empire" | "colonies" | "fleets" | "design" | "research" | "officers" | "map";
 
 /** A governor's draft order, ready for the player to accept. */
 export interface IssueProposal {
@@ -59,7 +59,7 @@ const DEPLETION_WARNING_YEARS = 5;
 /** Idle fleets are listed individually only up to this many. */
 const IDLE_FLEET_LIMIT = 4;
 
-export function deriveIssues(empire: Empire, system: StarSystem): Issue[] {
+export function deriveIssues(empire: Empire, system: Galaxy): Issue[] {
   const issues: Issue[] = [];
   const add = (issue: Issue) => issues.push(issue);
 
@@ -212,7 +212,7 @@ export function deriveIssues(empire: Empire, system: StarSystem): Issue[] {
             : "The fleet cannot carry out the order at the head of its queue.",
         action: { label: "Open fleet", view: "fleets" },
       });
-    } else if (fleet.shipIds.length && !fleet.orders.length && fleet.anchorId) {
+    } else if (fleet.shipIds.length && !fleet.orders.length && fleet.anchorId && !fleet.program) {
       idle.push({
         id: `fleet:idle:${fleet.id}`,
         severity: "info",
@@ -254,13 +254,13 @@ export function deriveIssues(empire: Empire, system: StarSystem): Issue[] {
     }
   }
 
-  if (!empire.designs.length && bestEngine(empire.researched)) {
+  if (!empire.designs.length && ENGINE_TYPES.some((e) => empire.researched.has(e.tech))) {
     add({
       id: "fleet:no-designs",
       severity: "info",
       title: "No ship classes have been designed",
-      detail: "An engine has been researched, so hulls can now be laid out and built.",
-      action: { label: "Design a class", view: "fleets" },
+      detail: "An engine has been researched. Design the components, then assemble a class.",
+      action: { label: "Open the designer", view: "design" },
     });
   }
 
@@ -335,7 +335,7 @@ export function deriveIssues(empire: Empire, system: StarSystem): Issue[] {
 }
 
 /** Issues the player has not dismissed, newest dismissals having expired. */
-export function activeIssues(empire: Empire, system: StarSystem, now: number): Issue[] {
+export function activeIssues(empire: Empire, system: Galaxy, now: number): Issue[] {
   return deriveIssues(empire, system).filter((issue) => {
     const until = empire.dismissed.get(issue.id);
     return until === undefined || until <= now;

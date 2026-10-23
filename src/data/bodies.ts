@@ -17,7 +17,7 @@
 import { AU_KM, type OrbitalElements } from "../sim/orbit";
 import type { Atmosphere } from "../sim/atmosphere";
 
-export type BodyClass = "star" | "planet" | "dwarf" | "moon" | "asteroid" | "comet";
+export type BodyClass = "star" | "planet" | "dwarf" | "moon" | "asteroid" | "comet" | "jump-point";
 
 export interface BodyDef {
   id: string;
@@ -44,6 +44,17 @@ export interface BodyDef {
   /** True for bodies carrying a visible ring system. */
   rings?: { innerKm: number; outerKm: number };
   notes?: string;
+  /**
+   * Generated worlds: what the mineral roll is seeded with (so a new campaign
+   * differs), how rich the body is overall, and the minerals it is rich in.
+   */
+  mineralSeed?: string;
+  richness?: number;
+  favoured?: string[];
+  /** Jump points only: the body id of the other end of the connection. */
+  jumpTo?: string;
+  /** A planet that has really been detected, not invented. */
+  detected?: "confirmed" | "candidate";
 }
 
 /** Satellite distances are quoted in km; orbits are stored in AU throughout. */

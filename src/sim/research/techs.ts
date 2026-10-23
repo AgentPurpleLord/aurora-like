@@ -195,50 +195,55 @@ export const TECHS: Tech[] = [
   // ------------------------------------------------------ power and propulsion
   {
     id: "nuclear-thermal", name: "Nuclear Thermal Engine Technology", field: "power",
-    cost: 1000, prereqs: ["trans-newtonian"], future: true,
-    description: "The first trans-Newtonian drive. Enables nuclear thermal engines in ship design.",
+    cost: 1000, prereqs: ["trans-newtonian"],
+    description: "The first trans-Newtonian drive. Lets you design nuclear thermal engines: the cheapest way to put a hull in space, and the thirstiest.",
   },
   {
     id: "nuclear-pulse", name: "Nuclear Pulse Engine Technology", field: "power",
-    cost: 2500, prereqs: ["nuclear-thermal"], future: true,
-    description: "Roughly twice the power per unit of engine volume.",
+    cost: 2500, prereqs: ["nuclear-thermal"],
+    description: "Twice the thrust per hull space of a thermal drive, for a little less fuel per unit of power.",
   },
   {
     id: "ion-drive", name: "Ion Drive Technology", field: "power",
-    cost: 5000, prereqs: ["nuclear-pulse"], future: true,
-    description: "The workhorse drive of the early expansion era.",
+    cost: 5000, prereqs: ["nuclear-pulse"],
+    description: "Efficient, moderately powerful drives: the workhorse of the early expansion era.",
   },
   {
     id: "magneto-plasma", name: "Magneto-Plasma Drive Technology", field: "power",
-    cost: 10000, prereqs: ["ion-drive"], future: true,
-    description: "High-output drive suitable for warships of the line.",
+    cost: 10000, prereqs: ["ion-drive"],
+    description: "The most powerful drive available, and the most economical per unit of thrust.",
   },
   {
     id: "engine-power-125", name: "Engine Power Modifier x1.25", field: "power",
-    cost: 2500, prereqs: ["nuclear-thermal"], future: true,
-    description: "Engines may be tuned 25% above their rated output, at a cost in fuel efficiency.",
+    cost: 2500, prereqs: ["nuclear-thermal"],
+    description: "Raises the engine power modifier ceiling to 1.25: more thrust from the same engine, at a steep fuel premium.",
   },
   {
     id: "fuel-consumption-08", name: "Fuel Consumption 0.8 Litres/Power Hour", field: "power",
-    cost: 2000, prereqs: ["nuclear-thermal"], future: true,
-    description: "A 20% reduction in engine fuel consumption.",
+    cost: 2000, prereqs: ["nuclear-thermal"],
+    description: "Every engine, existing ships included, burns 20% less fuel.",
   },
   {
     id: "jump-point-theory", name: "Jump Point Theory", field: "power",
-    cost: 7500, prereqs: ["ion-drive"], future: true,
-    description: "The mathematics of jump points. Required before a ship can survey one, let alone transit it.",
+    cost: 7500, prereqs: ["grav-survey-sensors", "nuclear-pulse"],
+    description: "The mathematics of jump points, and with it the jump drive: a ship carrying one can cross a jump point on its own, bringing along as much tonnage as the drive is rated for.",
+  },
+  {
+    id: "jump-gate-construction", name: "Jump Gate Construction", field: "power",
+    cost: 12000, prereqs: ["jump-point-theory"],
+    description: "Gate construction modules. A ship carrying one can stabilise a jump point it has crossed, after which any ship - jump drive or not - can use the connection. Gates are what turn a discovery into a trade route.",
   },
 
   // -------------------------------------------------- sensors and fire control
   {
     id: "geo-survey-sensors", name: "Geological Survey Sensors", field: "sensors",
-    cost: 1500, prereqs: ["trans-newtonian"], future: true,
-    description: "Shipboard sensors that survey a body's mineral deposits from orbit.",
+    cost: 1500, prereqs: ["trans-newtonian"],
+    description: "Survey sensors for the component designer. A ship carrying one can reveal a body's mineral deposits.",
   },
   {
     id: "grav-survey-sensors", name: "Gravitational Survey Sensors", field: "sensors",
-    cost: 2000, prereqs: ["trans-newtonian"], future: true,
-    description: "Detects the gravitational anomalies that mark a jump point.",
+    cost: 2000, prereqs: ["trans-newtonian"],
+    description: "Gravitational survey sensors for the component designer. A ship carrying one that surveys a system will, given time, find the jump points in it.",
   },
   {
     id: "deep-space-tracking", name: "Deep Space Tracking Station", field: "sensors",

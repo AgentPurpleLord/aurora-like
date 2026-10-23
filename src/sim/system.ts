@@ -34,9 +34,31 @@ import {
 const G = 6.674e-11;
 const EARTH_G = 9.80665;
 
+/** What the galaxy map needs to know about a system, besides its bodies. */
+export interface SystemMeta {
+  id: string;
+  name: string;
+  /** Position in light years, in the equatorial frame with Sol at the origin. */
+  position: Vec3;
+  spectral: string;
+  massSol: number;
+  lumSol: number;
+  distanceLy: number;
+  color: string;
+  blurb: string;
+}
+
+export const SOL_META: SystemMeta = {
+  id: "sol", name: "Sol", position: { x: 0, y: 0, z: 0 }, spectral: "G2V",
+  massSol: 1, lumSol: 1, distanceLy: 0, color: "#ffd257",
+  blurb: "Home. Eight planets, a belt and a great deal of unclaimed rock.",
+};
+
 export interface Body {
   def: BodyDef;
   id: string;
+  /** The system this body belongs to. */
+  systemId: string;
   name: string;
   cls: BodyClass;
   parent: Body | null;
@@ -75,13 +97,18 @@ export interface Mote {
 }
 
 export class StarSystem {
-  readonly name = "Sol";
+  get id(): string {
+    return this.meta.id;
+  }
+  get name(): string {
+    return this.meta.name;
+  }
   readonly bodies: Body[] = [];
   readonly byId = new Map<string, Body>();
   readonly root: Body;
   readonly motes: Mote[];
 
-  constructor(defs: BodyDef[] = BODIES) {
+  constructor(defs: BodyDef[] = BODIES, readonly meta: SystemMeta = SOL_META) {
     for (const def of defs) {
       const body = this.createBody(def);
       this.bodies.push(body);
@@ -101,7 +128,8 @@ export class StarSystem {
     const root = this.bodies.find((b) => b.parent === null);
     if (!root) throw new Error("system has no root body");
     this.root = root;
-    this.motes = buildMotes();
+    // Only Sol has its belts drawn as scenery; the rest are a few named rocks.
+    this.motes = this.meta.id === "sol" ? buildMotes() : [];
     this.update(0);
   }
 
@@ -112,6 +140,7 @@ export class StarSystem {
     const body: Body = {
       def,
       id: def.id,
+      systemId: this.meta.id,
       name: def.name,
       cls: def.cls,
       parent: null,
@@ -209,7 +238,7 @@ export function recomputeEnvironment(body: Body): void {
  * Every term reads the body's *current* state, so terraforming moves it.
  */
 export function colonyCostOf(body: Body): number {
-  if (body.cls === "star") return Infinity;
+  if (body.cls === "star" || body.cls === "jump-point") return Infinity;
   // Gas giants have no surface to build on.
   if (body.cls === "planet" && body.def.massKg > 5e25) return Infinity;
 
@@ -308,6 +337,7 @@ export function classLabel(body: Body): string {
     case "moon": return "Moon";
     case "asteroid": return "Asteroid";
     case "comet": return "Comet";
+    case "jump-point": return "Jump Point";
   }
 }
 

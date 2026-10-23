@@ -50,6 +50,7 @@ const MIN_RADIUS: Record<string, number> = {
   moon: 2,
   asteroid: 1.6,
   comet: 1.6,
+  "jump-point": 4,
 };
 
 const ORBIT_COLOR: Record<string, string> = {
@@ -61,12 +62,24 @@ const ORBIT_COLOR: Record<string, string> = {
   star: "rgba(255, 255, 255, 0.2)",
 };
 
+/** "#rrggbb" and an opacity to an rgba() string. */
+function withAlpha(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
 export class SystemMapRenderer {
   readonly camera = new Camera();
   private ctx: CanvasRenderingContext2D;
   private stars: { x: number; y: number; r: number; a: number }[] = [];
   private screenBodies: ScreenBody[] = [];
   private screenFleets: ScreenFleet[] = [];
+  /** Hides bodies the player has not found (undiscovered jump points). */
+  private isVisible: (body: Body) => boolean = () => true;
+  /** How a jump point should look: unexplored, explored, or gated. */
+  private jumpState: (body: Body) => "unexplored" | "explored" | "gate" = () => "unexplored";
+  /** Recolours bodies for the active lens; null leaves them natural. */
+  private lensColor: ((body: Body) => string | null) | null = null;
   private labelBoxes: { x: number; y: number; w: number; h: number }[] = [];
   private dpr = 1;
 
@@ -78,6 +91,21 @@ export class SystemMapRenderer {
     if (!ctx) throw new Error("2D canvas context unavailable");
     this.ctx = ctx;
     this.resize();
+  }
+
+  /** Draw a different system. The camera is the caller's to reframe. */
+  setSystem(system: StarSystem): void {
+    this.system = system;
+    this.screenBodies = [];
+    this.screenFleets = [];
+  }
+
+  setKnowledge(
+    isVisible: (body: Body) => boolean,
+    jumpState: (body: Body) => "unexplored" | "explored" | "gate",
+  ): void {
+    this.isVisible = isVisible;
+    this.jumpState = jumpState;
   }
 
   resize(): void {
@@ -137,7 +165,9 @@ export class SystemMapRenderer {
     opts: RenderOptions,
     fleets: FleetMarker[] = [],
     selectedFleet: string | null = null,
+    lensColor: ((body: Body) => string | null) | null = null,
   ): void {
+    this.lensColor = lensColor;
     const { ctx, camera } = this;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.fillStyle = "#05070d";
@@ -190,7 +220,7 @@ export class SystemMapRenderer {
     ctx.lineWidth = 1;
     for (const body of this.system.bodies) {
       const path = body.orbitPath;
-      if (!path.length || !body.parent) continue;
+      if (!path.length || !body.parent || body.cls === "jump-point") continue;
 
       const a = body.def.orbit!.a * camera.scale;
       if (a < 4) continue; // collapsed into its primary at this zoom
@@ -246,6 +276,7 @@ export class SystemMapRenderer {
     this.labelBoxes = [];
 
     for (const body of this.system.bodies) {
+      if (!this.isVisible(body)) continue;
       const sx = camera.worldToScreenX(body.world.x);
       const sy = camera.worldToScreenY(body.world.y);
       const trueRadius = (body.def.radiusKm / AU_KM) * camera.scale;
@@ -258,8 +289,22 @@ export class SystemMapRenderer {
 
       this.screenBodies.push({ body, sx, sy, radius });
 
-      if (body.cls === "star") this.drawStar(sx, sy, radius);
-      else this.drawWorld(body, sx, sy, radius, trueRadius);
+      const tint = this.lensColor?.(body) ?? null;
+      if (body.cls === "star") this.drawStar(sx, sy, radius, body.def.color);
+      else if (body.cls === "jump-point") this.drawJumpPoint(sx, sy, this.jumpState(body));
+      else this.drawWorld(body, sx, sy, radius, trueRadius, tint);
+
+      // A ring keeps a small tinted body legible against the dark.
+      if (tint && body.cls !== "star") {
+        const { ctx } = this;
+        ctx.strokeStyle = tint;
+        ctx.globalAlpha = 0.55;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(sx, sy, radius + 3.5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
 
       if (body.def.rings) this.drawRings(body, sx, sy);
 
@@ -272,18 +317,42 @@ export class SystemMapRenderer {
     }
   }
 
-  private drawStar(sx: number, sy: number, radius: number): void {
+  /** A diamond, hollow until it is explored, double-ringed once gated. */
+  private drawJumpPoint(sx: number, sy: number, state: "unexplored" | "explored" | "gate"): void {
+    const { ctx } = this;
+    const r = 6;
+    ctx.save();
+    ctx.strokeStyle = state === "gate" ? "#8fffd0" : "#7fe0ff";
+    ctx.fillStyle = state === "unexplored" ? "rgba(127, 224, 255, 0.08)" : "rgba(127, 224, 255, 0.35)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy - r);
+    ctx.lineTo(sx + r, sy);
+    ctx.lineTo(sx, sy + r);
+    ctx.lineTo(sx - r, sy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    if (state === "gate") {
+      ctx.beginPath();
+      ctx.arc(sx, sy, r + 4, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  private drawStar(sx: number, sy: number, radius: number, color = "#ffe9a8"): void {
     const { ctx } = this;
     const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, Math.max(radius * 6, 26));
-    glow.addColorStop(0, "rgba(255, 226, 150, 0.55)");
-    glow.addColorStop(0.35, "rgba(255, 190, 90, 0.16)");
-    glow.addColorStop(1, "rgba(255, 170, 60, 0)");
+    glow.addColorStop(0, withAlpha(color, 0.55));
+    glow.addColorStop(0.35, withAlpha(color, 0.16));
+    glow.addColorStop(1, withAlpha(color, 0));
     ctx.fillStyle = glow;
     ctx.beginPath();
     ctx.arc(sx, sy, Math.max(radius * 6, 26), 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = "#ffe9a8";
+    ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(sx, sy, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -295,9 +364,10 @@ export class SystemMapRenderer {
     sy: number,
     radius: number,
     trueRadius: number,
+    tint: string | null = null,
   ): void {
     const { ctx } = this;
-    ctx.fillStyle = body.def.color;
+    ctx.fillStyle = tint ?? body.def.color;
     ctx.beginPath();
     ctx.arc(sx, sy, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -371,7 +441,7 @@ export class SystemMapRenderer {
     radius: number,
   ): boolean {
     if (body === selected || body === hovered) return true;
-    if (body.cls === "star" || body.cls === "planet") return true;
+    if (body.cls === "star" || body.cls === "planet" || body.cls === "jump-point") return true;
     const orbitPx = (body.def.orbit?.a ?? 0) * this.camera.scale;
     if (body.cls === "dwarf") return orbitPx > 40;
     // Moons and small bodies only once they are clear of their primary.

@@ -2,23 +2,39 @@
 
 import { GameClock } from "../sim/clock";
 import { SECONDS_PER_DAY } from "../sim/orbit";
-import { StarSystem, type Body } from "../sim/system";
+import type { Body, StarSystem } from "../sim/system";
+import { Galaxy } from "../sim/galaxy";
 import { Random } from "../sim/rng";
 import { CYCLE_DAYS, computeSnapshot, runCycle } from "../sim/economy/production";
 import { MINERALS } from "../sim/minerals";
 import { updateFleets } from "../sim/ships/fleet";
-import { Empire } from "./empire";
+import { Empire, type EmpireState, type LogEntry } from "./empire";
+import { recomputeEnvironment } from "../sim/system";
 import { emptyStockpile } from "./colony";
 import { labCapacity, type Officer } from "../sim/people/officers";
 
 export type Listener = () => void;
+
+/** The saved form of a campaign. */
+export interface GameState {
+  seed: string;
+  /** Simulation seconds since J2000. */
+  seconds: number;
+  lastCycle: number;
+  selected: string | null;
+  empire: EmpireState;
+  /** Per-body state that play can change: the air and what is left to mine. */
+  bodies: Record<string, { atmosphere: Record<string, number>; deposits: number[] }>;
+}
 
 const CYCLE_SECONDS = CYCLE_DAYS * SECONDS_PER_DAY;
 /** Cycles processed in a single frame before we let the UI breathe. */
 const MAX_CYCLES_PER_FRAME = 40;
 
 export class Game {
-  readonly system = new StarSystem();
+  readonly galaxy: Galaxy;
+  /** The system the map and body list are showing. */
+  viewSystem: StarSystem;
   readonly clock = new GameClock();
   readonly empire: Empire;
 
@@ -30,14 +46,72 @@ export class Game {
 
   /** Simulation time the last production cycle was run at. */
   private lastCycle: number;
+  /** Newest log entry the pause logic has already looked at. */
+  private pauseSeq = 0;
+  /**
+   * Decides whether an event should stop the clock. Supplied by the interface
+   * so the simulation stays ignorant of the player's preferences.
+   */
+  autoPauseFilter: ((entry: LogEntry) => boolean) | null = null;
+  /** The event that last paused the game, for the interface to explain. */
+  pausedBy: LogEntry | null = null;
   private listeners = new Set<Listener>();
 
-  constructor(seed: string = "sol-1") {
+  constructor(
+    readonly seed: string = "sol-1",
+    save?: GameState,
+  ) {
+    this.galaxy = new Galaxy(seed);
+    this.viewSystem = this.galaxy.sol;
     this.empire = new Empire(new Random(seed));
-    this.system.update(this.clock.days);
+    this.galaxy.update(this.clock.days);
     this.lastCycle = this.clock.seconds;
-    this.setUpCampaign();
-    this.selected = this.system.byId.get("earth") ?? null;
+    if (save) {
+      this.restore(save);
+    } else {
+      this.setUpCampaign();
+    }
+    this.selected = this.galaxy.byId.get(save?.selected ?? "earth") ?? null;
+    this.viewSystem = (this.selected && this.galaxy.systemById.get(this.selected.systemId)) || this.galaxy.sol;
+  }
+
+  /** Everything needed to carry on from here: plain data, safe for JSON. */
+  exportState(): GameState {
+    const bodies: GameState["bodies"] = {};
+    for (const body of this.galaxy.bodies) {
+      bodies[body.id] = {
+        atmosphere: { ...body.atmosphere },
+        deposits: body.minerals.map((d) => d.amount),
+      };
+    }
+    return {
+      seed: this.seed,
+      seconds: this.clock.seconds,
+      lastCycle: this.lastCycle,
+      selected: this.selected?.id ?? null,
+      empire: this.empire.exportState(),
+      bodies,
+    };
+  }
+
+  /** Load a saved campaign over a freshly built one. */
+  private restore(save: GameState): void {
+    this.clock.seconds = save.seconds;
+    this.lastCycle = save.lastCycle;
+    for (const body of this.galaxy.bodies) {
+      const saved = save.bodies[body.id];
+      if (!saved) continue;
+      body.atmosphere = { ...saved.atmosphere };
+      // Deposits are generated from the body, so they come back in the same order.
+      body.minerals.forEach((deposit, i) => {
+        if (typeof saved.deposits[i] === "number") deposit.amount = saved.deposits[i];
+      });
+      recomputeEnvironment(body);
+    }
+    this.galaxy.update(this.clock.days);
+    this.empire.importState(save.empire);
+    this.pauseSeq = this.empire.logSeq;
+    this.clock.setRate(0);
   }
 
   /**
@@ -101,8 +175,9 @@ export class Game {
       "economy",
       "Trans-Newtonian industry comes online across Earth. No other world has been surveyed.",
     );
-    empire.snapshot = computeSnapshot(empire, this.system);
+    empire.snapshot = computeSnapshot(empire, this.galaxy);
     empire.markReviewed(now);
+    empire.recordHistory(now);
   }
 
   subscribe(fn: Listener): () => void {
@@ -115,24 +190,86 @@ export class Game {
   }
 
   tick(realSeconds: number): void {
+    // Anything logged before this frame - including the player's own actions -
+    // is not news; only what happens during the advance can pause the game.
+    this.markEventsSeen();
     const before = this.clock.seconds;
     this.clock.advance(realSeconds);
     this.advanceWorld(this.clock.seconds - before);
-    if (this.runCycles()) this.emit();
+    const ran = this.runCycles();
+    // Fleets arrive between production cycles, so events are checked every
+    // frame rather than only when a cycle ran.
+    const paused = this.applyAutoPause();
+    if (ran || paused) this.emit();
+  }
+
+  /** Stop the clock if something happened that the player wants to see. */
+  private applyAutoPause(): boolean {
+    const fresh = this.empire.logSince(this.pauseSeq);
+    if (!fresh.length) return false;
+    this.pauseSeq = this.empire.logSeq;
+    if (this.clock.paused) return false;
+    // A decision waiting on the player stops the clock whatever the settings.
+    if (!this.autoPauseFilter && !fresh.some((e) => e.decision)) return false;
+    const trigger = fresh.find((entry) => entry.decision || (!entry.quiet && this.autoPauseFilter?.(entry) === true));
+    if (!trigger) return false;
+    this.clock.setRate(0);
+    this.pausedBy = trigger;
+    return true;
+  }
+
+  /** Forget events up to now, so a manual jump does not trip auto-pause later. */
+  private markEventsSeen(): void {
+    this.pauseSeq = this.empire.logSeq;
+  }
+
+  /**
+   * Advance a day at a time until something the player would want to know
+   * about happens, or `maxDays` pass. Returns the event that stopped it.
+   */
+  runUntilEvent(
+    isNotable: (entry: LogEntry) => boolean,
+    maxDays = 365,
+  ): LogEntry | null {
+    const start = this.empire.logSeq;
+    let found: LogEntry | null = null;
+    for (let day = 0; day < maxDays && !found; day++) {
+      this.clock.step(SECONDS_PER_DAY);
+      this.advanceWorld(SECONDS_PER_DAY);
+      this.runCycles();
+      found = this.empire.logSince(start).find(isNotable) ?? null;
+    }
+    this.markEventsSeen();
+    this.pausedBy = found;
+    this.emit();
+    return found;
   }
 
   step(seconds: number): void {
     this.clock.step(seconds);
     this.advanceWorld(seconds);
     this.runCycles();
+    // A deliberate jump is the player's own choice; do not pause for it.
+    this.markEventsSeen();
     this.emit();
+  }
+
+  /** Systems worth moving every frame: the one shown, and any with our people in. */
+  private activeSystems(): Set<string> {
+    const active = new Set([this.viewSystem.id]);
+    for (const colony of this.empire.colonies.values()) {
+      const system = this.galaxy.byId.get(colony.bodyId)?.systemId;
+      if (system) active.add(system);
+    }
+    for (const fleet of this.empire.fleets.values()) active.add(fleet.systemId);
+    return active;
   }
 
   /** Move the bodies, then the fleets that are chasing them. */
   private advanceWorld(elapsedSeconds: number): void {
-    this.system.update(this.clock.days);
+    this.galaxy.update(this.clock.days, this.activeSystems());
     this.empire.lastTick = this.clock.seconds;
-    updateFleets(this.empire, this.system, elapsedSeconds);
+    updateFleets(this.empire, this.galaxy, elapsedSeconds);
   }
 
   /**
@@ -143,7 +280,7 @@ export class Game {
     let ran = 0;
     while (this.clock.seconds - this.lastCycle >= CYCLE_SECONDS && ran < MAX_CYCLES_PER_FRAME) {
       this.lastCycle += CYCLE_SECONDS;
-      runCycle(this.empire, this.system, this.lastCycle, CYCLE_DAYS);
+      runCycle(this.empire, this.galaxy, this.lastCycle, CYCLE_DAYS);
       ran++;
     }
     return ran > 0;
@@ -156,6 +293,19 @@ export class Game {
 
   select(body: Body | null): void {
     this.selected = body;
+    // Selecting something in another system brings that system into view.
+    if (body && body.systemId !== this.viewSystem.id) {
+      this.viewSystem = this.galaxy.systemById.get(body.systemId) ?? this.viewSystem;
+    }
+    this.emit();
+  }
+
+  /** Show a different system on the map. Only systems the empire knows. */
+  setViewSystem(systemId: string): void {
+    const system = this.galaxy.systemById.get(systemId);
+    if (!system || system === this.viewSystem) return;
+    this.viewSystem = system;
+    if (this.selected && this.selected.systemId !== systemId) this.selected = null;
     this.emit();
   }
 
