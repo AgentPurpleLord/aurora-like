@@ -642,6 +642,29 @@ async function programSuite(browser) {
   await page.locator("#view-fleets .panel-left .tree-row", { hasText: "Mars Line" }).click();
   const freight = page.locator("#view-fleets .program-form", { hasText: "Freight line" });
   await check("the freight form offers the colonies", async () => (await freight.locator("select").count()) >= 4);
+  // Number fields come with a slider, + and - buttons, and the exact box.
+  await freight.locator("select").nth(2).selectOption("colonists");
+  const amountField = page.locator("#view-fleets .program-form .slider-field").first();
+  await check("a number field has a slider, steppers and a box", async () =>
+    (await amountField.locator(".slider").count()) === 1 &&
+    (await amountField.locator(".step-btn").count()) === 2 &&
+    (await amountField.locator(".number-input").count()) === 1);
+  const setSlider = (v) => amountField.locator(".slider").evaluate((n, val) => {
+    n.value = String(val);
+    n.dispatchEvent(new Event("input", { bubbles: true }));
+    n.dispatchEvent(new Event("change", { bubbles: true }));
+  }, v);
+  await setSlider(1000);
+  await check("the top of a wide slider is the maximum", async () =>
+    (await amountField.locator(".number-input").inputValue()) === "100000000");
+  await setSlider(500);
+  await check("the middle of a wide slider is a round number, not a stray one", async () =>
+    /^\d{1,2}0*$/.test(await amountField.locator(".number-input").inputValue()) && Number(await amountField.locator(".number-input").inputValue()) > 1000);
+  const mid = Number(await amountField.locator(".number-input").inputValue());
+  await amountField.getByRole("button", { name: "Increase" }).click();
+  await check("the + button moves to the next round number", async () =>
+    Number(await page.locator("#view-fleets .program-form .slider-field").first().locator(".number-input").inputValue()) > mid);
+  await freight.locator("select").nth(2).selectOption("minerals");
   await freight.getByRole("button", { name: "Start freight line" }).click();
   await check("a freight line starts and is described", async () =>
     /Freight Earth - Mars/.test(await page.locator("#view-fleets .program-card").innerText()));

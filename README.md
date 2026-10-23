@@ -283,6 +283,31 @@ Saves live in each browser's local storage, so a phone and a computer keep
 separate games; use *Save and load > Export* and *Import* to move one between
 them.
 
+## Lasting effects and event chains
+
+Some events change things for a while rather than at once. A work-to-rule cuts
+a colony's industry by 30% for six months; a credit squeeze trims income
+across the empire; a baby boom speeds population growth; a rebuilt depot
+produces half the fuel. These are timed multipliers on industry, mining, fuel,
+research, income or growth, applied wherever output is computed, so the
+numbers on screen are the numbers simulated and nothing has to be undone when
+one ends. The Events tab lists every effect in force with what it does and how
+long is left, and each colony's Overview lists the ones that touch it.
+
+Events also have consequences. Handling one a certain way can schedule a
+follow-up some weeks or months later: a strike you faced down may return
+angrier; an epidemic left to run is followed by a recovery that you can fund;
+a scandal hushed up may leak; a salvaged wreck's transponder may wake and offer
+a map; a foundation's endowment comes with a visit. A follow-up says what it
+follows, waits behind a full decision queue rather than being lost, and
+quietly drops out if its subject (a colony, say) no longer exists. Effects and
+scheduled follow-ups are saved with the game.
+
+**Number fields are sliders.** Every amount you set - laboratories, quantities,
+tons, colonists, targets - has a slider, - and + buttons and the exact box. Wide
+ranges slide on a log scale and land on round numbers, so a slider is usable
+from ten to ten million with a thumb.
+
 ## Terraforming
 
 ![a terraforming programme](docs/terraforming.png)

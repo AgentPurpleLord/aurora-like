@@ -2069,3 +2069,18 @@ kbd {
 
 .proj-cancel { margin-top: 6px; font-size: 11px; padding: 3px 10px; }
 @media (max-width: 860px) { .proj-cancel { min-height: 30px; padding: 4px 14px; font-size: 12px; } }
+
+/* ------------------------------------------------- slider + number fields */
+
+.slider-field { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; vertical-align: middle; }
+.slider-field .slider { flex: 1 1 120px; min-width: 90px; max-width: 220px; accent-color: var(--accent-dim); height: 28px; }
+.slider-field .number-input { width: 84px; flex: none; }
+.slider-field .step-btn { flex: none; }
+.add-order .slider-field { flex: 1 1 260px; }
+.field-row .slider-field { flex: 1; }
+@media (max-width: 860px) {
+  .slider-field { display: flex; width: 100%; gap: 8px; }
+  .slider-field .slider { max-width: none; height: 36px; }
+  .slider-field .step-btn { min-width: 38px; min-height: 36px; font-size: 16px; }
+  .slider-field .number-input { width: 92px; min-height: 36px; }
+}
