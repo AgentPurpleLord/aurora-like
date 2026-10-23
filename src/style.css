@@ -2066,3 +2066,6 @@ kbd {
 .dialog.event-bad { border-color: #a4503f; }
 .dialog.event-neutral { border-color: #a08a3f; }
 .toast-event { border-left-color: #c58cff; }
+
+.proj-cancel { margin-top: 6px; font-size: 11px; padding: 3px 10px; }
+@media (max-width: 860px) { .proj-cancel { min-height: 30px; padding: 4px 14px; font-size: 12px; } }

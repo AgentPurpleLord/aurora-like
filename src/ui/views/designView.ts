@@ -231,7 +231,8 @@ export class DesignView {
       id,
       kind: component.kind,
       name: component.name,
-      nameTouched: true,
+      // A name that is just the standard one keeps following the figures.
+      nameTouched: component.name !== suggestName(component.kind, component.params, this.game.empire.researched),
       params: { ...component.params },
     };
     this.render();
@@ -331,7 +332,10 @@ export class DesignView {
       button(existing ? "Save as new component" : "Create component", () => {
         if (blocked) return;
         const created = empire.addComponentDesign(draft.kind, draft.params, this.game.clock.seconds, draft.name);
-        this.componentDraft = { ...draft, id: created.id, name: created.name, nameTouched: true };
+        this.componentDraft = {
+          ...draft, id: created.id, name: created.name,
+          nameTouched: created.name !== suggestName(created.kind, created.params, empire.researched),
+        };
         this.game.emit();
       }, existing && !users.length ? "ghost-btn" : "primary-btn"),
     );

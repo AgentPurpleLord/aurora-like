@@ -342,6 +342,29 @@ async function shipSuite(browser) {
   await check("the saved component appears in the library", async () =>
     (await page.locator("#view-design .design-row", { hasText: "x0.50" }).count()) === 1);
 
+  // Names keep following the figures, including when a saved part is reopened.
+  await page.locator("#view-design .design-row", { hasText: "x0.50" }).click();
+  await page.waitForTimeout(150);
+  const reopened = page.locator("#view-design .field-row", { hasText: "Power modifier" }).locator(".number-input");
+  await reopened.fill("0.6");
+  await reopened.press("Enter");
+  await page.waitForTimeout(150);
+  await check("a reopened component's name still follows its figures", async () =>
+    (await page.locator("#view-design .name-input").inputValue()).includes("x0.60"));
+  await page.getByRole("button", { name: "New component", exact: true }).click();
+  await page.locator("#view-design select").first().selectOption("fuel-tank");
+  const tankSize = page.locator("#view-design .field-row", { hasText: "Size" }).locator(".number-input");
+  await tankSize.fill("9");
+  await tankSize.press("Enter");
+  await page.waitForTimeout(150);
+  await check("a fuel tank's name follows its size", async () =>
+    (await page.locator("#view-design .name-input").inputValue()) === "Fuel Tank 9HS");
+  await tankSize.fill("12");
+  await tankSize.press("Enter");
+  await page.waitForTimeout(150);
+  await check("and keeps following as it grows", async () =>
+    (await page.locator("#view-design .name-input").inputValue()) === "Fuel Tank 12HS");
+
   // --- the ship designer
   await page.getByRole("button", { name: /Ship Classes/ }).click();
   await page.getByRole("button", { name: "New class", exact: true }).click();
@@ -991,6 +1014,18 @@ async function mobileSuite(browser) {
     return box.y < viewport.height;
   });
   await page.screenshot({ path: `${SHOTS}/mobile-research.png` });
+
+  // Cancelling research works from the project card, without scrolling to a panel.
+  await page.locator(".research-search").fill("");
+  const cancelButtons = page.getByRole("button", { name: /^Cancel .* project$/ });
+  const projectsBefore = await cancelButtons.count();
+  await check("each project under way has a cancel button on its card", async () => projectsBefore >= 1);
+  await check("and it can be tapped", async () => (await cancelButtons.first().boundingBox()).height >= 26);
+  page.once("dialog", (d) => d.accept());
+  await cancelButtons.first().click();
+  await page.waitForTimeout(200);
+  await check("cancelling removes the project", async () =>
+    (await page.getByRole("button", { name: /^Cancel .* project$/ }).count()) === projectsBefore - 1);
 
   await mobileGo(page, "Design");
   await page.waitForTimeout(400);

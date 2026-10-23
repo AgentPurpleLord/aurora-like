@@ -197,6 +197,18 @@ export class ResearchView {
             : "stalled"),
       );
       card.addEventListener("click", () => this.select(tech.id));
+      // Cancelling belongs on the card itself: on a phone the detail panel with
+      // its own button is a long scroll away.
+      const cancel = el("button", "ghost-btn proj-cancel", "Cancel");
+      cancel.setAttribute("aria-label", `Cancel ${tech.name} project`);
+      cancel.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (project.progress > 0 && !window.confirm(`Cancel ${tech.name}? The ${Math.round(project.progress).toLocaleString()} research points so far are lost.`)) return;
+        empire.cancelProject(project.id);
+        this.game.emit();
+        this.draw();
+      });
+      card.append(cancel);
       row.append(card);
     }
     sec.append(row);
