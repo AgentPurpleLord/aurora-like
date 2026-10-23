@@ -29,7 +29,6 @@ import { FIELD_BRANCHES } from "../src/sim/research/branches";
 import { branchesInField } from "../src/sim/research/graph";
 import { classTitle } from "../src/sim/ships/hulls";
 import * as ComponentLadders from "../src/sim/ships/components";
-import { flowToTechs, techsToFlow, effectsToText, textToEffects, loadFlowTechs } from "./techFlows";
 import { buyProgramme, programmeCost, moraleFactor, reserveErosion, stabilityTarget } from "../src/sim/economy/finance";
 import {
   FACTIONS, approval, capitalUpkeep, courtFaction, enactPolicy, repealPolicy, rejectDemand, judge, moodEffect, runPolitics,
@@ -2284,18 +2283,13 @@ console.log("");
   }
 }
 
-// ---- Flyde flows: the tree is authored in flows/*.flyde ----
+// ---- Tech data: src/data/techs.json ----
 {
-  const norm = (ts: typeof TECHS) => new Map(ts.map((t) => [t.id, JSON.stringify({ ...t, prereqs: [...t.prereqs].sort() })]));
-  const fromFlows = norm(loadFlowTechs());
-  const fromJson = norm(TECHS);
-  const drift = [...fromJson.keys()].filter((id) => fromFlows.get(id) !== fromJson.get(id));
-  check("flows/ and src/data/techs.json agree (run `npm run techs`)", drift.length + Math.abs(fromFlows.size - fromJson.size), 0, 0);
-  if (drift.length) console.log("  differ:", drift.slice(0, 8).join(", "));
-  const again = flowToTechs(techsToFlow("power", TECHS));
-  check("a flow regenerated from the data reads back the same", again.length, TECHS.filter((t) => t.field === "power").length, 0);
-  const fx = TECHS.flatMap((t) => t.effects ?? []);
-  assert("effect text round-trips", JSON.stringify(textToEffects(effectsToText(fx))) === JSON.stringify(fx));
+  const ids = new Set(TECHS.map((t) => t.id));
+  check("tech ids are unique", ids.size, TECHS.length, 0);
+  const dangling = TECHS.flatMap((t) => t.prereqs.filter((p) => !ids.has(p)).map((p) => `${t.id} <- ${p}`));
+  check("every prerequisite exists", dangling.length, 0, 0);
+  if (dangling.length) console.log("  dangling:", dangling.join(", "));
   const refs = new Set<string>();
   for (const v of Object.values(ComponentLadders)) {
     if (Array.isArray(v)) for (const row of v) if (Array.isArray(row) && typeof row[0] === "string") refs.add(row[0]);

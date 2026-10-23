@@ -86,8 +86,7 @@ export interface Tech {
 }
 
 /**
- * The tree itself is data: src/data/techs.json, built from the Flyde flows in
- * flows/ by `npm run techs`. Edit the flows, not the JSON.
+ * The tree itself is data: src/data/techs.json. Edit it directly.
  */
 export const TECHS: Tech[] = techData as Tech[];
 

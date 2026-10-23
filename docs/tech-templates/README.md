@@ -116,4 +116,3 @@ will wire what I can, add the rest as `future`, and tell you which was which.
 * `TEMPLATE-field.ts` - blank outline to copy.
 * `EXAMPLE-propulsion.ts` - a short filled-in example (nothing like a complete tree).
 
-> **Tech tree:** edit it visually with Flyde - see [docs/flyde-tech-tree.md](docs/flyde-tech-tree.md). The old comment-template workflow in `docs/tech-templates/` still works for handing me trees.

@@ -2,8 +2,8 @@
  * Engines and power systems.
  *
  * Engines follow Aurora: a single line of technologies, each more power per
- * hull space (the engine technologies themselves live in flows/power.flyde). Power
- * systems (reactors) are defined here and tied to techs in flows/power.flyde;
+ * hull space (the engine technologies themselves are in src/data/techs.json). Power
+ * systems (reactors) are defined here and tied to tech ids in src/data/techs.json;
  * nothing aboard draws on them yet, so they wait for weapons and shields.
  */
 
