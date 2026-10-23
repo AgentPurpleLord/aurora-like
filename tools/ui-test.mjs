@@ -80,6 +80,13 @@ async function colonyTab(page, name) {
 }
 
 /** Go to a screen on a phone, via "More" when it is not on the bar. */
+/** Click a clock jump button and dismiss the turn report it opens. */
+async function jump(page, label) {
+  await page.getByRole("button", { name: label, exact: true }).click();
+  await page.waitForTimeout(60);
+  if (await page.locator(".dialog-overlay.open").count()) await page.keyboard.press("Escape");
+}
+
 async function mobileGo(page, name) {
   const direct = page.locator("#view-tabs > .view-tab:not(.more-tab)").getByText(name, { exact: true });
   if (await direct.first().isVisible().catch(() => false)) {
@@ -261,7 +268,7 @@ async function shipSuite(browser) {
   await page.waitForTimeout(700);
   const skip = async (times) => {
     for (let i = 0; i < times; i++) {
-      await page.getByRole("button", { name: "+30d", exact: true }).click();
+      await jump(page, "+30d");
     }
     await page.waitForTimeout(250);
   };
@@ -426,7 +433,7 @@ async function shipSuite(browser) {
   await check("the move order is queued", async () =>
     (await page.locator("#view-fleets .order-row").innerText()).includes("Mars"));
   // Eight hours at ~1,000 km/s is about 0.2 AU: well short of Mars.
-  await page.getByRole("button", { name: "+8h", exact: true }).click();
+  await jump(page, "+8h");
   await page.waitForTimeout(300);
   await check("the fleet is under way", async () =>
     /Under way to Mars/.test(await page.locator("#view-fleets .fleet-detail").innerText()));
@@ -454,7 +461,7 @@ async function terraformSuite(browser) {
   // Jumping the clock in thirty-day steps is far quicker than waiting.
   const skip = async (times) => {
     for (let i = 0; i < times; i++) {
-      await page.getByRole("button", { name: "+30d", exact: true }).click();
+      await jump(page, "+30d");
     }
     await page.waitForTimeout(250);
   };
@@ -1237,7 +1244,7 @@ async function mobileSuite(browser) {
   await page.evaluate(() => { document.documentElement.dataset.theme = "terminal"; });
   await page.waitForTimeout(200);
   await check("the terminal theme does not make a phone scroll sideways", async () => (await overflow()) <= 1);
-  for (const name of ["Empire", "Map", "Colonies", "Fleets", "Design", "Research", "Officers", "Politics", "Events", "Galaxy"]) {
+  for (const name of ["Empire", "Map", "Colonies", "Fleets", "Design", "Research", "Officers", "Politics", "System", "Events", "Galaxy"]) {
     await mobileGo(page, name);
     await page.waitForTimeout(250);
     await check(`and neither does the ${name} screen`, async () => (await overflow()) <= 1);
@@ -1323,6 +1330,120 @@ async function politicsSuite(browser) {
   await page.close();
 }
 
+async function turnSuite(browser) {
+  console.log("\nTurn reports and laboratories");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.goto(`${BASE}?debug&new&seed=sol-1&events=off`);
+  await page.waitForSelector("#view-tabs");
+  await page.getByRole("button", { name: "+30d", exact: true }).click();
+  await page.waitForTimeout(200);
+  const dialog = page.locator(".dialog");
+  await check("a 30-day jump opens a turn report", async () => /turn report/i.test(await dialog.innerText()) || (await dialog.getAttribute("aria-label")) === "Digest");
+  await check("which covers the span just run", async () => /30 days/.test(await dialog.innerText()));
+  await page.getByRole("button", { name: "Continue" }).click();
+  await check("Continue closes it", async () => (await page.locator(".dialog").count()) === 0);
+  await page.getByRole("button", { name: "+1d", exact: true }).click();
+  await page.waitForTimeout(200);
+  await check("even a one-day jump reports, news or not", async () => (await page.locator(".dialog").count()) === 1);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "+8h", exact: true }).click();
+  await page.waitForTimeout(150);
+  await check("a short hop with nothing in it stays quiet", async () => (await page.locator(".dialog").count()) === 0);
+
+  // --- laboratories
+  await nav(page, "Research").click();
+  await page.waitForTimeout(300);
+  const labs = page.locator("#view-research .research-labs");
+  await check("the Research screen lists laboratories colony by colony", async () => /earth/i.test(await labs.innerText()) && /working/i.test(await labs.innerText()));
+  await check("it offers to auto-assign new labs, on by default", async () =>
+    await page.getByRole("checkbox", { name: "Auto-assign new labs" }).isChecked());
+  await page.evaluate(() => { const g = window.__game; g.empire.colony("earth").installations["research-lab"] += 4; g.emit(); });
+  await page.waitForTimeout(200);
+  await check("labs just built show as idle", async () => /idle/i.test(await labs.innerText()));
+  await page.evaluate(() => window.__game.step(5 * 86400));
+  await page.evaluate(() => window.__game.emit());
+  await page.waitForTimeout(200);
+  await check("and are put to work by the next cycle", async () =>
+    (await page.evaluate(() => window.__game.empire.log.some((l) => /put to work/.test(l.text)))));
+  await check("no console errors", () => errors.length === 0);
+  if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
+  await page.close();
+}
+
+async function yardSuite(browser) {
+  console.log("\nShipyards");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.goto(`${BASE}?debug&new&seed=sol-1&events=off`);
+  await page.waitForSelector("#view-tabs");
+  await nav(page, "Colonies").click();
+  await page.locator("#view-colonies .colony-tab", { hasText: "Shipyards" }).click();
+  await page.waitForTimeout(200);
+  const tab = page.locator("#view-colonies .detail-body");
+  await check("the Shipyards tab lists Earth's commercial yard", async () => {
+    const t = await tab.innerText();
+    return /terran commercial yard/i.test(t) && /commercial/i.test(t) && /2 slipways/i.test(t);
+  });
+  await check("military yards are locked until researched", async () =>
+    /needs military specification/i.test(await page.getByLabel("Yard type").locator("option").nth(1).innerText()));
+  await page.getByLabel("Yard name").fill("Orbital Slip");
+  await page.getByRole("button", { name: "Found shipyard", exact: true }).click();
+  await page.waitForTimeout(200);
+  await check("a new yard can be founded from the tab", async () => /orbital slip/i.test(await tab.innerText()));
+  await check("its slipways wait in the build queue", async () =>
+    (await page.evaluate(() => window.__game.empire.colony("earth").buildQueue.some((o) => o.installationId === "shipyard" && o.yardId))));
+  await page.evaluate(() => { window.__game.empire.research("military-specification"); window.__game.emit(); });
+  await page.waitForTimeout(200);
+  await page.getByLabel("Yard type").selectOption("military");
+  await page.getByLabel("Yard name").fill("Naval Dockyard");
+  await page.getByRole("button", { name: "Found shipyard", exact: true }).click();
+  await page.waitForTimeout(200);
+  await check("a military yard can be founded once it is researched", async () => /naval dockyard/i.test(await tab.innerText()) && /military/i.test(await tab.innerText()));
+  await check("no console errors", () => errors.length === 0);
+  if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
+  await page.close();
+}
+
+async function systemSuite(browser) {
+  console.log("\nSystem screen");
+  const page = await browser.newPage({ viewport: { width: 1680, height: 980 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.goto(`${BASE}?debug&new&seed=sol-1&events=off`);
+  await page.waitForSelector("#view-tabs");
+  await nav(page, "System").click();
+  await page.waitForTimeout(300);
+  const view = page.locator("#view-system");
+  await check("the System screen lists the bodies of Sol", async () => (await view.locator(".system-row").count()) > 20);
+  await check("with Earth marked as a colony", async () => /colony/i.test(await view.locator('.system-row[data-id="earth"]').innerText()));
+  await check("and its columns of detail", async () => {
+    const t = await view.locator('.system-row[data-id="earth"]').innerText();
+    return /terrestrial/i.test(t) && /1\.00 g/.test(t) && /breathable/i.test(t);
+  });
+  await view.locator('.system-row[data-id="mars"]').click();
+  await page.waitForTimeout(250);
+  await check("selecting a body shows its detail panel", async () => /mars/i.test(await view.locator(".panel-right").innerText()));
+  await page.getByLabel("Show bodies").selectOption("planets");
+  await page.waitForTimeout(200);
+  await check("filtering to planets drops the moons", async () => (await view.locator('.system-row[data-id="luna"]').count()) === 0 && (await view.locator('.system-row[data-id="mars"]').count()) === 1);
+  await view.locator(".data-row.header .sortable", { hasText: "Gravity" }).click();
+  await page.waitForTimeout(200);
+  const first = await view.locator(".system-row").first().getAttribute("data-id");
+  await check("sorting by gravity puts the lightest first", async () => first !== "earth" && first !== "jupiter");
+  await page.getByLabel("Find a body").fill("jupiter");
+  await page.waitForTimeout(200);
+  await check("searching narrows the list", async () => (await view.locator(".system-row").count()) === 1);
+  await check("no console errors", () => errors.length === 0);
+  if (errors.length) console.log("    ", errors.slice(0, 3).join("\n     "));
+  await page.close();
+}
+
 const browser = await chromium.launch(launch);
 try {
   await desktopSuite(browser);
@@ -1335,6 +1456,9 @@ try {
   await maintenanceSuite(browser);
   await financeSuite(browser);
   await politicsSuite(browser);
+  await turnSuite(browser);
+  await yardSuite(browser);
+  await systemSuite(browser);
   await mobileSuite(browser);
 } finally {
   await browser.close();

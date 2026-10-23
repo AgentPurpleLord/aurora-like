@@ -49,6 +49,7 @@ interface Entry {
 const VIEWS: [ViewId, string, string][] = [
   ["empire", "Empire", "Dashboard: every colony, the mineral ledger, research"],
   ["map", "System Map", "The system to scale, with fleets and lenses"],
+  ["system", "System", "Every planet, moon and rock in a system, with details"],
   ["galaxy", "Galaxy", "The neighbouring stars and the jump network"],
   ["events", "Events", "Random events: decisions waiting, and the log"],
   ["colonies", "Colonies", "Industry, mining, terraforming and automation"],

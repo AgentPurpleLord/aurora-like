@@ -5,6 +5,7 @@
  * The per-cycle economic simulation itself lives in sim/economy/production.
  */
 
+import { syncYards } from "../sim/economy/shipyards";
 import { defaultPops } from "../sim/economy/goods";
 import { defaultPolitics, politicalFactors, type PoliticsState } from "../sim/politics";
 import { OfficerPool, type Assignment, type Branch, type Officer } from "../sim/people/officers";
@@ -24,6 +25,7 @@ import {
 } from "../sim/ships/design";
 import {
   ENGINE_TYPES,
+  MILITARY_TECH,
   SENSOR_TYPES,
   componentStats,
   defaultParams,
@@ -40,7 +42,7 @@ export type LogCategory = "research" | "construction" | "people" | "colony" | "e
 
 /** Where an event can take you, so a notification is a doorway, not a dead end. */
 export interface LogLink {
-  view: "empire" | "map" | "galaxy" | "events" | "politics" | "colonies" | "fleets" | "design" | "research" | "officers";
+  view: "empire" | "map" | "galaxy" | "system" | "events" | "politics" | "colonies" | "fleets" | "design" | "research" | "officers";
   bodyId?: string;
   fleetId?: string;
   techId?: string;
@@ -165,6 +167,7 @@ export interface EmpireState {
   austerity: boolean;
   taxRate?: number;
   welfare?: number;
+  autoLabs?: boolean;
   politics?: PoliticsState;
   politicsRng?: number;
   dismissed: [string, number][];
@@ -217,6 +220,8 @@ export class Empire {
   taxRate = 0.3;
   /** Share of tax revenue spent on public welfare, which buys stability. */
   welfare = 0;
+  /** New laboratories are given to the projects at their colony as they appear. */
+  autoAssignLabs = true;
   /** Factions, laws, capital and the election clock. */
   politics: PoliticsState = defaultPolitics();
   readonly politicsRng = new Random("politics");
@@ -369,6 +374,7 @@ export class Empire {
     destination: string | null = null,
     auto = false,
     designId: string | null = null,
+    yardId: string | null = null,
   ): void {
     const colony = this.colonies.get(bodyId);
     if (!colony || quantity <= 0) return;
@@ -377,7 +383,8 @@ export class Empire {
       (o) =>
         o.installationId === installationId &&
         o.destination === target &&
-        o.designId === designId,
+        o.designId === designId &&
+        (o.yardId ?? null) === yardId,
     );
     if (existing) {
       existing.quantity += quantity;
@@ -392,6 +399,7 @@ export class Empire {
       starved: false,
       auto,
       designId,
+      yardId,
     });
   }
 
@@ -843,7 +851,12 @@ export class Empire {
 
   /** Record the empire's state as "seen", for the what-changed summary. */
   markReviewed(now: number): void {
-    this.reviewMark = {
+    this.reviewMark = this.reviewSnapshot(now);
+  }
+
+  /** The empire as it stands, in the form a review mark takes. */
+  reviewSnapshot(now: number): ReviewMark {
+    return {
       time: now,
       seq: this.logSeq,
       treasury: this.treasury,
@@ -873,6 +886,7 @@ export class Empire {
       austerity: this.austerity,
       taxRate: this.taxRate,
       welfare: this.welfare,
+      autoLabs: this.autoAssignLabs,
       politics: this.politics,
       politicsRng: this.politicsRng.state,
       dismissed: [...this.dismissed],
@@ -931,6 +945,7 @@ export class Empire {
     this.austerity = data.austerity;
     this.taxRate = data.taxRate ?? 0.3;
     this.welfare = data.welfare ?? 0;
+    this.autoAssignLabs = data.autoLabs ?? true;
     this.politics = { ...defaultPolitics(), ...data.politics };
     if (data.politicsRng !== undefined) this.politicsRng.state = data.politicsRng;
     this.refreshPolitics(data.lastTick);
@@ -956,6 +971,8 @@ export class Empire {
     for (const colony of data.colonies) {
       colony.stability ??= 70;
       colony.pops ??= defaultPops();
+      colony.yards ??= [];
+      syncYards(colony, this.researched.has(MILITARY_TECH));
       this.colonies.set(colony.bodyId, colony);
     }
     this.ships.clear();

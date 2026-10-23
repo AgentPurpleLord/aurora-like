@@ -16,6 +16,7 @@ import { ResearchView } from "./views/researchView";
 import { invalidateMarket } from "../sim/economy/goods";
 import { invalidateTrade } from "../sim/economy/trade";
 import { OfficersView } from "./views/officersView";
+import { SystemView } from "./views/systemView";
 import { PoliticsView } from "./views/politicsView";
 import { FleetsView } from "./views/fleetsView";
 import { DesignView } from "./views/designView";
@@ -29,7 +30,7 @@ import { SettingsMenu } from "./settingsMenu";
 import { Toasts } from "./toasts";
 import { applyDensity, applyTheme, saveSettings, settings } from "./settings";
 import { LENSES, LENS_BY_ID, hoverLines, type LensId } from "./lenses";
-import { IMPORTANT_CATEGORIES, type LogEntry, type LogLink } from "../state/empire";
+import { IMPORTANT_CATEGORIES, type LogEntry, type LogLink, type ReviewMark } from "../state/empire";
 import { QUICKSAVE_ID, listSaves, requestLoad, saveAuto, saveQuick, type SaveMeta } from "../state/save";
 import { buildDigest, worthShowing } from "../sim/digest";
 import { formatShortDate } from "../sim/clock";
@@ -54,11 +55,12 @@ const ZOOM_PRESETS: ZoomPreset[] = [
   { label: "Kuiper", spanAu: 75 },
 ];
 
-export type ViewId = "empire" | "map" | "galaxy" | "events" | "colonies" | "fleets" | "design" | "research" | "officers" | "politics";
+export type ViewId = "empire" | "map" | "galaxy" | "system" | "events" | "colonies" | "fleets" | "design" | "research" | "officers" | "politics";
 
 const VIEW_TABS: { id: ViewId; label: string; key: string }[] = [
   { id: "empire", label: "Empire", key: "e" },
   { id: "map", label: "Map", key: "m" },
+  { id: "system", label: "System", key: "s" },
   { id: "galaxy", label: "Galaxy", key: "x" },
   { id: "colonies", label: "Colonies", key: "c" },
   { id: "fleets", label: "Fleets", key: "f" },
@@ -73,6 +75,7 @@ const VIEW_TABS: { id: ViewId; label: string; key: string }[] = [
 const RAIL_COLLAPSED_BY_DEFAULT: Record<ViewId, boolean> = {
   empire: false,
   galaxy: true,
+  system: true,
   events: false,
   map: true,
   colonies: false,
@@ -111,6 +114,7 @@ export class App {
   private research: ResearchView;
   private officers: OfficersView;
   private politicsView: PoliticsView;
+  private systemView: SystemView;
   private fleetsView: FleetsView;
   private designView: DesignView;
   private galaxyView: GalaxyView;
@@ -181,11 +185,16 @@ export class App {
       openEconomy: () => this.setView("colonies"),
       openFleets: () => this.setView("fleets"),
     });
-    this.time = new TimeControls(roots.time, this.game, () => this.nextEvent());
+    this.time = new TimeControls(roots.time, this.game, () => this.nextEvent(), (before, seconds) => this.turnReport(before, seconds));
     this.economy = new EconomyView(roots.views.colonies, this.game);
     this.research = new ResearchView(roots.views.research, this.game);
     this.officers = new OfficersView(roots.views.officers, this.game);
     this.politicsView = new PoliticsView(roots.views.politics, this.game);
+    this.systemView = new SystemView(roots.views.system, this.game, {
+      zoomTo: (body) => this.zoomTo(body),
+      openEconomy: () => this.setView("colonies"),
+      openFleets: () => this.setView("fleets"),
+    });
     this.empireView = new EmpireView(
       roots.views.empire,
       this.game,
@@ -391,6 +400,19 @@ export class App {
 
   private openDigest(): void {
     openDigestDialog(this.game, (link) => this.navigate(link), () => this.game.emit());
+  }
+
+  /**
+   * A turn-based jump has run: report on exactly that span. A day or more
+   * always gets a report; shorter hops only when something happened in them.
+   */
+  private turnReport(before: ReviewMark, seconds: number): void {
+    if (dialogOpen()) return;
+    const digest = buildDigest(this.game.empire, this.game.galaxy, this.game.clock.seconds, before);
+    const news = digest.groups.length > 0 || digest.attention.length > 0;
+    if (seconds < 86_400 && !news) return;
+    this.digestOfferedFor = this.game.empire.reviewMark.seq;
+    openDigestDialog(this.game, (link) => this.navigate(link), () => this.game.emit(), before);
   }
 
   /**
@@ -692,6 +714,7 @@ export class App {
       case "research": this.research.render(); break;
       case "officers": this.officers.render(); break;
       case "politics": this.politicsView.render(); break;
+      case "system": this.systemView.render(); break;
       case "galaxy": this.galaxyView.render(); break;
       case "events": this.eventsView.render(); break;
       case "map": break;

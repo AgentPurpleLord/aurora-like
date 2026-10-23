@@ -441,6 +441,42 @@ refineries spacers). Open a colony's **People** tab to see them.
   Colonial League). Their mood feeds those factions' support, and who the population is
   sets the factions' influence - so a famine on one world can lose you an election.
 
+## Turn reports and laboratories
+
+- **Turn reports.** Every clock jump button (`+1d`, `+5d`, `+30d`, ...) ends with a *Turn report*
+  covering exactly the span just run: changes in treasury, population, techs, colonies and
+  ships, what happened by category, and what needs attention. Jumps of a day or more always
+  report; shorter hops only when something happened. Escape or Continue dismisses it.
+- **Laboratories.** The Research screen lists every colony's labs - working, built and idle - with
+  the reason when some are idle (no project there, or every scientist is at the limit their
+  administration allows). Project cards show their lab count.
+- **Auto-assign.** New laboratories are put to work on the projects at their colony as the
+  production cycle runs, fewest labs first, up to what each scientist can direct. Untick the
+  box to assign by hand, or use *Assign idle labs now*.
+
+## The System screen
+
+The **System** tab (key `S`) lists every planet, moon, asteroid and comet in a system in one
+table - orbit, mass, gravity, temperature, atmosphere, colony cost and (once surveyed) the
+minerals in the ground - with the full detail panel for whichever body you select. Pick any
+system you know of, filter to planets, moons, small bodies, colonies or surveyed worlds,
+search by name, and sort by any column to compare worlds side by side.
+
+## Shipyards
+
+Open a colony's **Shipyards** tab. Like Aurora, a colony has named yards, each **commercial** or
+**military**, each with its own slipways (a slipway is a Shipyard installation; a yard lays
+down hulls up to 5,000 t per slipway, so splitting slipways between yards makes each smaller).
+
+- Commercial yards build commercial classes only. Military yards build anything, but need
+  the Military Specification and cost 1,500 wealth per slipway to found, extend or convert to.
+- *Found a new shipyard* takes a name, a type and a number of slipways, and queues the
+  installations; the slipways appear in the yard as they are finished. *Add slipways*,
+  *Convert* and *Abandon* (unbuilt yards only) work from each yard's card.
+- A class made of military parts, or on a military hull, is only laid down at a military
+  yard large enough for it; the tab and the Fleets screen say what is missing. Earth starts with
+  a two-slipway commercial yard, and old saves get one yard holding their shipyards.
+
 ## Politics
 
 The **Politics** screen (key `P`) is the part of the game that is never finished with.
