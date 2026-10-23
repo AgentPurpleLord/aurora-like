@@ -9,6 +9,7 @@
 
 import type { MineralName } from "../minerals";
 import { hullOf, hullProblems } from "./hulls";
+import { buildProfile, type MaintSystem, type MaintenanceProfile } from "./maintenanceModel";
 import {
   TONS_PER_HS,
   type ComponentDesign,
@@ -67,6 +68,8 @@ export interface DesignStats {
   wear: number;
   /** True if any powered component is built to the military specification. */
   military: boolean;
+  /** Failure rates, supplies and repair costs; see maintenanceModel.ts. */
+  maintenance: MaintenanceProfile;
   /** Power the class's reactors make, and what its electric engines draw. */
   reactorOutput: number;
   powerDraw: number;
@@ -81,13 +84,6 @@ export interface DesignStats {
 }
 
 const AU_KM = 149_597_870.7;
-
-/**
- * Engine power per hull space gives speed through this factor. Deliberately
- * small: a ship should take days to cross to a neighbouring world and most of
- * a year to cross the system, so distance is something to plan around.
- */
-export const SPEED_SCALE = 0.15;
 
 export function designStats(design: ShipDesign, resolve: ComponentResolver): DesignStats {
   let tons = 0;
@@ -105,6 +101,9 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
   let wearTons = 0;
   let military = false;
   let reactorOutput = 0;
+  let mspCapacity = 0;
+  let engineeringHS = 0;
+  const systems: MaintSystem[] = [];
   let powerDraw = 0;
   const engineGrades = { commercial: 0, military: 0 };
   const minerals: Partial<Record<MineralName, number>> = {};
@@ -135,6 +134,12 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
     if (stats.grade === "military") military = true;
     if (component.kind === "engine") engineGrades[stats.grade] += n;
     reactorOutput += (stats.output ?? 0) * n;
+    mspCapacity += (stats.msp ?? 0) * n;
+    engineeringHS += (stats.engineering ?? 0) * n;
+    systems.push({
+      componentId: entry.componentId, name: component.name, kind: component.kind, count: n,
+      unitCost: stats.cost, weight: stats.wear * stats.cost,
+    });
     powerDraw += (stats.powerDraw ?? 0) * n;
     jumpCapacity += (stats.jump ?? 0) * n;
     gateRate += (stats.gate ?? 0) * n;
@@ -147,7 +152,8 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
   }
 
   const hullSpaces = tons / TONS_PER_HS;
-  const speed = hullSpaces > 0 ? (power * 1000 * SPEED_SCALE) / hullSpaces : 0;
+  // Aurora's formula: total engine power over total hull spaces, in thousands of km/s.
+  const speed = hullSpaces > 0 ? (power * 1000) / hullSpaces : 0;
   const enduranceHours = fuelPerHour > 0 ? fuelCapacity / fuelPerHour : 0;
   const rangeAu = (speed * 3600 * enduranceHours) / AU_KM;
 
@@ -159,6 +165,7 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
   }
   if (berths < crewRequired) problems.push(`Crew quarters short by ${crewRequired - berths} berths.`);
 
+  const maintained = military || hullOf(design)?.category === "military";
   const stats: DesignStats = {
     tons,
     hullSpaces,
@@ -180,6 +187,7 @@ export function designStats(design: ShipDesign, resolve: ComponentResolver): Des
     reactorOutput,
     powerDraw,
     engineGrades,
+    maintenance: buildProfile(systems, mspCapacity, engineeringHS, hullSpaces, maintained),
     buildCost,
     minerals,
     counts,

@@ -12,6 +12,7 @@
 
 import type { ResearchField } from "./fields";
 import { EXTENDED_TECHS } from "./techsExtended";
+import { withBranch } from "./branches";
 import { PROPULSION_TECHS, REPLACED_TECH_IDS } from "./propulsion";
 
 export interface EmpireStats {
@@ -80,6 +81,8 @@ export interface Tech {
   prereqs: string[];
   effects?: TechEffect[];
   description: string;
+  /** Sub-field within its field; assigned by branches.ts when not given. */
+  branch?: string;
   /** True when the tech only matters to systems that are not built yet. */
   future?: boolean;
 }
@@ -93,10 +96,7 @@ const unlock = (installation: string): TechEffect => ({ kind: "unlock", installa
  * and what they hang from now.
  */
 const RENAMED_PREREQS: Record<string, string> = {
-  "nuclear-thermal": "solid-motor",
-  "nuclear-pulse": "pump-fed",
-  "ion-drive": "pump-fed",
-  "magneto-plasma": "pump-fed",
+  "ion-drive": "ion-engine",
 };
 
 /** Everything that is not engines or power systems, with the old engine line dropped. */
@@ -104,7 +104,7 @@ const OTHER_TECHS: Tech[] = [...CORE_TECHS(), ...EXTENDED_TECHS]
   .filter((t) => !REPLACED_TECH_IDS.has(t.id))
   .map((t) => ({ ...t, prereqs: t.prereqs.map((p) => RENAMED_PREREQS[p] ?? p) }));
 
-export const TECHS: Tech[] = [...OTHER_TECHS, ...PROPULSION_TECHS];
+export const TECHS: Tech[] = [...OTHER_TECHS, ...PROPULSION_TECHS].map(withBranch);
 
 function CORE_TECHS(): Tech[] {
   return [

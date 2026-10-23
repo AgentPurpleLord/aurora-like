@@ -170,6 +170,7 @@ export interface EmpireState {
   autoLabs?: boolean;
   politics?: PoliticsState;
   politicsRng?: number;
+  maintRng?: number;
   dismissed: [string, number][];
   standingOrders: StandingOrder[];
   componentDesigns: ComponentDesign[];
@@ -225,6 +226,8 @@ export class Empire {
   /** Factions, laws, capital and the election clock. */
   politics: PoliticsState = defaultPolitics();
   readonly politicsRng = new Random("politics");
+  /** Rolls for maintenance failures. */
+  readonly maintRng = new Random("maintenance");
   /** What politics currently does to each kind of output; see refreshPolitics. */
   private politicsFactors = politicalFactors(defaultPolitics(), 0);
   /** Issue id -> simulation time at which the dismissal lapses. */
@@ -628,6 +631,8 @@ export class Empire {
         ["crew-quarters", { size: 2 }],
         ["cargo-hold", { size: 20 }],
         ["colony-module", { size: 20 }],
+        ["maintenance-bay", { size: 4 }],
+        ["engineering", { size: 2 }],
       );
     }
     const sensor = SENSOR_TYPES.find((s) => this.researched.has(s.tech));
@@ -727,6 +732,9 @@ export class Empire {
       fuel: 0,
       built: now,
       condition: 100,
+      clock: 0,
+      msp: this.statsOf(designId)?.maintenance.mspCapacity ?? 0,
+      broken: {},
     };
     this.ships.set(ship.id, ship);
     fleet.shipIds.push(ship.id);
@@ -932,6 +940,7 @@ export class Empire {
       autoLabs: this.autoAssignLabs,
       politics: this.politics,
       politicsRng: this.politicsRng.state,
+      maintRng: this.maintRng.state,
       dismissed: [...this.dismissed],
       standingOrders: this.standingOrders,
       componentDesigns: this.componentDesigns,
@@ -991,6 +1000,7 @@ export class Empire {
     this.autoAssignLabs = data.autoLabs ?? true;
     this.politics = { ...defaultPolitics(), ...data.politics };
     if (data.politicsRng !== undefined) this.politicsRng.state = data.politicsRng;
+    if (data.maintRng !== undefined) this.maintRng.state = data.maintRng;
     this.refreshPolitics(data.lastTick);
     this.dismissed.clear();
     for (const [id, until] of data.dismissed) this.dismissed.set(id, until);
@@ -1015,11 +1025,12 @@ export class Empire {
       colony.stability ??= 70;
       colony.pops ??= defaultPops();
       colony.yards ??= [];
+      colony.msp ??= 0;
       syncYards(colony, this.researched.has(MILITARY_TECH));
       this.colonies.set(colony.bodyId, colony);
     }
     this.ships.clear();
-    for (const ship of data.ships) this.ships.set(ship.id, Object.assign({ condition: 100 }, ship));
+    for (const ship of data.ships) this.ships.set(ship.id, Object.assign({ condition: 100, clock: 0, msp: 0, broken: {} }, ship));
     this.fleets.clear();
     for (const fleet of data.fleets) {
       // Fields added after the first release default sensibly for old saves.

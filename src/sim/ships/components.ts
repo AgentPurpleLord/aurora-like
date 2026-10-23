@@ -19,6 +19,8 @@ export const TONS_PER_HS = 50;
 export type ComponentKind =
   | "engine"
   | "reactor"
+  | "engineering"
+  | "maintenance-bay"
   | "fuel-tank"
   | "crew-quarters"
   | "cargo-hold"
@@ -92,6 +94,10 @@ export interface ComponentStats {
   cargo?: number;
   colonists?: number;
   survey?: { type: "geological" | "gravitational"; rate: number };
+  /** Maintenance supplies the part stores (engineering sections and storage bays). */
+  msp?: number;
+  /** Hull spaces of engineering section, which cut the failure rate. */
+  engineering?: number;
   /** Reactor power a part makes (reactors) or draws (electric engines). */
   output?: number;
   powerDraw?: number;
@@ -117,12 +123,12 @@ export { ENGINE_TYPES, REACTOR_TYPES, type EngineType, type ReactorType };
 export const ENGINE_BY_ID = new Map(ENGINE_TYPES.map((e) => [e.id, e]));
 export const REACTOR_BY_ID = new Map(REACTOR_TYPES.map((r) => [r.id, r]));
 
-/**
- * Fuel burned per power-hour, relative to the raw engine figure. With ships
- * slowed by SPEED_SCALE a journey takes longer, so this keeps a plain hauler
- * to a range of a few AU: far enough for the inner system, not the outer.
- */
-export const FUEL_BURN_SCALE = 0.42;
+/** Maintenance supplies per hull space: a storage bay is all spares; an engineering section some. */
+export const BAY_MSP_PER_HS = 20;
+export const ENGINEERING_MSP_PER_HS = 5;
+
+/** Litres of fuel in one hull space of tank, as in Aurora. */
+export const FUEL_PER_HS = 50_000;
 
 /** Overdriving an engine costs fuel with the square of the modifier. */
 export const MODIFIER_FUEL_EXPONENT = 2;
@@ -273,7 +279,7 @@ export const KINDS: KindDef[] = [
     name: "Engine",
     blurb: "Thrust. Speed is total engine power per hull space of the whole ship.",
     available: (r) => ENGINE_TYPES.some((e) => r.has(e.tech)),
-    lockedReason: "Research Chemical Rockets: Solid Motor.",
+    lockedReason: "Research the Conventional Engine.",
     params: [
       { id: "type", label: "Engine type", type: "choice" },
       { id: "grade", label: "Specification", type: "choice", help: "Military engines push 30% harder and cost 70% more; they need more crew and wear faster." },
@@ -288,13 +294,29 @@ export const KINDS: KindDef[] = [
   {
     kind: "reactor",
     name: "Reactor",
-    blurb: "Power for electric drives. A ship whose engines draw more than its reactors make cannot fly.",
+    blurb: "Power for shipboard systems. Nothing aboard needs it yet; weapons and shields will.",
     available: (r) => REACTOR_TYPES.some((t) => r.has(t.tech)),
     lockedReason: "Research a power system, starting with Chemical Power: Solid Fuel Cell.",
     params: [
       { id: "type", label: "Power system", type: "choice" },
       sizeParam(40, "Output is per hull space and rises with the power system's tier."),
     ],
+  },
+  {
+    kind: "engineering",
+    name: "Engineering Section",
+    blurb: "Engineers and workshops: they cut the ship's failure rate, and carry a few spare parts.",
+    available: (r) => r.has("trans-newtonian"),
+    lockedReason: "Research Trans-Newtonian Technology.",
+    params: [sizeParam(30, "Each hull space carries 5 maintenance supplies. A bigger share of the ship cuts failures more.")],
+  },
+  {
+    kind: "maintenance-bay",
+    name: "Maintenance Storage Bay",
+    blurb: "Spare parts for the voyage. Each hull space holds 20 maintenance supplies, used up to prevent failures.",
+    available: (r) => r.has("trans-newtonian"),
+    lockedReason: "Research Trans-Newtonian Technology.",
+    params: [sizeParam(60)],
   },
   {
     kind: "fuel-tank",
@@ -411,6 +433,8 @@ export function defaultParams(kind: ComponentKind, researched: ReadonlySet<strin
       const best = [...REACTOR_TYPES].reverse().find((t) => researched.has(t.tech)) ?? REACTOR_TYPES[0];
       return { type: best.id, size: 5 };
     }
+    case "engineering": return { size: 2 };
+    case "maintenance-bay": return { size: 4 };
     case "fuel-tank": return { size: 5 };
     case "crew-quarters": return { size: 2 };
     case "cargo-hold": return { size: 20 };
@@ -498,7 +522,7 @@ export function componentStats(
       const mini = engineMiniaturisation(researched);
       result.power = size * type.powerPerHS * modifier * g.power;
       result.fuelPerHour =
-        result.power * type.fuelPerPower * g.fuel * Math.pow(modifier, MODIFIER_FUEL_EXPONENT) * fuelEfficiency(researched) * FUEL_BURN_SCALE;
+        result.power * type.fuelPerPower * g.fuel * Math.pow(modifier, MODIFIER_FUEL_EXPONENT) * fuelEfficiency(researched);
       result.cost = Math.round(size * type.costPerHS * modifier * g.cost * 10) / 10;
       result.crew = Math.ceil(size * type.crewPerHS * g.crew);
       // Miniaturisation shrinks the engine, not its thrust.
@@ -531,8 +555,26 @@ export function componentStats(
       result.lines.push(["Power output", fmt(result.output, 1)], ["Output per hull space", fmt(type.output, 1)]);
       break;
     }
+    case "engineering": {
+      result.cost = size * 3;
+      result.crew = Math.ceil(size * 0.4);
+      result.msp = size * ENGINEERING_MSP_PER_HS;
+      result.engineering = size;
+      mineral("Duranium", 0.5);
+      mineral("Mercassium", 0.3);
+      result.lines.push(["Maintenance supplies", fmt(result.msp)], ["Engineering", `${fmt(size)} HS: fewer failures`]);
+      break;
+    }
+    case "maintenance-bay": {
+      result.cost = size * 1.5;
+      result.crew = Math.ceil(size * 0.1);
+      result.msp = size * BAY_MSP_PER_HS;
+      mineral("Duranium", 0.7);
+      result.lines.push(["Maintenance supplies", fmt(result.msp)]);
+      break;
+    }
     case "fuel-tank": {
-      result.fuel = size * 10_000 * ladderValue(researched, TANK_LADDER, 1);
+      result.fuel = size * FUEL_PER_HS * ladderValue(researched, TANK_LADDER, 1);
       result.cost = size * 1;
       mineral("Duranium", 0.6);
       result.lines.push(["Capacity", `${fmt(result.fuel)} l`]);
@@ -634,6 +676,8 @@ export function suggestName(kind: ComponentKind, rawParams: ParamSet, researched
       const type = REACTOR_BY_ID.get(String(params.type));
       return `${type?.name ?? "Reactor"} Reactor ${size}`;
     }
+    case "engineering": return `Engineering Section ${size}`;
+    case "maintenance-bay": return `Maintenance Storage Bay ${size}`;
     case "fuel-tank": return `Fuel Tank ${size}`;
     case "crew-quarters": return `Crew Quarters ${size}`;
     case "cargo-hold": return `Cargo Hold ${size}`;

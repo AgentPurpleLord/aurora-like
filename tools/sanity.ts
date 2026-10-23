@@ -22,10 +22,11 @@ import { supplyToward } from "../src/sim/economy/standingOrders";
 import { deriveProposals } from "../src/sim/governors";
 import { effectiveColonyCost, shipyardCapacity } from "../src/sim/economy/production";
 import { componentStats, normaliseParams, suggestName, SURVEY_POINTS_NEEDED } from "../src/sim/ships/components";
-import { maintainShips, servicingCapacity } from "../src/sim/ships/maintenance";
+import { brokenCount, failSystem, fieldRepair, maintainShips, mspStoreCapacity, produceSupplies, servicingCapacity } from "../src/sim/ships/maintenance";
 import { statsFor, TECHS, TECH_BY_ID } from "../src/sim/research/techs";
-import { SPEED_SCALE } from "../src/sim/ships/design";
 import { ENGINE_TYPES, REACTOR_TYPES } from "../src/sim/ships/engines";
+import { FIELD_BRANCHES } from "../src/sim/research/branches";
+import { branchesInField } from "../src/sim/research/graph";
 import { classTitle } from "../src/sim/ships/hulls";
 import { buyProgramme, programmeCost, moraleFactor, reserveErosion, stabilityTarget } from "../src/sim/economy/finance";
 import {
@@ -629,9 +630,9 @@ console.log("");
   const earth = empire.colony("earth")!;
 
   // --- design arithmetic
-  empire.research("solid-motor");
+  empire.research("nuclear-thermal");
   const p = parts(empire);
-  const thermal = p.engine("solid-motor");
+  const thermal = p.engine("nuclear-thermal");
   const hauler = empire.addDesign("Hauler", [
     { componentId: thermal.id, count: 2 },
     { componentId: p.tank().id, count: 4 },
@@ -641,17 +642,17 @@ console.log("");
   const stats = empire.statsOf(hauler.id)!;
   check("design tonnage", stats.tons, 2 * 250 + 4 * 250 + 4 * 1000 + 2 * 100, 0);
   // Speed is engine power per hull space: 120 power, 5700 t = 114 HS.
-  check("design speed (km/s)", stats.speed, (120 * 1000 * SPEED_SCALE) / (5700 / 50), 1e-9);
-  check("design fuel capacity (litres)", stats.fuelCapacity, 200_000, 0);
+  check("design speed (km/s)", stats.speed, (25 * 2 * 1000) / (5700 / 50), 1e-9);
+  check("design fuel capacity (litres): 20 HS of tank at 50,000 each", stats.fuelCapacity, 1_000_000, 0);
   check("design cargo capacity (tons)", stats.cargoCapacity, 100_000, 0);
-  check("design crew required", stats.crewRequired, 2 * 3 + 4 * 2, 0);
+  check("design crew required", stats.crewRequired, 2 * 4 + 4 * 2, 0);
   assert("a complete design has no problems", stats.problems.length === 0);
 
   // --- standard classes use the standard parts, even after custom ones exist
   {
     const std = new Game("standard");
-    std.empire.research("solid-motor");
-    const customEngine = std.empire.addComponentDesign("engine", { type: "solid-motor", size: 8, modifier: 0.6 }, 0);
+    std.empire.research("nuclear-thermal");
+    const customEngine = std.empire.addComponentDesign("engine", { type: "nuclear-thermal", size: 8, modifier: 0.6 }, 0);
     const standardHauler = std.empire.addStandardClasses(0).find((d) => d.name === "Hauler")!;
     assert(
       "standard classes ignore a custom engine designed earlier",
@@ -661,10 +662,10 @@ console.log("");
   }
 
   // --- the component designer's arithmetic
-  const thermalStats = componentStats("engine", { type: "solid-motor", size: 5, modifier: 1 }, empire.researched);
-  check("engine power is size x type power x modifier", thermalStats.power ?? 0, 5 * 12, 1e-9);
-  const eco = componentStats("engine", { type: "solid-motor", size: 5, modifier: 0.5 }, empire.researched);
-  check("an eco-tuned engine makes half the power", eco.power ?? 0, 30, 1e-9);
+  const thermalStats = componentStats("engine", { type: "nuclear-thermal", size: 5, modifier: 1 }, empire.researched);
+  check("engine power is size x type power x modifier", thermalStats.power ?? 0, 5 * 5, 1e-9);
+  const eco = componentStats("engine", { type: "nuclear-thermal", size: 5, modifier: 0.5 }, empire.researched);
+  check("an eco-tuned engine makes half the power", eco.power ?? 0, 12.5, 1e-9);
   assert(
     "and burns far less fuel per unit of power",
     (eco.fuelPerHour! / eco.power!) < (thermalStats.fuelPerHour! / thermalStats.power!) / 3,
@@ -678,20 +679,20 @@ console.log("");
   assert("a tuned-down engine is cheaper to build", eco.cost < thermalStats.cost);
   check(
     "an overdriven modifier is clamped without the technology",
-    Number(normaliseParams("engine", { type: "solid-motor", size: 5, modifier: 1.25 }, empire.researched).modifier),
+    Number(normaliseParams("engine", { type: "nuclear-thermal", size: 5, modifier: 1.25 }, empire.researched).modifier),
     1.0,
     1e-9,
   );
   const withTuning = new Set([...empire.researched, "engine-power-125"]);
   check(
     "and allowed once engine power tuning is researched",
-    Number(normaliseParams("engine", { type: "solid-motor", size: 5, modifier: 1.25 }, withTuning).modifier),
+    Number(normaliseParams("engine", { type: "nuclear-thermal", size: 5, modifier: 1.25 }, withTuning).modifier),
     1.25,
     1e-9,
   );
   check(
     "a stepped parameter carries no float noise",
-    Number(normaliseParams("engine", { type: "solid-motor", size: 8, modifier: 0.6 }, empire.researched).modifier),
+    Number(normaliseParams("engine", { type: "nuclear-thermal", size: 8, modifier: 0.6 }, empire.researched).modifier),
     0.6,
     0,
   );
@@ -706,7 +707,7 @@ console.log("");
   assert("or deleted", !empire.removeComponentDesign(usedTank.id));
   const spare = empire.addComponentDesign("fuel-tank", { size: 7 }, 0);
   assert("an unused one can be edited", empire.updateComponentDesign(spare.id, "Big Tank", { size: 9 }));
-  check("and the edit is reflected in its figures", empire.resolveComponent(spare.id)!.stats.fuel ?? 0, 90_000, 0);
+  check("and the edit is reflected in its figures", empire.resolveComponent(spare.id)!.stats.fuel ?? 0, 450_000, 0);
   assert("and removed", empire.removeComponentDesign(spare.id));
 
   const unpowered = empire.addDesign("Hulk", [{ componentId: p.cargo().id, count: 1 }], 0);
@@ -714,7 +715,7 @@ console.log("");
     "a design with no engine is rejected",
     empire.statsOf(unpowered.id)!.problems.some((m) => m.includes("No engine")),
   );
-  const ion = p.engine("gridded-ion");
+  const ion = p.engine("ion-engine");
   const unresearched = empire.addDesign("Dreamer", [
     { componentId: ion.id, count: 1 },
     { componentId: p.quarters().id, count: 1 },
@@ -1014,11 +1015,11 @@ console.log("");
 {
   const original = new Game("persist");
   const e = original.empire;
-  e.research("solid-motor");
+  e.research("nuclear-thermal");
   e.research("geo-survey-sensors");
   const pp = parts(e);
   const ship = e.addDesign("Scout", [
-    { componentId: pp.engine("solid-motor").id, count: 1 },
+    { componentId: pp.engine("nuclear-thermal").id, count: 1 },
     { componentId: pp.tank().id, count: 2 },
     { componentId: pp.sensor().id, count: 1 },
     { componentId: pp.quarters().id, count: 1 },
@@ -1074,17 +1075,17 @@ console.log("");
 {
   const game = new Game("programmes");
   const e = game.empire;
-  e.research("solid-motor");
+  e.research("nuclear-thermal");
   e.research("geo-survey-sensors");
   const pp = parts(e);
   const scout = e.addDesign("Scout", [
-    { componentId: pp.engine("solid-motor").id, count: 2 },
+    { componentId: pp.engine("nuclear-thermal").id, count: 2 },
     { componentId: pp.tank().id, count: 6 },
     { componentId: pp.sensor().id, count: 2 },
     { componentId: pp.quarters().id, count: 1 },
   ], 0);
   const freighter = e.addDesign("Freighter", [
-    { componentId: pp.engine("solid-motor").id, count: 2 },
+    { componentId: pp.engine("nuclear-thermal").id, count: 2 },
     { componentId: pp.tank().id, count: 4 },
     { componentId: pp.cargo().id, count: 4 },
     { componentId: pp.quarters().id, count: 2 },
@@ -1112,11 +1113,11 @@ console.log("");
   // --- two fleets share the work
   const game2 = new Game("programmes-2");
   const e2 = game2.empire;
-  e2.research("solid-motor");
+  e2.research("nuclear-thermal");
   e2.research("geo-survey-sensors");
   const pp2 = parts(e2);
   const scout2 = e2.addDesign("Scout", [
-    { componentId: pp2.engine("solid-motor").id, count: 2 },
+    { componentId: pp2.engine("nuclear-thermal").id, count: 2 },
     { componentId: pp2.tank().id, count: 6 },
     { componentId: pp2.sensor().id, count: 2 },
     { componentId: pp2.quarters().id, count: 1 },
@@ -1261,7 +1262,7 @@ console.log("");
   // --- exploring, end to end
   const game = new Game("explore");
   const e = game.empire;
-  for (const tech of ["solid-motor", "geo-survey-sensors", "grav-survey-sensors", "nuclear-pulse", "jump-point-theory", "jump-gate-construction"]) {
+  for (const tech of ["nuclear-thermal", "geo-survey-sensors", "grav-survey-sensors", "nuclear-pulse", "jump-point-theory", "jump-gate-construction"]) {
     e.research(tech);
   }
   const pp = parts(e);
@@ -1269,7 +1270,7 @@ console.log("");
   const gateModule = e.addComponentDesign("gate-module", { size: 40 }, 0);
   const gravSensor = e.addComponentDesign("survey-sensor", { type: "gravitational", size: 4 }, 0);
   const explorer = e.addDesign("Explorer", [
-    { componentId: pp.engine("solid-motor").id, count: 4 },
+    { componentId: pp.engine("nuclear-thermal").id, count: 4 },
     { componentId: pp.tank().id, count: 10 },
     { componentId: gravSensor.id, count: 1 },
     { componentId: jumpDrive.id, count: 1 },
@@ -1289,7 +1290,7 @@ console.log("");
   e.knownJumpPoints.add(jp0.id);
   const blind = e.createFleet("Driveless", { x: 0, y: 0, z: 0 }, "earth");
   const hauler = e.addDesign("Plain", [
-    { componentId: pp.engine("solid-motor").id, count: 2 },
+    { componentId: pp.engine("nuclear-thermal").id, count: 2 },
     { componentId: pp.tank().id, count: 6 },
     { componentId: pp.quarters().id, count: 1 },
   ], 0);
@@ -1320,7 +1321,7 @@ console.log("");
   const far = game.galaxy.otherEnd(crossed.id)!;
   const builder = e.createFleet("Gatewright", crossed.world, crossed.id, "sol");
   const buildShip = e.addDesign("Gate Layer", [
-    { componentId: pp.engine("solid-motor").id, count: 2 },
+    { componentId: pp.engine("nuclear-thermal").id, count: 2 },
     { componentId: pp.tank().id, count: 4 },
     { componentId: gateModule.id, count: 1 },
     { componentId: pp.quarters().id, count: 2 },
@@ -1378,9 +1379,9 @@ console.log("");
   e.surveyed.add("callisto");
   e.queueBuild("earth", "mine", 40);
   const pp = parts(e);
-  e.research("solid-motor");
+  e.research("nuclear-thermal");
   const probe = e.addDesign("Probe", [
-    { componentId: pp.engine("solid-motor").id, count: 1 },
+    { componentId: pp.engine("nuclear-thermal").id, count: 1 },
     { componentId: pp.tank().id, count: 2 },
     { componentId: pp.quarters().id, count: 1 },
   ], 0);
@@ -1587,15 +1588,15 @@ console.log("");
 console.log("");
 
 {
-  const researched = new Set(["trans-newtonian", "solid-motor"]);
+  const researched = new Set(["trans-newtonian", "nuclear-thermal"]);
   const withMilitary = new Set([...researched, "military-specification"]);
-  const base = { type: "solid-motor", size: 5, modifier: 1 };
+  const base = { type: "nuclear-thermal", size: 5, modifier: 1 };
   const com = componentStats("engine", { ...base, grade: "commercial" }, researched);
   const old = componentStats("engine", base, researched);
   const mil = componentStats("engine", { ...base, grade: "military" }, withMilitary);
 
   check("a part with no grade is commercial, so old designs do not change", old.power!, com.power!, 1e-9);
-  check("a 5 HS nuclear thermal engine still makes 60 power", com.power!, 60, 1e-9);
+  check("a 5 HS nuclear thermal engine still makes 25 power", com.power!, 25, 1e-9);
   check("military engines push 30% harder", mil.power! / com.power!, 1.3, 1e-9);
   check("and cost 70% more", mil.cost / com.cost, 1.7, 0.03);
   check("and need half as many more crew", mil.crew / com.crew, 1.5, 0.35);
@@ -1604,7 +1605,7 @@ console.log("");
   assert("the military specification needs research", componentStats("engine", { ...base, grade: "military" }, researched).problems.length > 0);
   assert("and is fine once researched", mil.problems.length === 0);
   assert("military parts are named as such", suggestName("engine", { ...base, grade: "military" }, withMilitary).startsWith("Military "));
-  assert("commercial names are unchanged", suggestName("engine", base, researched) === "Chemical Rockets: Solid Motor 5HS");
+  assert("commercial names are unchanged", suggestName("engine", base, researched) === "Nuclear Thermal Engine 5HS");
   assert("tanks, holds and berths have no military pattern",
     componentStats("fuel-tank", { size: 5, grade: "military" }, researched).grade === "commercial" &&
     componentStats("fuel-tank", { size: 5 }, researched).wear === 0.4);
@@ -1615,7 +1616,7 @@ console.log("");
   // --- a class made of them
   const g = new Game("upkeep");
   const e = g.empire;
-  e.research("solid-motor");
+  e.research("nuclear-thermal");
   e.research("military-specification");
   const commercialEngine = e.addComponentDesign("engine", { ...base, grade: "commercial" }, 0);
   const militaryEngine = e.addComponentDesign("engine", { ...base, grade: "military" }, 0);
@@ -1634,86 +1635,173 @@ console.log("");
   assert("it costs more", hs.buildCost > ps.buildCost * 1.2);
   assert("it wears faster", hs.wear > ps.wear * 1.3);
 
-  // --- wear
+  // --- the maintenance model
+  assert("a commercial class is exempt from maintenance", !ps.maintenance.maintained);
+  assert("a military class is not", hs.maintenance.maintained && hs.maintenance.afr0 > 0);
+  check("with no bays it carries no supplies", hs.maintenance.mspCapacity, 0, 0);
+  const bay = e.addComponentDesign("maintenance-bay", { size: 4 }, 0);
+  const engSection = e.addComponentDesign("engineering", { size: 2 }, 0);
+  const stocked = e.addDesign("Stocked", [
+    { componentId: militaryEngine.id, count: 2 }, { componentId: tank.id, count: 4 }, { componentId: quarters.id, count: 2 },
+    { componentId: bay.id, count: 1 }, { componentId: engSection.id, count: 1 },
+  ], 0);
+  const ss = e.statsOf(stocked.id)!;
+  check("a 4 HS bay holds 80 and a 2 HS engineering section 10", ss.maintenance.mspCapacity, 90, 0);
+  assert("engineering cuts the failure rate", ss.maintenance.afr0 < hs.maintenance.afr0 * 1.2 && ss.maintenance.engineeringShare > 0);
+  const noEng = e.addDesign("Stocked2", [
+    { componentId: militaryEngine.id, count: 2 }, { componentId: tank.id, count: 4 }, { componentId: quarters.id, count: 2 },
+    { componentId: bay.id, count: 1 },
+  ], 0);
+  assert("compared with the same ship without it", ss.maintenance.afr0 < e.statsOf(noEng.id)!.maintenance.afr0);
+  const m = ss.maintenance;
+  check("AFR is the failure rate with a year on the clock", m.afr, m.afr0 * 3, 1e-9);
+  check("5YR is fifteen times 1YR, as in Aurora", m.fiveYear / m.oneYear, 15, 1e-9);
+  assert("maintenance life is positive and finite", m.life > 0 && Number.isFinite(m.life));
+  check("the carried supplies last exactly the life, at the 1YR spend", m.averageCost * m.afr0 * (m.life + m.life * m.life), m.mspCapacity, 1e-6);
+  assert("max repair is double the dearest system", m.maxRepair >= 2 * Math.max(...m.systems.map((x) => x.unitCost)) - 1e-9);
+
+  // --- a commercial ship never ages
   const fleet = e.createFleet("Test Wing", { x: 0, y: 0, z: 0 }, "earth");
   const ship = e.commissionShip(plain.id, fleet, "P1", 0);
   ship.fuel = ps.fuelCapacity;
-  check("a new ship is in perfect condition", ship.condition, 100, 0);
   fleet.orders.push({ kind: "move", bodyId: "neptune" });
-  const sail = 30;
-  for (let i = 0; i < sail / CYCLE_DAYS; i++) g.step(CYCLE_DAYS * SECONDS_PER_DAY);
-  assert(`a ship under way wears (${ship.condition.toFixed(1)}%)`, fleet.anchorId === null && ship.condition < 100);
-  check("by its wear rate", 100 - ship.condition, 28 * ps.wear * (sail / 365.25), 0.2);
+  for (let i = 0; i < 12; i++) g.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  assert("a commercial ship under way keeps no clock", fleet.anchorId === null && ship.clock === 0 && ship.condition === 100);
 
-  // --- a ship at a distant, unserviced body wears slowly
-  const mars = g.galaxy.byId.get("mars")!;
-  const idle = e.createFleet("Idle", mars.world, "mars");
-  const idleShip = e.commissionShip(plain.id, idle, "I1", 0);
-  const rate = 28 * ps.wear / 365.25;
-  g.step(CYCLE_DAYS * SECONDS_PER_DAY * 4);
-  assert("a ship parked at an unserviced body wears at 40% of the working rate",
-    Math.abs((100 - idleShip.condition) - rate * 0.4 * CYCLE_DAYS * 4) < 0.3);
+  // --- a military ship under way runs its clock and has supplies from new
+  const wfleet = e.createFleet("War Wing", { x: 0, y: 0, z: 0 }, "earth");
+  const warship = e.commissionShip(stocked.id, wfleet, "W1", 0);
+  warship.fuel = ss.fuelCapacity;
+  check("a new warship carries full supplies", warship.msp, 90, 0);
+  wfleet.orders.push({ kind: "move", bodyId: "neptune" });
+  for (let i = 0; i < 12; i++) g.step(CYCLE_DAYS * SECONDS_PER_DAY);
+  assert("under way it runs its maintenance clock", wfleet.anchorId === null && warship.clock >= 55);
+  assert("and its readiness falls with it", warship.condition < 100);
 
-  // --- service
-  const earthYard = e.createFleet("Yard", g.galaxy.byId.get("earth")!.world, "earth");
-  const serviced = e.commissionShip(plain.id, earthYard, "S1", 0);
-  serviced.condition = 40;
-  const capacity = servicingCapacity(e, e.colony("earth")!);
-  assert(`a colony with shipyards has servicing capacity (${capacity} t)`, capacity === 2 * 1500);
-  const result = maintainShips(e, g.galaxy, CYCLE_DAYS);
-  assert("a parked ship at it is restored", serviced.condition > 45);
-  const gained = serviced.condition - 40;
-  check("servicing costs a share of the ship's price, in proportion to the work",
-    result.cost, ps.buildCost * 0.15 * gained / 100, 1e-6);
-  for (let i = 0; i < 20; i++) g.step(CYCLE_DAYS * SECONDS_PER_DAY);
-  check("and it gets all the way back", serviced.condition, 100, 0);
+  // --- failures: supplies prevent, their absence destroys
+  warship.clock = 400;
+  warship.msp = 90;
+  const logBefore = e.log.length;
+  failSystem(e, warship, 0);
+  assert("with supplies a failure is prevented, and costs supplies", warship.msp < 90 && brokenCount(warship) === 0 && e.log.length > logBefore);
+  warship.msp = 0;
+  failSystem(e, warship, 0);
+  check("with none a system is destroyed", brokenCount(warship), 1, 0);
+  warship.broken = {};
+
+  // --- lost engines are lost speed
+  const engineId = militaryEngine.id;
+  const stopped = e.createFleet("Stopped", { x: 0, y: 0, z: 0 }, "earth");
+  const stoppedShip = e.commissionShip(stocked.id, stopped, "W2", 0);
+  stoppedShip.fuel = ss.fuelCapacity;
+  const fastSpeed = fleetStats(e, stopped).speed;
+  stoppedShip.broken[engineId] = 1;
+  check("one engine of two gone halves the speed", fleetStats(e, stopped).speed / fastSpeed, 0.5, 1e-9);
+  stoppedShip.broken[engineId] = 2;
+  check("both gone, the ship cannot move", fleetStats(e, stopped).speed, 0, 0);
+
+  // --- damage control: double the cost, from the ship's own supplies, needs engineers
+  stoppedShip.broken = { [engineId]: 1 };
+  stoppedShip.msp = 10;
+  assert("the crew cannot afford it", fieldRepair(e, stoppedShip) !== null && brokenCount(stoppedShip) === 1);
+  const engineCost = ss.maintenance.systems.find((x) => x.componentId === engineId)!.unitCost;
+  stoppedShip.msp = engineCost * 2 + 1;
+  assert("with enough it repairs", fieldRepair(e, stoppedShip) === null && brokenCount(stoppedShip) === 0);
+  check("at twice the system's cost", stoppedShip.msp, 1, 1e-6);
+  const barren = e.createFleet("Barren", { x: 0, y: 0, z: 0 }, "earth");
+  const barrenShip = e.commissionShip(hard.id, barren, "W3", 0);
+  barrenShip.broken = { [militaryEngine.id]: 1 };
+  barrenShip.msp = 1000;
+  assert("without an engineering section there is no damage control", fieldRepair(e, barrenShip) !== null);
+
+  // --- at a base: the clock unwinds, supplies are drawn and refilled
+  stopped.anchorId = null;
+  barren.anchorId = null;
+  const earthC = e.colony("earth")!;
+  const dock = e.createFleet("Dock", g.galaxy.byId.get("earth")!.world, "earth");
+  const docked = e.commissionShip(stocked.id, dock, "D1", 0);
+  docked.clock = 200;
+  docked.msp = 40;
+  earthC.msp = 500;
+  maintainShips(e, g.galaxy, CYCLE_DAYS);
+  assert("a ship the base can look after is covered", docked.covered === true);
+  check("overhaul winds the clock back four days a day", docked.clock, 200 - 4 * CYCLE_DAYS, 1e-9);
+  assert("the colony supplies it and tops up its stores", earthC.msp < 500 && docked.msp === 90);
+  for (let i = 0; i < 12; i++) maintainShips(e, g.galaxy, CYCLE_DAYS);
+  check("and it gets all the way back", docked.clock, 0, 0);
+  check("a ship at a base that has no supplies is not covered", (() => {
+    earthC.msp = 0;
+    docked.msp = 0;
+    docked.clock = 50;
+    maintainShips(e, g.galaxy, CYCLE_DAYS);
+    return docked.covered ? 1 : 0;
+  })(), 0, 0);
+  assert("and its clock runs", docked.clock > 50);
+  // a shipyard repairs from the colony's supplies at ordinary cost
+  earthC.msp = 1000;
+  docked.broken = { [engineId]: 1 };
+  maintainShips(e, g.galaxy, CYCLE_DAYS);
+  assert("a shipyard repairs a destroyed system", brokenCount(docked) === 0 && earthC.msp < 1000);
+  check("at its ordinary cost", 1000 - earthC.msp > engineCost - 1e-6 ? 1 : 0, 1, 0);
+
+  // --- facilities make supplies from minerals
+  earthC.installations["maintenance"] = 3;
+  earthC.msp = 0;
+  earthC.stockpile.Duranium = 10_000;
+  earthC.stockpile.Tritanium = 10_000;
+  const dur = earthC.stockpile.Duranium;
+  produceSupplies(e, earthC, 1, 1);
+  check("three facilities make 120 supplies a year", earthC.msp, 120, 1e-9);
+  check("from 2.5 tons of minerals each", dur - earthC.stockpile.Duranium + 10_000 - earthC.stockpile.Tritanium, 120 * 2.5, 1e-6);
+  earthC.msp = mspStoreCapacity(earthC);
+  check("and stop at what the stores can hold", produceSupplies(e, earthC, 1, 1), 0, 0);
   e.research("maintenance-facilities");
   e.research("maintenance-bays-2");
-  e.colony("earth")!.installations["maintenance"] = 3;
   check("maintenance facilities add capacity, twice as much with better bays",
     servicingCapacity(e, e.colony("earth")!), 3 * 8000 + 3000, 0);
 
-  // --- condition slows a ship
-  const slowFleet = e.createFleet("Slow", { x: 0, y: 0, z: 0 }, "earth");
-  const slowShip = e.commissionShip(plain.id, slowFleet, "W1", 0);
-  slowShip.fuel = ps.fuelCapacity;
-  const fast = fleetStats(e, slowFleet).speed;
-  slowShip.condition = 0;
-  check("a ship in ruins still limps at 60% speed", fleetStats(e, slowFleet).speed / fast, 0.6, 1e-9);
-  slowShip.condition = 50;
-  check("and half-worn at 80%", fleetStats(e, slowFleet).speed / fast, 0.8, 1e-9);
-
   // --- raised for attention, and breaking down
-  slowShip.condition = 25;
+  const worn = e.createFleet("Worn", { x: 0, y: 0, z: 0 }, "earth");
+  const wornShip = e.commissionShip(stocked.id, worn, "W4", 0);
+  wornShip.clock = 850;
+  wornShip.condition = 0;
+  maintainShips(e, g.galaxy, 0.001);
   assert("an overdue fleet is raised for attention",
-    deriveIssues(e, g.galaxy).some((i) => i.id === `fleet:overdue:${slowFleet.id}`));
+    deriveIssues(e, g.galaxy).some((i) => i.id === `fleet:overdue:${worn.id}`));
+  wornShip.broken = { [engineId]: 1 };
+  assert("and so is one with systems out", deriveIssues(e, g.galaxy).some((i) => i.id === `fleet:broken:${worn.id}`));
   const failure = rollEvent({ empire: e, galaxy: g.galaxy, now: g.clock.seconds, rng: e.eventRng }, "ship-failure");
   assert("a badly worn ship can break down", failure !== null && failure.decision);
   if (failure) {
-    const worn = e.ships.get(String(failure.params.ship))!;
-    const before = worn.condition;
+    const bad = e.ships.get(String(failure.params.ship))!;
+    const before = bad.clock;
     resolveEvent(e, g.galaxy, failure.id, "repair", g.clock.seconds);
-    assert("field repairs restore condition for a price", worn.condition >= before + 34 || worn.condition === 100);
+    assert("field repairs take four months off the clock", bad.clock <= before - 119 || bad.clock === 0);
   }
 
-  // --- a programme fleet goes for service rather than carrying on worn out
+  // --- a programme fleet at a base waits to be overhauled, then sets out
   const sg = new Game("worn");
   const se = sg.empire;
-  se.research("solid-motor");
+  se.research("nuclear-thermal");
+  se.research("military-specification");
   se.research("geo-survey-sensors");
   const sp = parts(se);
   const scout = se.addDesign("Scout", [
-    { componentId: sp.engine("solid-motor").id, count: 2 }, { componentId: sp.tank().id, count: 6 },
+    { componentId: se.addComponentDesign("engine", { type: "nuclear-thermal", size: 5, modifier: 1, grade: "military" }, 0).id, count: 2 },
+    { componentId: sp.tank().id, count: 6 },
     { componentId: sp.sensor().id, count: 2 }, { componentId: sp.quarters().id, count: 1 },
+    { componentId: se.addComponentDesign("maintenance-bay", { size: 2 }, 0).id, count: 1 },
   ], 0);
   const sf = se.createFleet("Wing", sg.galaxy.byId.get("earth")!.world, "earth");
   const sship = se.commissionShip(scout.id, sf, "W1", 0);
   sship.fuel = se.statsOf(scout.id)!.fuelCapacity;
-  sship.condition = 55;
+  sship.clock = 300;
+  se.colony("earth")!.msp = 2000;
+  sg.step(CYCLE_DAYS * SECONDS_PER_DAY);
   sf.program = { kind: "survey", maxAu: 0, systemId: "sol" };
   sg.step(SECONDS_PER_DAY * 2);
-  assert("a survey fleet at a servicing colony waits to be serviced before setting out",
-    sf.orders.length === 0 && /serviced/i.test(sf.programStatus ?? ""));
+  assert("a survey fleet at a base waits to be overhauled before setting out",
+    sf.orders.length === 0 && /overhaul/i.test(sf.programStatus ?? ""));
   for (let i = 0; i < 30 && sf.orders.length === 0; i++) sg.step(CYCLE_DAYS * SECONDS_PER_DAY);
   assert("and sets out once it is nearly right", sship.condition >= 90 && sf.orders.length > 0);
 
@@ -1724,7 +1812,7 @@ console.log("");
   {
     const hg = new Game("hulls");
     const he = hg.empire;
-    he.research("solid-motor");
+    he.research("nuclear-thermal");
     he.research("geo-survey-sensors");
     for (const std of he.addStandardClasses(0)) {
       const hull = std.hullId;
@@ -1793,7 +1881,7 @@ console.log("");
   {
     const lg = new Game("links");
     const le = lg.empire;
-    le.research("solid-motor");
+    le.research("nuclear-thermal");
     le.civilianShipping = false;
     const lmars = le.foundColony("mars", 0);
     lmars.population = 10;
@@ -1972,7 +2060,7 @@ console.log("");
     assert("it is commercial", yEarth.yards[0].kind === "commercial");
     check("hulls up to 10,000 t", hullCapacity(yEarth), 10_000, 0);
     assert("but no military hull", hullCapacity(yEarth, true) === 0);
-    ye.research("solid-motor");
+    ye.research("nuclear-thermal");
     ye.addStandardComponents(0);
     const yHauler = ye.addStandardClasses(0).find((d) => d.name === "Hauler")!;
     const warship = ye.addDesign("Warlike", yHauler.components, 0, "destroyer");
@@ -2028,7 +2116,7 @@ console.log("");
     const og = new Game("orders");
     const oe = og.empire;
     const oEarth = oe.colony("earth")!;
-    oe.research("solid-motor");
+    oe.research("nuclear-thermal");
     oe.addStandardComponents(0);
     const oHauler = oe.addStandardClasses(0).find((d) => d.name === "Hauler")!;
     assert("queueing a buildable class succeeds", oe.queueShip("earth", oHauler.id, 2) === null);
@@ -2100,7 +2188,7 @@ console.log("");
     // part ladders reach existing designs
     const tg = new Game("techs");
     const te = tg.empire;
-    te.research("solid-motor");
+    te.research("nuclear-thermal");
     te.addStandardComponents(0);
     const hauler = te.addStandardClasses(0).find((d) => d.name === "Hauler")!;
     const before = te.statsOf(hauler.id)!;
@@ -2113,73 +2201,84 @@ console.log("");
     assert("fuel efficiency lengthens range", after.rangeAu > before.rangeAu * 1.5);
     te.research("fuel-efficiency-6");
     check("the best fuel efficiency burns 60% less", te.statsOf(hauler.id)!.fuelPerHour / before.fuelPerHour, 0.4, 1e-9);
-    for (const id of ["gridded-ion", "fusion-magnetic", "am-pure"]) te.research(id);
-    assert("new engine types can be designed", te.addComponentDesign("engine", { type: "am-pure", size: 5, modifier: 1 }, 0) !== undefined
-      && componentStats("engine", { type: "am-pure", size: 5, modifier: 1 }, te.researched).problems.length === 0);
+    for (const id of ["ion-engine", "magnetic-fusion", "photonic-drive"]) te.research(id);
+    assert("new engine types can be designed", te.addComponentDesign("engine", { type: "photonic-drive", size: 5, modifier: 1 }, 0) !== undefined
+      && componentStats("engine", { type: "photonic-drive", size: 5, modifier: 1 }, te.researched).problems.length === 0);
     te.research("engine-power-200");
-    check("modifier ceiling reaches 2", normaliseParams("engine", { type: "am-pure", size: 5, modifier: 5 }, te.researched).modifier as number, 2, 0);
+    check("modifier ceiling reaches 2", normaliseParams("engine", { type: "photonic-drive", size: 5, modifier: 5 }, te.researched).modifier as number, 2, 0);
   }
 
   // --- the propulsion and power tree
   {
     const cost = (id: string) => TECH_BY_ID.get(id)?.cost;
-    check("Solid Motor costs 2,000 RP", cost("solid-motor") ?? -1, 2000, 0);
-    check("Full-flow staged combustion costs 32,000", cost("full-flow") ?? -1, 32000, 0);
-    check("Direct Fusion Drive costs 256,000", cost("fusion-direct") ?? -1, 256000, 0);
-    check("Pure Antimatter Drive costs 2,048,000", cost("am-pure") ?? -1, 2048000, 0);
+    check("the Conventional Engine costs 1,000 RP", cost("conventional-engine") ?? -1, 1000, 0);
+    check("fifteen engine technologies", ENGINE_TYPES.length, 15, 0);
+    const byId = (id: string) => ENGINE_TYPES.find((e) => e.id === id)!;
+    const expected: [string, number][] = [
+      ["conventional-engine", 0.2], ["nuclear-thermal", 5], ["improved-nuclear-thermal", 6.4], ["nuclear-pulse", 8],
+      ["improved-nuclear-pulse", 10], ["ion-engine", 12.5], ["magneto-plasma", 16], ["internal-fusion", 20],
+      ["magnetic-fusion", 25], ["inertial-fusion", 32], ["solid-antimatter", 40], ["gas-antimatter", 50],
+      ["plasma-antimatter", 60], ["beam-antimatter", 80], ["photonic-drive", 100],
+    ];
+    for (const [id, power] of expected) check(`${id} makes ${power} power per hull space`, byId(id).powerPerHS, power, 1e-9);
+    assert("the engines are one line, each needing the one before", ENGINE_TYPES.every((e, i) => i === 0 || TECH_BY_ID.get(e.tech)!.prereqs.includes(ENGINE_TYPES[i - 1].tech)));
+    assert("better engines burn less per power-hour", ENGINE_TYPES.every((e, i) => i === 0 || e.fuelPerPower < ENGINE_TYPES[i - 1].fuelPerPower));
+    check("13 power systems", REACTOR_TYPES.length, 13, 0);
     check("Solid Fuel Cell costs 600", cost("fuel-cell-1") ?? -1, 600, 0);
     check("the antimatter reactor costs 2,457,600", cost("reactor-am-1") ?? -1, 2457600, 0);
     check("Fuel Efficiency tier 12 costs 2,048,000", cost("fuel-efficiency-12") ?? -1, 2048000, 0);
     check("Miniaturisation tier 6 costs 32,000", cost("miniaturization-6") ?? -1, 32000, 0);
-    check("six engine families make 27 engine types", ENGINE_TYPES.length, 27, 0);
-    check("and 13 power systems", REACTOR_TYPES.length, 13, 0);
-    assert("the old nuclear thermal line is gone", !TECH_BY_ID.has("nuclear-thermal") && !TECH_BY_ID.has("photonic-drive") && !TECH_BY_ID.has("fuel-consumption-08"));
-    assert("fusion engines need all of nuclear electric", TECH_BY_ID.get("fusion-magnetic")!.prereqs.includes("ne-adv-electric"));
-    assert("antimatter needs all of fusion", TECH_BY_ID.get("am-catalyst")!.prereqs.includes("fusion-direct"));
-    assert("electric drives need a fuel cell", TECH_BY_ID.get("resistojet")!.prereqs.includes("fuel-cell-1"));
-    assert("nuclear power follows chemical power", TECH_BY_ID.get("reactor-nuclear-1")!.prereqs.includes("fuel-cell-4"));
-    assert("jump point theory still has a path", TECH_BY_ID.get("jump-point-theory")!.prereqs.every((q) => TECH_BY_ID.has(q)));
+    assert("the old six families are gone", !TECH_BY_ID.has("solid-motor") && !TECH_BY_ID.has("resistojet") && !TECH_BY_ID.has("fusion-direct"));
 
-    const byId = (id: string) => ENGINE_TYPES.find((e) => e.id === id)!;
-    check("chemical rockets make 12 power per hull space", byId("solid-motor").powerPerHS, 12, 1e-9);
-    check("electric drives make half that density", byId("hall-thruster").powerPerHS, 6, 1e-9);
-    check("nuclear thermal doubles chemical", byId("liquid-core").powerPerHS, 24, 1e-9);
-    check("fusion is four times chemical", byId("fusion-direct").powerPerHS, 48, 1e-9);
-    check("antimatter is eight times", byId("am-pure").powerPerHS, 96, 1e-9);
-    check("a chemical rocket's fuel economy is the baseline", 5 / byId("full-flow").fuelPerPower, 1, 1e-9);
-    check("the first electric drive is 3x", 5 / byId("resistojet").fuelPerPower, 3, 1e-9);
-    check("the last electric drive is 10x", 5 / byId("advanced-plasma").fuelPerPower, 10, 1e-9);
-    check("pure antimatter is 50x", 5 / byId("am-pure").fuelPerPower, 50, 1e-9);
-
-    // electric drives need reactors
+    // Aurora's speed formula, on a hand-built ship
     const pg = new Game("propulsion");
     const pe = pg.empire;
-    for (const id of ["solid-motor", "resistojet", "fuel-cell-1"]) pe.research(id);
+    for (const id of ["conventional-engine", "nuclear-thermal"]) pe.research(id);
     pe.addStandardComponents(0);
-    const electric = pe.addComponentDesign("engine", { type: "resistojet", size: 5, modifier: 1 }, 0);
-    const reactor = pe.addComponentDesign("reactor", { type: "fuel-cell-1", size: 3 }, 0);
+    const eng = pe.addComponentDesign("engine", { type: "nuclear-thermal", size: 10, modifier: 1 }, 0);
     const tank = pe.componentDesigns.find((c) => c.kind === "fuel-tank")!;
     const quarters = pe.componentDesigns.find((c) => c.kind === "crew-quarters")!;
-    const bare = pe.addDesign("Bare", [{ componentId: electric.id, count: 1 }, { componentId: tank.id, count: 2 }, { componentId: quarters.id, count: 1 }], 0);
-    assert("an electric ship with no reactor is refused", pe.statsOf(bare.id)!.problems.some((m) => /reactor/i.test(m)));
-    const powered = pe.addDesign("Powered", [{ componentId: electric.id, count: 1 }, { componentId: reactor.id, count: 1 }, { componentId: tank.id, count: 2 }, { componentId: quarters.id, count: 1 }], 0);
-    assert("with enough reactor it is sound", pe.statsOf(powered.id)!.problems.length === 0);
-    check("a 3 HS fuel cell makes 6 power", pe.statsOf(powered.id)!.reactorOutput, 6, 1e-9);
-    check("and the 5 HS electric engine draws 5", pe.statsOf(powered.id)!.powerDraw, 5, 1e-9);
-    assert("standard parts never use a drive that needs a reactor", pe.componentDesigns.filter((c) => c.kind === "engine").every((c) => c === electric || c.params.type === "solid-motor"));
+    // 10 HS of engine at 5/HS = 50 power; plus 5 HS tank, 2 HS quarters: 17 HS in all
+    const ship = pe.addDesign("Formula", [{ componentId: eng.id, count: 1 }, { componentId: tank.id, count: 1 }, { componentId: quarters.id, count: 1 }], 0);
+    const st = pe.statsOf(ship.id)!;
+    check("the ship is 17 hull spaces (850 t)", st.hullSpaces, 17, 1e-9);
+    check("speed = engine power / hull spaces x 1000", st.speed, (50 / 17) * 1000, 1e-6);
+    check("a hull space of tank holds 50,000 litres", st.fuelCapacity, 5 * 50_000, 0);
+    // a fuel-efficiency tier makes the same ship go further
+    const before = st.rangeAu;
+    pe.research("fuel-efficiency-1");
+    check("0.9x fuel burn lengthens range by 1/0.9", pe.statsOf(ship.id)!.rangeAu / before, 1 / 0.9, 1e-9);
 
     // engine size, miniaturisation and modifier ceilings
-    check("a single engine is capped at 20 HS at first", normaliseParams("engine", { type: "solid-motor", size: 300 }, pe.researched).size as number, 20, 0);
+    check("a single engine is capped at 20 HS at first", normaliseParams("engine", { type: "nuclear-thermal", size: 300 }, pe.researched).size as number, 20, 0);
     pe.research("engine-size-3");
-    check("and 100 HS with Engine Size 100", normaliseParams("engine", { type: "solid-motor", size: 300 }, pe.researched).size as number, 100, 0);
-    const solid = pe.addComponentDesign("engine", { type: "solid-motor", size: 10, modifier: 1 }, 0);
-    const bigHull = pe.statsOf(pe.addDesign("Mini", [{ componentId: solid.id, count: 1 }, { componentId: tank.id, count: 1 }, { componentId: quarters.id, count: 1 }], 0).id)!;
+    check("and 100 HS with Engine Size 100", normaliseParams("engine", { type: "nuclear-thermal", size: 300 }, pe.researched).size as number, 100, 0);
     pe.research("miniaturization-2");
-    const smallHull = pe.statsOf(pe.designs[pe.designs.length - 1].id)!;
-    check("miniaturisation shrinks the engine, not the thrust", smallHull.power / bigHull.power, 1, 1e-9);
-    check("and the ship is lighter by the saving", bigHull.tons - smallHull.tons, 10 * 50 * 0.7, 1e-6);
+    const small = pe.statsOf(ship.id)!;
+    check("miniaturisation 0.3x leaves thrust alone", small.power, 50, 1e-9);
+    check("and shrinks the engine to 3 HS: 10 HS of ship fewer 7", small.hullSpaces, 17 - 7, 1e-9);
+    check("so the ship is faster by the same formula", small.speed, (50 / 10) * 1000, 1e-6);
     pe.research("engine-power-300");
-    check("the modifier ceiling reaches 3.0", normaliseParams("engine", { type: "solid-motor", size: 5, modifier: 9 }, pe.researched).modifier as number, 3, 0);
+    check("the modifier ceiling reaches 3.0", normaliseParams("engine", { type: "nuclear-thermal", size: 5, modifier: 9 }, pe.researched).modifier as number, 3, 0);
+
+    // reactors still design, and nothing needs them
+    pe.research("fuel-cell-1");
+    const reactor = pe.addComponentDesign("reactor", { type: "fuel-cell-1", size: 3 }, 0);
+    check("a 3 HS fuel cell makes 6 power", pe.resolveComponent(reactor.id)!.stats.output ?? 0, 6, 1e-9);
+  }
+
+
+  // --- research sub-fields
+  {
+    assert("every technology has a sub-field", TECHS.every((t) => t.branch && t.branch.length > 0));
+    const stray = TECHS.filter((t) => t.branch === "General");
+    check("none fell through to General", stray.length, 0, 0);
+    if (stray.length) console.log("  unassigned:", stray.map((t) => t.id).join(", "));
+    const unlisted = TECHS.filter((t) => !FIELD_BRANCHES[t.field].includes(t.branch!));
+    check("and every sub-field is listed for its field", unlisted.length, 0, 0);
+    const gone = branchesInField("power").find((b) => b.name === "Conventional & Nuclear")!;
+    check("the conventional and nuclear engines are five techs in a line of five columns", gone.columns.length * 10 + gone.count, 55, 0);
+    assert("a tech's name does not repeat its sub-field", !TECHS.some((t) => t.branch && t.name.startsWith(`${t.branch}:`)));
   }
 }
 

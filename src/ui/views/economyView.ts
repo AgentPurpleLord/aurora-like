@@ -20,7 +20,7 @@ import type { Game } from "../../state/game";
 import type { Body } from "../../sim/system";
 import { classLabel } from "../../sim/system";
 import { settleBlocker } from "../../sim/exploration";
-import { servicingCapacity } from "../../sim/ships/maintenance";
+import { MSP_PER_FACILITY, mspStoreCapacity, servicingCapacity } from "../../sim/ships/maintenance";
 import { fleetStats } from "../../sim/ships/fleet";
 import type { Colony } from "../../state/colony";
 import { installationCount } from "../../state/colony";
@@ -1212,6 +1212,13 @@ export class EconomyView {
         sec, "Servicing capacity",
         `${num(servicing)} t of ship  (${num(docked)} t in dock)`,
         docked > servicing ? "warn" : undefined,
+      );
+    }
+    if (installationCount(colony, "maintenance") > 0 || colony.msp > 0) {
+      stat(
+        sec, "Maintenance supplies",
+        `${num(colony.msp)} of ${num(mspStoreCapacity(colony))} MSP  (+${num(installationCount(colony, "maintenance") * MSP_PER_FACILITY)}/yr at full output)`,
+        colony.msp <= 0 ? "warn" : undefined,
       );
     }
     const entries = Object.entries(colony.installations).filter(([, n]) => n > 0);

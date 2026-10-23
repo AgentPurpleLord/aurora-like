@@ -11,7 +11,6 @@
 import { settings } from "../settings";
 import { renderSchematic, type CellMemory, type SchematicPart } from "../shipSchematic";
 import { HULLS, HULL_BY_ID, classTitle, hullAdvice, hullOf, suggestClassName, suggestHull } from "../../sim/ships/hulls";
-import { SERVICE_COST_SHARE, WEAR_PER_YEAR } from "../../sim/ships/maintenance";
 import type { Game } from "../../state/game";
 import { shipyardCapacity } from "../../sim/economy/production";
 import {
@@ -672,6 +671,29 @@ export class DesignView {
     this.render();
   }
 
+  /** The class summary's maintenance line, after Aurora's. */
+  private renderMaintenance(stats: DesignStats): void {
+    const m = stats.maintenance;
+    const sec = section(this.derivedHost, "Maintenance");
+    if (!m.maintained) {
+      sec.append(el("p", "muted small", "A commercial class: not kept in readiness, so it has no maintenance clock, no failures and needs no supplies."));
+      return;
+    }
+    sec.classList.add("two-col");
+    const years = Number.isFinite(m.life) ? `${m.life.toFixed(2)} Years` : "no failures";
+    stat(sec, "Maint Life", years, m.life < 1 ? "bad" : m.life < 2 ? "warn" : undefined);
+    stat(sec, "MSP", num(m.mspCapacity), m.mspCapacity <= 0 ? "bad" : undefined);
+    stat(sec, "AFR", `${Math.round(m.afr * 100)}%`);
+    stat(sec, "IFR", `${(m.ifr * 100).toFixed(1)}%`);
+    stat(sec, "1YR", num(m.oneYear));
+    stat(sec, "5YR", num(m.fiveYear));
+    stat(sec, "Max Repair", `${num(m.maxRepair)} MSP`);
+    stat(sec, "Engineering", `${(m.engineeringShare * 100).toFixed(1)}% of the ship`);
+    if (m.mspCapacity <= 0) {
+      this.derivedHost.append(el("p", "project-warning", "No maintenance supplies: the first failure will destroy a system. Add a Maintenance Storage Bay or Engineering Section."));
+    }
+  }
+
   private refreshClassDerived(draft: ClassDraft): void {
     const { empire } = this.game;
     this.derivedHost.textContent = "";
@@ -708,13 +730,8 @@ export class DesignView {
     if (stats.colonistCapacity) stat(sec, "Colonists", compact(stats.colonistCapacity));
     if (stats.survey.geological) stat(sec, "Geo survey", `${num(stats.survey.geological)} pts/day`);
     stat(sec, "Build cost", `${num(stats.buildCost)} BP`);
-    stat(
-      sec, "Wear",
-      `${stats.wear.toFixed(2)}x  (${(WEAR_PER_YEAR * stats.wear).toFixed(0)}% a year under way)`,
-      stats.wear > 1.4 ? "warn" : undefined,
-    );
-    stat(sec, "Full overhaul", `${num(stats.buildCost * SERVICE_COST_SHARE)} BP`);
     stat(sec, "Specification", stats.military ? "Military" : "Commercial");
+    this.renderMaintenance(stats);
     stat(sec, "Role", describeDesign(stats));
     const draftHull = HULL_BY_ID.get(draft.hullId);
     if (draftHull) {

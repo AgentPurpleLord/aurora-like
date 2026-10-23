@@ -20,7 +20,7 @@ import type { Galaxy } from "../galaxy";
 import { MINERALS, type MineralName } from "../minerals";
 import { vecLength, vecSub, type Vec3 } from "../orbit";
 import { canCross, findRoute, nearestHome, routeLengthAu } from "./routing";
-import { OVERDUE, fleetCondition, servicingCapacity } from "./maintenance";
+import { OVERDUE, fleetCondition, fleetCovered, servicingCapacity } from "./maintenance";
 import {
   cargoTons,
   fleetStats,
@@ -119,9 +119,8 @@ function wait(empire: Empire, fleet: Fleet, status: string, problem?: string): v
 function seeToCondition(empire: Empire, system: Galaxy, fleet: Fleet, stats: FleetStats): boolean {
   const condition = fleetCondition(empire, fleet);
   const here = fleet.anchorId ? empire.colonies.get(fleet.anchorId) : undefined;
-  const servicedHere = here !== undefined && servicingCapacity(empire, here) > 0;
-  if (servicedHere && condition < 90) {
-    wait(empire, fleet, `Being serviced (${Math.round(condition)}%)`);
+  if (here !== undefined && fleetCovered(empire, fleet) && condition < 90) {
+    wait(empire, fleet, `In overhaul (${Math.round(condition)}%)`);
     return true;
   }
   if (condition >= OVERDUE) return false;
@@ -130,7 +129,8 @@ function seeToCondition(empire: Empire, system: Galaxy, fleet: Fleet, stats: Fle
     empire, system, fleet.position, fleet.systemId, stats.tons, stats.jumpCapacity,
     (id) => {
       const colony = empire.colonies.get(id);
-      return colony !== undefined && servicingCapacity(empire, colony) > 0;
+      // A base with no supplies cannot overhaul anything.
+      return colony !== undefined && servicingCapacity(empire, colony) > 0 && colony.msp > 0;
     },
   );
   if (!stop || stats.speed <= 0 || stats.rangeAu < stop.distanceAu) {

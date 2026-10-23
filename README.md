@@ -346,7 +346,7 @@ stay red, lightness and transparency are kept), and writes
 `tools/terminal-extra.css`. After changing `style.css`, run it again so the two
 themes stay in step.
 
-## Commercial and military parts, and maintenance
+## Commercial and military parts
 
 **Specification.** Every powered component - engines, survey sensors, jump drives and
 gate modules - is designed as *commercial* or *military*. Commercial is the civilian
@@ -360,21 +360,36 @@ is hidden in the designer. Military parts are named as such, a class made of any
 is a military class, and a part designed before this existed counts as commercial, so
 nothing already built changes.
 
-**Condition.** Every ship has a condition, 100% when new. Ships wear with use - fully
-when under way or surveying, at 40% when parked away from a colony, at 15% when parked
-at one - at 28 points a year times the class's wear (tonnage-weighted: engines and
-sensors count, tanks and holds hardly do). A worn ship is slower, down to 60% speed at
-nothing, and below 30% it can break down: a decision asks whether to pay for field
-repairs or to limp on, losing condition and fuel. An overdue fleet is raised on the
-attention rail.
+## Maintenance
 
-**Servicing.** A colony services the ships parked at it: 1,500 t of ship per shipyard
-and 4,000 t per maintenance facility (8,000 with *Maintenance Bay Efficiency*). Ships
-beyond that share the capacity and are restored more slowly - up to 4 points a day at
-full capacity - and it costs 15% of the ship's build cost for a complete overhaul, so a
-military hull is dear to keep and a freighter is not. Colonies show their capacity and
-how much is in dock. Survey and exploration programmes go to a servicing colony when
-a fleet is worn out, and wait to be serviced before setting out again.
+Maintenance follows Aurora. **Military classes** (any military part, or a warship hull) need it;
+**commercial classes** do not, as in Aurora: a freighter or colony ship has no clock, no failures and
+needs no supplies.
+
+- **Maintenance supplies (MSP)** are spare parts. A **Maintenance Storage Bay** holds 20 MSP per hull
+  space; an **Engineering Section** holds 5 and also cuts the failure rate (a bigger share of the ship
+  cuts it more). New ships carry full stores.
+- **The maintenance clock** counts days since the ship was last looked after. Every five-day increment
+  a ship that is not covered may suffer a failure in one of its systems; the failure rate is
+  multiplied by 1 + 2 x the years on the clock, so a ship kept away from home falls apart.
+- **A failure** is prevented by spending MSP equal to the system's cost in build points; with too few
+  the system is **destroyed**: a lost engine is speed lost, a lost jump drive may strand the ship, lost
+  holds, sensors and modules cut cargo, survey and gate rates. A shipyard repairs a destroyed system
+  from the colony's supplies at its ordinary cost; the crew can repair one (the **Repair** button on
+  the ship) for double its cost from the ship's own supplies, if an engineering section still works.
+- **The class summary** carries Aurora's line - *Maint Life* (years the stores should last), *MSP*,
+  *AFR* (failures a year with a year on the clock), *IFR* (chance in one five-day increment), *1YR* and
+  *5YR* (MSP expected to be spent over the first one and five years) and *Max Repair*. Failures are
+  scaled by the cost of what a ship is made of: expensive, hard-worked systems fail most.
+- **Bases.** A colony covers the ships parked at it up to its maintenance capacity (1,500 t per
+  shipyard, 4,000 t per maintenance facility, more with *Maintenance Bay Efficiency*), if it has
+  supplies to draw on. Covered ships do not run their clock, use a quarter of their build cost in MSP a
+  year, refill their stores, and are **overhauled**: four days of clock unwound for each day, at the
+  rate of a whole build cost in MSP a year. A base with no supplies covers nothing.
+- **Maintenance facilities** make 40 MSP a year each from 2.5 tons of Duranium and Tritanium per MSP
+  (a store of 300 per facility). Survey and exploration programmes wait in overhaul at a supplied base
+  and go to one when worn out. Issues are raised for overdue fleets and for systems out of action.
+- Not modelled: supply ships (ships drawing on a flagged tender), hangars, abandoning an overhaul early.
 
 ## Hull types and class names
 
@@ -547,40 +562,43 @@ stat, add an engine, or improve a part on every ship already built.
 Part-improving techs apply to ships already built, because a class's figures are always derived
 from what is researched.
 
-## Engines and power systems
+## Research sub-fields
 
-The propulsion tree follows `src/sim/research/propusion-power-techs.ts`, which is the specification;
-`ships/engines.ts` turns it into numbers and `research/propulsion.ts` into technologies.
+Each research field is split into **sub-fields** - Chemical Rockets, Electric Drives, Engine Size and
+so on under Propulsion; Armour, Shields and Damage Control under Defence; Mining, Finance & Trade and
+Administration under Construction. Within a field, each sub-field is its own small tree under its own
+heading (fold it with the heading, or click a chip to show just that one), so tech names no longer repeat
+their family. Flat lists (Ready now, Researched, search) show the sub-field under each name, and search
+matches sub-field names. A tech declares its sub-field with `branch`; techs that do not are placed by
+`src/sim/research/branches.ts`, which also sets the order.
 
-- **Six engine families**, researched in tiers: Chemical Rockets (5), Electric Drives (5), Nuclear
-  Thermal (4), Nuclear Electric (4), Fusion (5), Antimatter (4). Each tier is its own engine type in
-  the component designer. Costs are the ones in the specification.
-- **Baseline density** is thrust per hull space against a chemical rocket's 12 (electric 0.5x, nuclear
-  thermal 2x, nuclear electric 1.5x, fusion 4x, antimatter 8x). **Fuel efficiency** is how many times
-  further a litre goes than a chemical rocket's, rising across a family's tiers (electric 3-10x,
-  nuclear thermal 1.8-3x, nuclear electric 5-15x, fusion 10-30x, antimatter 20-50x).
-- **Order of unlocking:** electric drives need a chemical fuel cell; nuclear thermal follows
-  Pressure-fed Liquid; nuclear electric needs Resistojet and the first nuclear reactor; fusion needs all
-  of nuclear electric; antimatter needs all of fusion. Where the specification was silent, that is my reading.
-- **Power systems** (chemical, nuclear, fusion, antimatter) unlock one after another and give the
-  new **Reactor** component, which makes the stated power output per hull space. **Electric Drives
-  draw 1.0 power per hull space and Nuclear Electric 0.6** (times the power modifier); a ship whose engines draw more
-  than its reactors make is refused. Other families need no reactor. Standard parts use the best
-  engine that needs none.
+## Engines, speed and fuel
+
+Ship movement uses Aurora's formula:
+
+    speed (km/s) = total engine power / total ship hull spaces x 1000
+
+with 1 hull space = 50 tons. An engine's power is its size in hull spaces x the power per hull space of
+its technology x the power modifier, so a ship is as fast as the share of it that is engine, and a
+better engine makes the same share faster. A hull space of fuel tank holds 50,000 litres.
+
+- **Engine line** (15 technologies, each simply more power per hull space): Conventional Engine 0.2,
+  Nuclear Thermal 5, Improved Nuclear Thermal 6.4, Nuclear Pulse 8, Improved Nuclear Pulse 10, Ion 12.5,
+  Magneto-Plasma 16, Internal / Magnetic / Inertial Confinement Fusion 20 / 25 / 32, Solid / Gas /
+  Plasma / Beam Core Anti-matter 40 / 50 / 60 / 80, and Photonic 100. They sit in three sub-fields
+  (Conventional & Nuclear, Ion & Fusion, Antimatter & Photonic). Research costs are mine: the
+  specification gave none for this list. Newer engines also burn less fuel per unit of power
+  (60 litres per power-hour for a conventional engine down to 3 for a photonic drive).
+- A standard Hauler (two 5-hull-space engines in 114 hull spaces) does about 17 km/s on conventional
+  engines, 440 km/s on nuclear thermal and 1,100 km/s on ion; its range is 3.5, 5 and 10 AU. Engine-heavy
+  designs go much faster, which is the point of the designer.
 - **Secondary branches**, each opening once an engine exists: *Engine Size* (the largest single engine,
-  20 hull spaces at first, up to 400), *Maximum Engine Power Modifier* (1.25x to 3.0x),
-  *Miniaturisation* (engines take 0.4x down to 0.1x the hull space for the same thrust, ships already
-  built included) and *Fuel Efficiency* (12 tiers, 0.9x down to 0.1x fuel burned).
-- The old Nuclear Thermal / Pulse / Ion / Magneto-Plasma line and its fuel and modifier techs are gone.
-  Other techs that hung from them (military specification, jump point theory, fuel tank linings) now
-  hang from the new engines.
-
-## Ship speed and fuel
-
-Ships are much slower than they were: engine power now gives 15% of the old speed, and fuel burn
-is tuned so a plain hauler on a chemical Solid Motor manages about 160 km/s and a range of about
-3 AU - days to a neighbouring world, most of a year to cross the system. Better engines (and
-fuel-consumption and tank techs) are what extend the reach.
+  20 hull spaces at first, up to 400), *Power Modifier* (1.25x to 3.0x), *Miniaturisation* (engines take
+  0.4x down to 0.1x the hull space for the same thrust, ships already built included, so ships get
+  faster) and *Fuel Efficiency* (12 tiers, 0.9x down to 0.1x fuel burned).
+- **Power systems** (chemical, nuclear, fusion, antimatter; from `propusion-power-techs.ts`) give the
+  **Reactor** component. Nothing aboard draws power yet, so reactors are there for weapons and shields.
+- Not modelled from Aurora's list: maintenance supply points (1 MSP = 2.5 tons, 20 per hull space).
 
 ## Terraforming
 

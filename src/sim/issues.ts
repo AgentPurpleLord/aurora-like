@@ -9,7 +9,7 @@
 
 import type { Empire } from "../state/empire";
 import type { Galaxy } from "./galaxy";
-import { FAILING, OVERDUE, fleetCondition } from "./ships/maintenance";
+import { FAILING, OVERDUE, brokenCount, fleetCondition } from "./ships/maintenance";
 import { installationCount } from "../state/colony";
 import { INSTALLATION_BY_ID } from "./economy/installations";
 import { colonyOutput, populationCapacity } from "./economy/production";
@@ -306,7 +306,17 @@ export function deriveIssues(empire: Empire, system: Galaxy): Issue[] {
         id: `fleet:overdue:${fleet.id}`,
         severity: worst < FAILING ? "critical" : "warning",
         title: `${fleet.name} is overdue for servicing (${Math.round(worst)}%)`,
-        detail: "Worn ships are slower and may break down. Park the fleet at a colony with a shipyard or maintenance facility.",
+        detail: "Its maintenance clock is running up and systems will start to fail. Park it at a colony with maintenance facilities or a shipyard and supplies to overhaul it.",
+        action: { label: "Open fleet", view: "fleets" },
+      });
+    }
+    const lost = fleet.shipIds.reduce((n, id) => n + (empire.ships.get(id) ? brokenCount(empire.ships.get(id)!) : 0), 0);
+    if (lost > 0) {
+      add({
+        id: `fleet:broken:${fleet.id}`,
+        severity: "warning",
+        title: `${fleet.name} has ${lost} system${lost === 1 ? "" : "s"} out of action`,
+        detail: "A failure struck with no supplies to prevent it. A shipyard repairs it from the colony's supplies; a crew with an engineering section can for double the cost.",
         action: { label: "Open fleet", view: "fleets" },
       });
     }

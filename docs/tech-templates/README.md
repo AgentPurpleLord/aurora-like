@@ -89,11 +89,10 @@ installation needs a name, cost, minerals and what it does - give me a block lik
 
 ### Engines and reactors
 
-Engines are defined by *family* (see `src/sim/ships/engines.ts` and the propulsion spec): a baseline
-density (thrust relative to a chemical rocket's 12 per hull space), a fuel-efficiency range across the
-tiers, a reactor power draw, and the tiers themselves with their research cost. To add or change an
-engine family or power system, give me the family and its tiers in the same shape as
-`propusion-power-techs.ts`. Range depends only on fuel efficiency, speed on density.
+Engines are one line of technologies, each simply more power per hull space (`src/sim/ships/engines.ts`,
+`ENGINE_LINE`): give me the name, power per hull space, research cost and sub-field. Speed is
+`engine power / total hull spaces x 1000` km/s. Power systems (reactors) are families of tiers with an
+output per hull space (`POWER_FAMILIES`).
 
 ### Part ladders (`ladder`)
 

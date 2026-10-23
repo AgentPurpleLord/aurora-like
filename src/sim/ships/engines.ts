@@ -1,122 +1,56 @@
 /**
- * Engine families and power systems.
+ * Engines and power systems.
  *
- * Specified in src/sim/research/propusion-power-techs.ts: six engine
- * families, stepped through in tiers, and four power-system families whose
- * reactors feed the electric drives. This file turns that specification into
- * the numbers the component designer uses; research/propulsion.ts turns it
- * into technologies.
- *
- * How the specification is read:
- *  - "Baseline Density" is thrust per hull space relative to a chemical
- *    rocket, which makes 12 power per hull space.
- *  - "Fuel Efficiency" is how many times further a litre goes than a
- *    chemical rocket's; across a family's tiers it rises geometrically from
- *    the low figure to the high one.
- *  - Electric drives (and nuclear electric, which is a nuclear-powered
- *    electric drive) draw power from reactors fitted to the ship.
+ * Engines follow Aurora: a single line of technologies, each more power per
+ * hull space (research/propulsion.ts turns it into technologies). Power
+ * systems (reactors) come from src/sim/research/propusion-power-techs.ts;
+ * nothing aboard draws on them yet, so they wait for weapons and shields.
  */
 
-export interface EngineTier {
+export interface EngineTech {
   id: string;
   name: string;
+  /** Power per hull space - what the research buys, as in Aurora. */
+  power: number;
   /** Research points. */
   cost: number;
+  /** Sub-field on the research screen. */
+  branch: string;
 }
 
-export interface EngineFamily {
-  id: string;
-  name: string;
-  blurb: string;
-  density: number;
-  efficiency: [low: number, high: number];
-  /** Reactor power drawn per hull space of engine at modifier 1.0. */
-  powerDraw: number;
-  costPerHS: number;
-  crewPerHS: number;
-  tiers: EngineTier[];
-}
+export const BASE_FUEL_PER_POWER = 40;
 
-export const BASE_POWER_PER_HS = 12;
-export const BASE_FUEL_PER_POWER = 5;
-
-export const ENGINE_FAMILIES: EngineFamily[] = [
-  {
-    id: "chemical", name: "Chemical Rockets",
-    blurb: "High thrust, poor fuel economy, low power-system requirements.",
-    density: 1.0, efficiency: [1, 1], powerDraw: 0, costPerHS: 3, crewPerHS: 0.6,
-    tiers: [
-      { id: "solid-motor", name: "Solid Motor", cost: 2000 },
-      { id: "pressure-fed", name: "Pressure-fed Liquid", cost: 4000 },
-      { id: "pump-fed", name: "Pump-fed Liquid", cost: 8000 },
-      { id: "staged-combustion", name: "Staged Combustion", cost: 16000 },
-      { id: "full-flow", name: "Full-flow Staged Combustion", cost: 32000 },
-    ],
-  },
-  {
-    id: "electric", name: "Electric Drives",
-    blurb: "Excellent fuel economy, low thrust, requires external power from a reactor.",
-    density: 0.5, efficiency: [3, 10], powerDraw: 1.0, costPerHS: 6, crewPerHS: 0.7,
-    tiers: [
-      { id: "resistojet", name: "Resistojet", cost: 2000 },
-      { id: "arcjet", name: "Arcjet", cost: 4000 },
-      { id: "hall-thruster", name: "Hall Thruster", cost: 8000 },
-      { id: "gridded-ion", name: "Gridded Ion", cost: 16000 },
-      { id: "advanced-plasma", name: "Advanced Plasma Drive", cost: 32000 },
-    ],
-  },
-  {
-    id: "nuclear-thermal", name: "Nuclear Thermal",
-    blurb: "High thrust, better fuel economy, heavy reactor, requires shielding.",
-    density: 2.0, efficiency: [1.8, 3], powerDraw: 0, costPerHS: 8, crewPerHS: 0.8,
-    tiers: [
-      { id: "solid-core-fission", name: "Solid Core Fission", cost: 2000 },
-      { id: "high-temp-core", name: "High Temperature Core", cost: 4000 },
-      { id: "advanced-gas-core", name: "Advanced Gas Core", cost: 8000 },
-      { id: "liquid-core", name: "Liquid Core", cost: 16000 },
-    ],
-  },
-  {
-    id: "nuclear-electric", name: "Nuclear Electric",
-    blurb: "Moderate system power density, excellent fuel economy, requires shielding and reactor power.",
-    density: 1.5, efficiency: [5, 15], powerDraw: 0.6, costPerHS: 10, crewPerHS: 0.9,
-    tiers: [
-      { id: "ne-fission", name: "Fission Reactor Drive", cost: 2000 },
-      { id: "ne-adv-fission", name: "Advanced Fission Reactor Drive", cost: 4000 },
-      { id: "ne-megawatt", name: "Megawatt Fission Reactor Drive", cost: 8000 },
-      { id: "ne-adv-electric", name: "Advanced Electric Drive", cost: 16000 },
-    ],
-  },
-  {
-    id: "fusion", name: "Fusion",
-    blurb: "High thrust, demanding heat and reactor engineering. Unlocks after Nuclear Electric.",
-    density: 4.0, efficiency: [10, 30], powerDraw: 0, costPerHS: 18, crewPerHS: 1.0,
-    tiers: [
-      { id: "fusion-magnetic", name: "Magnetic Confinement Fusion", cost: 16000 },
-      { id: "fusion-inertial", name: "Inertial Confinement Fusion", cost: 32000 },
-      { id: "fusion-hybrid", name: "Fusion-Fission Hybrid", cost: 64000 },
-      { id: "fusion-mtf", name: "Magnetic Target Fusion", cost: 128000 },
-      { id: "fusion-direct", name: "Direct Fusion Drive", cost: 256000 },
-    ],
-  },
-  {
-    id: "antimatter", name: "Antimatter",
-    blurb: "Endgame technology: extreme energy density, difficult fuel production and storage. Unlocks after Fusion.",
-    density: 8.0, efficiency: [20, 50], powerDraw: 0, costPerHS: 40, crewPerHS: 1.2,
-    tiers: [
-      { id: "am-catalyst", name: "Antimatter Catalyst", cost: 256000 },
-      { id: "am-ignition", name: "Antimatter Ignition", cost: 512000 },
-      { id: "am-hybrid", name: "Hybrid Antimatter Drive", cost: 1024000 },
-      { id: "am-pure", name: "Pure Antimatter Drive", cost: 2048000 },
-    ],
-  },
+/**
+ * Engines, as Aurora has them: one line of technologies, each simply more
+ * power per hull space. Ship speed is then
+ *
+ *   speed (km/s) = total engine power / total ship hull spaces x 1000
+ *
+ * (1 hull space = 50 tons), so a ship is as fast as the share of it that is
+ * engine, and a better engine makes the same share faster.
+ */
+export const ENGINE_LINE: EngineTech[] = [
+  { id: "conventional-engine", name: "Conventional Engine", power: 0.2, cost: 1000, branch: "Conventional & Nuclear" },
+  { id: "nuclear-thermal", name: "Nuclear Thermal Engine", power: 5, cost: 2500, branch: "Conventional & Nuclear" },
+  { id: "improved-nuclear-thermal", name: "Improved Nuclear Thermal Engine", power: 6.4, cost: 4000, branch: "Conventional & Nuclear" },
+  { id: "nuclear-pulse", name: "Nuclear Pulse Engine", power: 8, cost: 7500, branch: "Conventional & Nuclear" },
+  { id: "improved-nuclear-pulse", name: "Improved Nuclear Pulse Engine", power: 10, cost: 12000, branch: "Conventional & Nuclear" },
+  { id: "ion-engine", name: "Ion Engine", power: 12.5, cost: 20000, branch: "Ion & Fusion" },
+  { id: "magneto-plasma", name: "Magneto-Plasma Drive", power: 16, cost: 35000, branch: "Ion & Fusion" },
+  { id: "internal-fusion", name: "Internal Confinement Fusion Drive", power: 20, cost: 60000, branch: "Ion & Fusion" },
+  { id: "magnetic-fusion", name: "Magnetic Confinement Fusion Drive", power: 25, cost: 100000, branch: "Ion & Fusion" },
+  { id: "inertial-fusion", name: "Inertial Confinement Fusion Drive", power: 32, cost: 160000, branch: "Ion & Fusion" },
+  { id: "solid-antimatter", name: "Solid Core Anti-matter Drive", power: 40, cost: 260000, branch: "Antimatter & Photonic" },
+  { id: "gas-antimatter", name: "Gas Core Anti-matter Drive", power: 50, cost: 420000, branch: "Antimatter & Photonic" },
+  { id: "plasma-antimatter", name: "Plasma Core Anti-matter Drive", power: 60, cost: 680000, branch: "Antimatter & Photonic" },
+  { id: "beam-antimatter", name: "Beam Core Anti-matter Drive", power: 80, cost: 1100000, branch: "Antimatter & Photonic" },
+  { id: "photonic-drive", name: "Photonic Drive", power: 100, cost: 1800000, branch: "Antimatter & Photonic" },
 ];
 
 export interface EngineType {
   id: string;
   name: string;
   tech: string;
-  family: string;
   tier: number;
   /** Engine power per hull space at modifier 1.0. */
   powerPerHS: number;
@@ -124,31 +58,27 @@ export interface EngineType {
   fuelPerPower: number;
   costPerHS: number;
   crewPerHS: number;
-  /** Reactor power drawn per hull space at modifier 1.0. */
+  /** Reactor power drawn per hull space. No engine needs a reactor now; see the Reactor component. */
   powerDraw: number;
 }
 
-/** A family's fuel efficiency at a tier: geometric from the low figure to the high one. */
-export function tierEfficiency(family: EngineFamily, tier: number): number {
-  const [lo, hi] = family.efficiency;
-  const n = family.tiers.length;
-  return n <= 1 ? lo : lo * Math.pow(hi / lo, tier / (n - 1));
-}
+/**
+ * Newer engines are thriftier as well as stronger: litres per power-hour
+ * falls from 60 for a conventional engine to 3 for a photonic drive.
+ */
+const FUEL_BY_TIER = [60, 40, 36, 32, 28, 20, 16, 14, 12, 10, 8, 6, 5, 4, 3];
 
-export const ENGINE_TYPES: EngineType[] = ENGINE_FAMILIES.flatMap((family) =>
-  family.tiers.map((tier, i) => ({
-    id: tier.id,
-    name: `${family.name}: ${tier.name}`,
-    tech: tier.id,
-    family: family.id,
-    tier: i + 1,
-    powerPerHS: BASE_POWER_PER_HS * family.density,
-    fuelPerPower: BASE_FUEL_PER_POWER / tierEfficiency(family, i),
-    costPerHS: Math.round(family.costPerHS * (1 + 0.15 * i) * 10) / 10,
-    crewPerHS: family.crewPerHS,
-    powerDraw: family.powerDraw,
-  })),
-);
+export const ENGINE_TYPES: EngineType[] = ENGINE_LINE.map((tech, i) => ({
+  id: tech.id,
+  name: tech.name,
+  tech: tech.id,
+  tier: i + 1,
+  powerPerHS: tech.power,
+  fuelPerPower: FUEL_BY_TIER[i],
+  costPerHS: Math.round(3 * Math.pow(1.25, i) * 10) / 10,
+  crewPerHS: Math.round((0.6 + 0.065 * i) * 100) / 100,
+  powerDraw: 0,
+}));
 
 // ------------------------------------------------------------ power systems
 
