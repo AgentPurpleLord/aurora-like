@@ -11,7 +11,7 @@ import type { GameEvent } from "../../sim/events/types";
 import { optionsFor, resolveEvent } from "../../sim/events/engine";
 import { formatShortDate } from "../../sim/clock";
 import { EVENT_FREQUENCY, settings } from "../settings";
-import { el } from "../format";
+import { describeEffect, el, themed } from "../format";
 import { button, emptyNote, section } from "../widgets";
 
 type Filter = "all" | "good" | "bad" | "decisions";
@@ -36,7 +36,7 @@ export class EventsView {
     this.root.append(page);
 
     const head = el("div", "events-head");
-    head.append(el("h2", undefined, "Events"));
+    { const h = el("h2"); h.append(themed("Events", "Incident log")); head.append(h); }
     const good = empire.events.filter((e) => e.tone === "good").length;
     const bad = empire.events.filter((e) => e.tone === "bad").length;
     const rate = settings.events === "off" || empire.eventFrequency <= 0
@@ -52,6 +52,21 @@ export class EventsView {
     if (pending.length) {
       const sec = section(page, `Awaiting your decision (${pending.length})`);
       for (const event of pending) sec.append(this.pendingCard(event));
+    }
+
+    // --- what is still in force
+    const effects = empire.effects;
+    if (effects.length) {
+      const sec = section(page, `Lasting effects (${effects.length})`);
+      for (const effect of effects) {
+        const row = el("div", `event-row ${effect.factor >= 1 ? "good" : "bad"} effect-row`);
+        const top = el("div", "event-row-head");
+        top.append(el("span", "event-title", effect.label));
+        const where = effect.target === "empire" ? "the whole empire" : game.galaxy.byId.get(effect.target)?.name ?? effect.target;
+        top.append(el("span", "muted small", where));
+        row.append(top, el("div", "event-row-text", describeEffect(effect, game.clock.seconds)));
+        sec.append(row);
+      }
     }
 
     // --- history
@@ -106,6 +121,7 @@ export class EventsView {
       );
       if (event.decision) top.append(el("span", "chip", event.status === "expired" ? "lapsed" : "decided"));
       row.append(top, el("div", "event-row-text", event.text));
+      if (event.follows) row.append(el("div", "muted small", `Follows: ${event.follows}`));
       if (event.chosen) row.append(el("div", "event-row-chosen", `Chosen: ${event.chosen}`));
       if (event.outcome) row.append(el("div", "event-row-outcome", event.outcome));
       if (event.link) {
@@ -123,6 +139,7 @@ export class EventsView {
       el("div", "event-title", event.title),
       el("div", "event-row-text", event.text),
     );
+    if (event.follows) card.append(el("div", "muted small", `Follows: ${event.follows}`));
     if (event.expires !== undefined) {
       const days = Math.max(0, Math.round((event.expires - game.clock.seconds) / 86_400));
       card.append(el("div", "muted small", `Settles itself in ${days} days if left.`));

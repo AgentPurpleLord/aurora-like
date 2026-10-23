@@ -14,7 +14,7 @@ import { installationCount } from "../../state/colony";
 import { projectRate } from "../../sim/economy/production";
 import { resolveTemplate } from "../../sim/economy/templates";
 import { INSTALLATION_BY_ID } from "../../sim/economy/installations";
-import { compact, el, num, population, populationFixed } from "../format";
+import { compact, el, num, population, populationFixed, themed } from "../format";
 import { hintFor } from "../glossary";
 import { deriveGoals } from "../../sim/goals";
 import { saveSettings, settings } from "../settings";
@@ -133,7 +133,7 @@ export class EmpireView {
     const done = goals.length - remaining.length;
     const card = el("div", "guide-card");
     const head = el("div", "guide-head");
-    head.append(el("span", "guide-title", "Suggested next steps"));
+    head.append(themed("Suggested next steps", "Mission objectives", "guide-title"));
     head.append(el("span", "muted small", `${done} of ${goals.length} done`));
     head.append(progressBar(done / goals.length));
     const hide = el("button", "ghost-btn guide-hide", "Hide");

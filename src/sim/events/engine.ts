@@ -31,6 +31,8 @@ const context = (empire: Empire, galaxy: Galaxy, now: number): EventContext => (
 /** Called once per production cycle. */
 export function runEvents(empire: Empire, galaxy: Galaxy, now: number, cycleDays: number): void {
   expireDecisions(empire, galaxy, now);
+  endEffects(empire, galaxy, now);
+  fireScheduled(empire, galaxy, now);
   if (empire.eventFrequency <= 0) return;
   if (now - empire.lastEventTime < COOLDOWN_DAYS * DAY) return;
 
@@ -70,7 +72,7 @@ export function rollEvent(ctx: EventContext, onlyId?: string): GameEvent | null 
   return null;
 }
 
-function raise(ctx: EventContext, defId: string, params: GameEvent["params"]): GameEvent {
+function raise(ctx: EventContext, defId: string, params: GameEvent["params"], follows?: string): GameEvent {
   const { empire, now } = ctx;
   const def = EVENT_BY_ID.get(defId)!;
   const description = def.describe(params, ctx);
@@ -85,6 +87,7 @@ function raise(ctx: EventContext, defId: string, params: GameEvent["params"]): G
     decision: def.decision === true,
     status: "pending",
     link: description.link,
+    follows,
   };
   empire.events.unshift(event);
   if (empire.events.length > MAX_KEPT) empire.events.length = MAX_KEPT;
@@ -117,8 +120,11 @@ export function resolveEvent(
 ): string | null {
   const event = empire.events.find((e) => e.id === eventId);
   if (!event || event.status !== "pending") return null;
-  const ctx = context(empire, galaxy, now);
-  const option = optionsFor(empire, galaxy, event, now).find((o) => o.id === optionId);
+  const ctx = { ...context(empire, galaxy, now), eventId: event.id, eventTitle: event.title };
+  // Options are built with the resolving context, so what they schedule or
+  // start knows which event it came from.
+  const def = EVENT_BY_ID.get(event.defId);
+  const option = def?.options(event.params, ctx).find((o) => o.id === optionId);
   if (!option || option.disabled) return null;
 
   const outcome = option.apply(ctx);
@@ -136,6 +142,38 @@ export function resolveEvent(
     event.link ?? { view: "events" },
   );
   return outcome;
+}
+
+/** Follow-ups whose time has come become events of their own. */
+export function fireScheduled(empire: Empire, galaxy: Galaxy, now: number): void {
+  const due = empire.scheduled.filter((s) => s.due <= now);
+  if (!due.length) return;
+  const ctx = context(empire, galaxy, now);
+  for (const item of due) {
+    const def = EVENT_BY_ID.get(item.defId);
+    // A decision waits its turn behind a full queue rather than being lost.
+    if (def?.decision && empire.pendingEvents.length >= MAX_PENDING) {
+      item.due = now + 10 * DAY;
+      continue;
+    }
+    empire.scheduled = empire.scheduled.filter((s) => s.id !== item.id);
+    if (!def || (def.valid && !def.valid(item.params, ctx))) continue;
+    raise(ctx, item.defId, item.params, item.follows);
+  }
+}
+
+/** Remove lasting effects whose time is up, saying so. */
+export function endEffects(empire: Empire, galaxy: Galaxy, now: number): void {
+  const over = empire.effects.filter((e) => e.until <= now);
+  if (!over.length) return;
+  empire.effects = empire.effects.filter((e) => e.until > now);
+  for (const effect of over) {
+    const where = effect.target === "empire" ? "" : ` on ${galaxy.byId.get(effect.target)?.name ?? effect.target}`;
+    empire.addLog(
+      now, "event", `${effect.label}${where} has ended.`,
+      effect.target === "empire" ? { view: "events" } : { view: "colonies", bodyId: effect.target },
+    );
+  }
 }
 
 /** Decisions left too long are settled by their fallback. */

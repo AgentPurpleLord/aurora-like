@@ -102,24 +102,90 @@ export function select(
   return node;
 }
 
+/**
+ * A number you can set with a thumb: a slider, - and + buttons, and the exact
+ * box for when you do want to type. Short ranges slide in whole steps; wide
+ * ones (tons, colonists) slide on a log scale and land on round numbers, so
+ * the slider is usable from ten to ten million.
+ */
 export function numberInput(
   value: number,
   onChange: (value: number) => void,
   min = 1,
   max = 9999,
-): HTMLInputElement {
+): HTMLElement {
+  const wrap = el("div", "slider-field");
+  const log = max / Math.max(1, min) > 150;
+  const STEPS = 1000;
+
+  const clamp = (v: number) => Math.max(min, Math.min(max, Number.isFinite(v) ? Math.round(v) : min));
+  /** Two significant figures, so a log slider lands on 4,700 rather than 4,683. */
+  const round = (v: number) => {
+    if (v < 100) return Math.round(v);
+    const digits = Math.floor(Math.log10(v)) - 1;
+    return Math.round(v / 10 ** digits) * 10 ** digits;
+  };
+  // A log scale needs a positive floor; a minimum of 0 gets a notch of its own.
+  const floor = Math.max(1, min);
+  const toValue = (pos: number): number => {
+    if (!log) return clamp(min + (pos / STEPS) * (max - min));
+    if (pos <= 0) return min;
+    return clamp(round(floor * Math.pow(max / floor, pos / STEPS)));
+  };
+  const toPos = (v: number): number => {
+    if (!log) return max === min ? 0 : ((v - min) / (max - min)) * STEPS;
+    if (v <= floor) return 0;
+    return (Math.log(v / floor) / Math.log(max / floor)) * STEPS;
+  };
+
+  const slider = el("input", "slider");
+  slider.type = "range";
+  slider.min = "0";
+  slider.max = String(STEPS);
+  slider.step = log ? "1" : String(STEPS / Math.max(1, max - min));
+  slider.value = String(toPos(value));
+  slider.setAttribute("aria-label", "Adjust amount");
+
   const input = el("input", "number-input");
   input.type = "number";
   input.value = String(value);
   input.min = String(min);
   input.max = String(max);
-  input.addEventListener("change", () => {
-    const parsed = Math.round(Number(input.value));
-    const clamped = Math.max(min, Math.min(max, Number.isFinite(parsed) ? parsed : min));
+
+  const apply = (v: number, syncSlider: boolean) => {
+    const clamped = clamp(v);
     input.value = String(clamped);
+    if (syncSlider) slider.value = String(toPos(clamped));
     onChange(clamped);
+  };
+
+  // Dragging reports as it goes to the box, and commits when let go.
+  slider.addEventListener("input", () => {
+    input.value = String(toValue(Number(slider.value)));
   });
-  return input;
+  slider.addEventListener("change", () => apply(toValue(Number(slider.value)), false));
+  input.addEventListener("change", () => apply(Number(input.value), true));
+
+  const nudge = (direction: 1 | -1) => {
+    const now = clamp(Number(input.value));
+    let next: number;
+    if (!log) next = now + direction;
+    else {
+      // The next round number up or down on the same two-figure grid.
+      const step = now < 100 ? 1 : 10 ** (Math.floor(Math.log10(now)) - 1);
+      next = direction > 0 ? now + step : Math.max(min, now - (now % step === 0 ? step : now % step));
+    }
+    apply(next, true);
+  };
+  const minus = el("button", "step-btn", "-");
+  const plus = el("button", "step-btn", "+");
+  minus.setAttribute("aria-label", "Decrease");
+  plus.setAttribute("aria-label", "Increase");
+  minus.addEventListener("click", () => nudge(-1));
+  plus.addEventListener("click", () => nudge(1));
+
+  wrap.append(minus, slider, plus, input);
+  return wrap;
 }
 
 export function emptyNote(parent: HTMLElement, text: string): void {

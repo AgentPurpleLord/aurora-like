@@ -578,6 +578,59 @@ async function refreshSuite(browser) {
   await check("density is applied from settings", async () =>
     (await page.evaluate(() => document.documentElement.dataset.density)) === "compact");
 
+  // --- themes
+  await check("the classic theme is the default", async () =>
+    (await page.evaluate(() => document.documentElement.dataset.theme)) === "classic");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.locator(".settings-panel .seg-btn", { hasText: "Terminal" }).click();
+  await check("the terminal theme can be chosen", async () =>
+    (await page.evaluate(() => document.documentElement.dataset.theme)) === "terminal");
+  await check("and really changes the look (monospace type, phosphor colours)", async () => {
+    const style = await page.evaluate(() => {
+      const cs = getComputedStyle(document.body);
+      return { font: cs.fontFamily, bg: getComputedStyle(document.querySelector(".topbar")).backgroundImage };
+    });
+    return /mono|Consolas|Menlo/i.test(style.font) && /rgb\(\d+, \d+, \d+\)/.test(style.bg);
+  });
+  await page.reload();
+  await page.waitForSelector("#view-tabs");
+  await check("the chosen theme is remembered", async () =>
+    (await page.evaluate(() => document.documentElement.dataset.theme)) === "terminal");
+  await nav(page, "Map").click();
+  await page.waitForTimeout(300);
+  await check("the map still draws in the terminal theme", async () =>
+    (await page.evaluate(() => document.getElementById("map").width)) > 100);
+  await nav(page, "Empire").click();
+  await page.keyboard.press("Control+k");
+  await page.locator(".palette-input").fill("switch theme");
+  await page.keyboard.press("Enter");
+  await check("the palette switches the theme back", async () =>
+    (await page.evaluate(() => document.documentElement.dataset.theme)) === "classic");
+
+  // --- hand-tuned terminal screens
+  await page.evaluate(() => { document.documentElement.dataset.theme = "terminal"; });
+  await check("the galaxy map has a radar scale in the terminal theme", async () => {
+    await nav(page, "Galaxy").click();
+    return (await page.locator(".galaxy-radar").isVisible()) && (await page.locator(".galaxy-bearing").count()) === 4;
+  });
+  await page.evaluate(() => { document.documentElement.dataset.theme = "classic"; });
+  await check("and none in Classic", async () => !(await page.locator(".galaxy-radar").isVisible()));
+
+  // --- themed headings and furniture
+  await nav(page, "Empire").click();
+  await check("Classic keeps its own headings", async () =>
+    /suggested next steps/i.test(await page.locator(".guide-title").first().innerText()) &&
+    /attention/i.test(await page.locator("#triage-rail .panel-head").innerText()));
+  await page.evaluate(() => { document.documentElement.dataset.theme = "terminal"; });
+  await check("the terminal renames the main headings", async () =>
+    /Mission objectives/i.test(await page.locator(".guide-title").first().innerText()) &&
+    /Threat board/i.test(await page.locator("#triage-rail .panel-head").innerText()));
+  await page.keyboard.press("Control+k");
+  await check("the palette is a command line in the terminal", async () =>
+    /command line/i.test(await page.locator(".palette").evaluate((n) => getComputedStyle(n, "::before").content)));
+  await page.keyboard.press("Escape");
+  await page.evaluate(() => { document.documentElement.dataset.theme = "classic"; });
+
   // --- the settings popover and the guide
   await check("the status bar offers Next event", async () =>
     (await page.getByRole("button", { name: "Skip to next event" }).count()) === 1);
@@ -642,6 +695,29 @@ async function programSuite(browser) {
   await page.locator("#view-fleets .panel-left .tree-row", { hasText: "Mars Line" }).click();
   const freight = page.locator("#view-fleets .program-form", { hasText: "Freight line" });
   await check("the freight form offers the colonies", async () => (await freight.locator("select").count()) >= 4);
+  // Number fields come with a slider, + and - buttons, and the exact box.
+  await freight.locator("select").nth(2).selectOption("colonists");
+  const amountField = page.locator("#view-fleets .program-form .slider-field").first();
+  await check("a number field has a slider, steppers and a box", async () =>
+    (await amountField.locator(".slider").count()) === 1 &&
+    (await amountField.locator(".step-btn").count()) === 2 &&
+    (await amountField.locator(".number-input").count()) === 1);
+  const setSlider = (v) => amountField.locator(".slider").evaluate((n, val) => {
+    n.value = String(val);
+    n.dispatchEvent(new Event("input", { bubbles: true }));
+    n.dispatchEvent(new Event("change", { bubbles: true }));
+  }, v);
+  await setSlider(1000);
+  await check("the top of a wide slider is the maximum", async () =>
+    (await amountField.locator(".number-input").inputValue()) === "100000000");
+  await setSlider(500);
+  await check("the middle of a wide slider is a round number, not a stray one", async () =>
+    /^\d{1,2}0*$/.test(await amountField.locator(".number-input").inputValue()) && Number(await amountField.locator(".number-input").inputValue()) > 1000);
+  const mid = Number(await amountField.locator(".number-input").inputValue());
+  await amountField.getByRole("button", { name: "Increase" }).click();
+  await check("the + button moves to the next round number", async () =>
+    Number(await page.locator("#view-fleets .program-form .slider-field").first().locator(".number-input").inputValue()) > mid);
+  await freight.locator("select").nth(2).selectOption("minerals");
   await freight.getByRole("button", { name: "Start freight line" }).click();
   await check("a freight line starts and is described", async () =>
     /Freight Earth - Mars/.test(await page.locator("#view-fleets .program-card").innerText()));
@@ -871,6 +947,21 @@ async function eventSuite(browser) {
   await check("Events carries a badge while a decision waits", async () =>
     /1/.test(await page.locator('#view-tabs button[data-view="events"] .tab-badge-dot').first().innerText()));
 
+  // The briefing in the terminal theme: banner, file number, numbered orders.
+  await page.evaluate(() => { document.documentElement.dataset.theme = "terminal"; });
+  await check("a terminal briefing carries a warning banner and a file number", async () => {
+    const banner = page.locator(".dialog .event-banner");
+    return (await banner.isVisible()) && /WARNING/.test(await banner.innerText()) && /EVT-\d{4}/.test(await page.locator(".dialog .event-code").innerText());
+  });
+  await check("its text prints out in full", async () => {
+    await page.waitForTimeout(1600);
+    return /Fund|fever|habitats/.test(await page.locator(".dialog .event-text").innerText()) && !/_$/.test((await page.locator(".dialog .event-text").innerText()).trim());
+  });
+  await check("options are numbered", async () =>
+    (await page.locator(".dialog .event-option").first().getAttribute("data-key")) === "1");
+  await page.evaluate(() => { document.documentElement.dataset.theme = "classic"; });
+  await check("the banner is hidden in Classic", async () => !(await page.locator(".dialog .event-banner").isVisible()));
+
   // Decide later, then decide from the log.
   await page.getByRole("button", { name: "Decide later", exact: true }).click();
   await check("deciding later leaves it pending", async () =>
@@ -885,11 +976,36 @@ async function eventSuite(browser) {
     return /Outbreak/.test(text) && /Chosen: Fund a quarantine/.test(text);
   });
 
-  // The popup shows the outcome after a choice.
+  // The popup shows the outcome after a choice; number keys choose.
   await page.evaluate(() => { window.__game.empire.queueBuild("earth", "mine", 5); window.__rollEvent("strike"); });
-  await page.locator(".dialog .event-option", { hasText: "Hold firm" }).click();
+  await page.keyboard.press("2");
   await check("the popup then shows the outcome", async () =>
     /You chose: Hold firm/.test(await page.locator(".dialog").innerText()));
+  await page.getByRole("button", { name: "OK", exact: true }).click();
+
+  // Holding firm leaves a lasting effect, which is listed and explained.
+  await nav(page, "Events").click();
+  await check("a lasting effect is listed with what it does and how long is left", async () => {
+    const text = await page.locator("#view-events").innerText();
+    return /lasting effects/i.test(text) && /Work-to-rule/.test(text) && /Industry -30%, 6 months left/.test(text);
+  });
+  await nav(page, "Colonies").click();
+  await check("and shown on the colony it affects", async () =>
+    /Work-to-rule/.test(await page.locator("#view-colonies").innerText()));
+
+  // A follow-up arrives later, and says what it follows.
+  await page.evaluate(() => {
+    const g = window.__game;
+    g.empire.scheduleEvent("epidemic-aftermath", { colony: "earth", cost: 2000 }, g.clock.seconds, 1, "Outbreak");
+    g.step(6 * 86400);
+  });
+  await check("a scheduled follow-up opens a popup when its time comes", async () =>
+    /After the fever/.test(await page.locator(".dialog").innerText()));
+  await check("and says what it follows", async () =>
+    /This follows: Outbreak/.test(await page.locator(".dialog").innerText()));
+  await page.locator(".dialog .event-option", { hasText: "Fund a health programme" }).click();
+  await check("the chosen follow-up starts its own lasting effect", async () =>
+    /Population growth \+50%/.test(await page.locator(".dialog").innerText()) || /Healthy generation/.test(await page.evaluate(() => JSON.stringify(window.__game.empire.effects))));
   await page.getByRole("button", { name: "OK", exact: true }).click();
 
   // News is a toast and a log line, not a popup.
@@ -901,12 +1017,12 @@ async function eventSuite(browser) {
   await nav(page, "Events").click();
   await page.locator("#view-events .events-filters button", { hasText: "Good" }).click();
   await check("the log filters by tone", async () => {
-    const rows = await page.locator("#view-events .event-row").count();
-    return rows >= 1 && (await page.locator("#view-events .event-row.bad").count()) === 0;
+    const rows = await page.locator("#view-events .events-list .event-row").count();
+    return rows >= 1 && (await page.locator("#view-events .events-list .event-row.bad").count()) === 0;
   });
   await page.locator("#view-events .events-filters button", { hasText: "All" }).click();
-  await page.locator('#view-events input[type="search"]').fill("outbreak");
-  await check("and searches", async () => (await page.locator("#view-events .event-row").count()) === 1);
+  await page.locator('#view-events input[type="search"]').fill("quarantine");
+  await check("and searches", async () => (await page.locator("#view-events .events-list .event-row").count()) === 1);
 
   // Settings.
   await page.getByRole("button", { name: "Settings", exact: true }).click();
@@ -1032,6 +1148,15 @@ async function mobileSuite(browser) {
   await check("the designer does not scroll sideways", async () => (await overflow()) <= 1);
   await page.screenshot({ path: `${SHOTS}/mobile-design.png` });
 
+  await page.evaluate(() => { document.documentElement.dataset.theme = "terminal"; });
+  await page.waitForTimeout(200);
+  await check("the terminal theme does not make a phone scroll sideways", async () => (await overflow()) <= 1);
+  for (const name of ["Empire", "Map", "Colonies", "Fleets", "Design", "Research", "Officers", "Events", "Galaxy"]) {
+    await mobileGo(page, name);
+    await page.waitForTimeout(250);
+    await check(`and neither does the ${name} screen`, async () => (await overflow()) <= 1);
+  }
+  await page.evaluate(() => { document.documentElement.dataset.theme = "classic"; });
   await check("controls are big enough to tap", async () =>
     (await page.evaluate(() =>
       [...document.querySelectorAll("button:not(.step-btn)")]

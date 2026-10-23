@@ -283,6 +283,69 @@ Saves live in each browser's local storage, so a phone and a computer keep
 separate games; use *Save and load > Export* and *Import* to move one between
 them.
 
+## Lasting effects and event chains
+
+Some events change things for a while rather than at once. A work-to-rule cuts
+a colony's industry by 30% for six months; a credit squeeze trims income
+across the empire; a baby boom speeds population growth; a rebuilt depot
+produces half the fuel. These are timed multipliers on industry, mining, fuel,
+research, income or growth, applied wherever output is computed, so the
+numbers on screen are the numbers simulated and nothing has to be undone when
+one ends. The Events tab lists every effect in force with what it does and how
+long is left, and each colony's Overview lists the ones that touch it.
+
+Events also have consequences. Handling one a certain way can schedule a
+follow-up some weeks or months later: a strike you faced down may return
+angrier; an epidemic left to run is followed by a recovery that you can fund;
+a scandal hushed up may leak; a salvaged wreck's transponder may wake and offer
+a map; a foundation's endowment comes with a visit. A follow-up says what it
+follows, waits behind a full decision queue rather than being lost, and
+quietly drops out if its subject (a colony, say) no longer exists. Effects and
+scheduled follow-ups are saved with the game.
+
+**Number fields are sliders.** Every amount you set - laboratories, quantities,
+tons, colonists, targets - has a slider, - and + buttons and the exact box. Wide
+ranges slide on a log scale and land on round numbers, so a slider is usable
+from ten to ten million with a thumb.
+
+## Themes
+
+Settings (or the command palette: *Switch theme*) chooses between two looks.
+**Classic** is the original navy and blue. **Terminal** is a military console:
+phosphor green on near-black, amber for emphasis, red for alarms, monospace
+type, square edges and chamfered cards, corner brackets, `[ BRIEFING ]`
+headers on popups, segmented progress bars, a faint scanline overlay with a
+slow refresh sweep (switched off under *reduce motion*), and a map drawn in the
+same ink. The choice is remembered.
+
+Two screens are tuned by hand for it. **Event briefings** open under a hazard-striped
+WARNING, COMMENDATION or ADVISORY banner with a file number (`EVT-0007`); the
+text prints out like a console receiving it (click to show it all; instant under
+*reduce motion*); the choices are numbered orders you can pick with the number
+keys; and the result appears as an after-action report. **The galaxy map** becomes a
+radar plot: bearing spokes and a right-ascension scale, dashed range rings, a slow
+sweep, unvisited stars as hollow contacts and visited ones lit, glowing links (gates
+in amber), a target reticle with range and spectral class on the selected star, and a
+"visited / uncharted" tag on the target panel. Classic shows none of this.
+
+Every other screen has its own touches too: label ..... value leaders on every readout;
+renamed headings (*Mission objectives*, *Threat board*, *Incident log*, *Fleet roster*,
+*Personnel roster*, *Situation report*, *Archive*); numbered objectives on the dashboard;
+instrument-style vitals on colonies; `CALLSIGN` and `TARGET` captions on the fleet and body
+panels, numbered orders and fuel and hold gauges on fleets; `[x]`, `>` and `//` markers on
+research cards with a pulse on the one in progress; a `SPEC SHEET` tag on the designer; an
+incident-log layout with `RESULT:` and `IN FORCE:` lines on events; a `> COMMAND LINE` palette;
+category tags on toasts; and on the system map a targeting HUD of corner brackets, rulers and a
+centre crosshair drawn on the canvas.
+
+The rest of the terminal theme is derived rather than hand-maintained: `npm run theme`
+reads `src/style.css`, moves every colour in it into the phosphor palette
+(`src/ui/phosphor.ts`: blues and greys become green, golds become amber, reds
+stay red, lightness and transparency are kept), and writes
+`src/theme-terminal.css` together with the layout and flavour in
+`tools/terminal-extra.css`. After changing `style.css`, run it again so the two
+themes stay in step.
+
 ## Terraforming
 
 ![a terraforming programme](docs/terraforming.png)

@@ -1,7 +1,7 @@
 /** The settings popover: density, what stops the clock, and housekeeping. */
 
 import type { LogCategory } from "../state/empire";
-import { EVENT_FREQUENCY, applyDensity, saveSettings, settings, type Density, type EventRate } from "./settings";
+import { EVENT_FREQUENCY, applyDensity, applyTheme, saveSettings, settings, type Density, type EventRate, type Theme } from "./settings";
 import type { Game } from "../state/game";
 import { el } from "./format";
 
@@ -46,6 +46,24 @@ export class SettingsMenu {
 
   private build(): void {
     this.panel.textContent = "";
+
+    // --- theme
+    this.panel.append(el("h4", undefined, "Theme"));
+    const theme = el("div", "segmented");
+    for (const [value, label] of [["classic", "Classic"], ["terminal", "Terminal"]] as [Theme, string][]) {
+      const btn = el("button", "seg-btn", label);
+      btn.classList.toggle("active", settings.theme === value);
+      btn.addEventListener("click", () => {
+        settings.theme = value;
+        applyTheme();
+        saveSettings();
+        this.build();
+        this.onChange();
+      });
+      theme.append(btn);
+    }
+    this.panel.append(theme);
+    this.panel.append(el("p", "muted small", "Terminal: phosphor green on black, like a ship's console or a mission briefing."));
 
     // --- density
     this.panel.append(el("h4", undefined, "Density"));

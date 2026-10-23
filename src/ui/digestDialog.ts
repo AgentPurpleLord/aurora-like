@@ -119,5 +119,5 @@ export function openDigestDialog(
       button("Close", () => handle.close()),
     );
     body.append(foot);
-  }, { wide: true, onClose, label: "Digest" });
+  }, { wide: true, onClose, label: "Digest", terminalTitle: "Situation report" });
 }

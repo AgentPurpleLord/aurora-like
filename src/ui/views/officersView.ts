@@ -21,7 +21,7 @@ import {
 } from "../../sim/people/officers";
 import { FIELD_NAMES } from "../../sim/research/fields";
 import { TECH_BY_ID } from "../../sim/research/techs";
-import { el, num } from "../format";
+import { el, num, themed } from "../format";
 import { button, emptyNote, section, select, stat } from "../widgets";
 import { formatShortDate } from "./economyView";
 
@@ -50,7 +50,7 @@ export class OfficersView {
     this.listPane.textContent = "";
 
     const head = el("div", "panel-head");
-    head.append(el("span", undefined, "Commanders & Specialists"));
+    head.append(themed("Commanders & Specialists", "Personnel roster"));
     head.append(el("span", "muted", `${empire.officers.officers.size} in service`));
     this.listPane.append(head);
 
@@ -128,7 +128,7 @@ export class OfficersView {
 
     if (!officer) {
       const head = el("div", "panel-head");
-      head.append(el("span", undefined, "Service Record"));
+      head.append(themed("Service Record", "Personnel file"));
       this.detailPane.append(head);
       emptyNote(this.detailPane, "Select an officer.");
       return;

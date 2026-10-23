@@ -24,7 +24,7 @@ import {
   type FleetOrder,
 } from "../../sim/ships/fleet";
 import { fullName } from "../../sim/people/officers";
-import { compact, el, num } from "../format";
+import { compact, el, num, themed } from "../format";
 import { button, emptyNote, numberInput, progressBar, section, select, stat } from "../widgets";
 import { formatYears } from "./economyView";
 import { FleetAutomation } from "./fleetAutomation";
@@ -86,7 +86,7 @@ export class FleetsView {
     const { game } = this;
     this.listPane.textContent = "";
     const head = el("div", "panel-head");
-    head.append(el("span", undefined, "Fleets"));
+    head.append(themed("Fleets", "Fleet roster"));
     head.append(el("span", "muted", `${game.empire.fleets.size}`));
     this.listPane.append(head);
 
@@ -170,6 +170,18 @@ export class FleetsView {
     );
     stat(summary, "Range", `${stats.rangeAu.toFixed(2)} AU`);
     stat(summary, "Cargo", `${compact(stats.cargoUsed)} / ${compact(stats.cargoCapacity)} t`);
+
+    // Instrument gauges for the terminal theme; Classic hides them.
+    const gauges = el("div", "terminal-only fleet-gauges");
+    const gauge = (label: string, fraction: number, tone?: string) => {
+      const row = el("div", "fleet-gauge");
+      row.append(el("span", "fleet-gauge-label", label), progressBar(Math.max(0, Math.min(1, fraction)), tone ?? ""));
+      row.append(el("span", "fleet-gauge-value", `${Math.round(Math.max(0, Math.min(1, fraction)) * 100)}%`));
+      gauges.append(row);
+    };
+    gauge("FUEL", stats.fuelCapacity > 0 ? stats.fuel / stats.fuelCapacity : 0, stats.fuel < stats.fuelCapacity * 0.2 ? "low" : "");
+    gauge("HOLD", stats.cargoCapacity > 0 ? stats.cargoUsed / stats.cargoCapacity : 0);
+    summary.after(gauges);
 
     this.renderCommander(body, fleet);
     this.renderOrders(body, fleet);

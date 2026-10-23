@@ -13,6 +13,7 @@ import { installationCount } from "../../state/colony";
 import { MINERALS, type MineralName } from "../minerals";
 import { TECH_BY_ID } from "../research/techs";
 import { fullName } from "../people/officers";
+import type { EffectKind } from "../../state/empire";
 import type { EventContext, EventDef, EventOption, EventParams } from "./types";
 
 const fmt = (n: number) => Math.round(n).toLocaleString("en-US");
@@ -38,6 +39,23 @@ function destroy(colony: Colony, id: string, count: number): number {
   const lost = Math.min(Math.floor(count), installationCount(colony, id));
   if (lost > 0) colony.installations[id] = installationCount(colony, id) - lost;
   return lost;
+}
+
+const KIND_TEXT: Record<EffectKind, string> = {
+  industry: "Industry", mining: "Mining", fuel: "Fuel production", research: "Research", wealth: "Income", growth: "Population growth",
+};
+const span = (days: number) => (days >= 330 ? `${Math.round(days / 365 * 10) / 10} years` : days >= 45 ? `${Math.round(days / 30)} months` : `${days} days`);
+const pct = (factor: number) => `${factor >= 1 ? "+" : "-"}${Math.round(Math.abs(factor - 1) * 100)}%`;
+
+/** Start a lasting effect and describe it in words for the outcome. */
+function lasting(ctx: EventContext, kind: EffectKind, target: string, factor: number, days: number, label: string): string {
+  ctx.empire.addEffect({ kind, target, factor, label, source: ctx.eventId }, ctx.now, days);
+  return `${KIND_TEXT[kind]} ${pct(factor)} for ${span(days)}`;
+}
+
+/** Queue the next link in a chain, a random while from now. */
+function followUp(ctx: EventContext, defId: string, params: EventParams, fromDays: number, toDays: number): void {
+  ctx.empire.scheduleEvent(defId, params, ctx.now, ctx.rng.int(fromDays, toDays), ctx.eventTitle);
 }
 
 const auto = (apply: EventOption["apply"]): EventOption[] => [
@@ -67,7 +85,8 @@ export const EVENTS: EventDef[] = [
       if (!deposit) return "The seam turned out to be nothing.";
       const extra = Math.round(deposit.amount * Number(p.percent) / 100);
       deposit.amount += extra;
-      return `The deposit grows by ${fmt(extra)} t (${p.percent}%).`;
+      const shift = lasting(ctx, "mining", String(p.colony), 1.2, 365, "New shift system");
+      return `The deposit grows by ${fmt(extra)} t (${p.percent}%), and a new shift pattern lifts output: ${shift}.`;
     }),
   },
   {
@@ -106,7 +125,8 @@ export const EVENTS: EventDef[] = [
     }),
     options: (p, ctx) => auto(() => {
       ctx.empire.treasury += Number(p.amount);
-      return `The treasury gains ${fmt(Number(p.amount))}.`;
+      followUp(ctx, "foundation-review", { amount: Number(p.amount), cost: 1000 }, 150, 250);
+      return `The treasury gains ${fmt(Number(p.amount))}. The foundation says it will want to see what became of it.`;
     }),
   },
   {
@@ -116,7 +136,7 @@ export const EVENTS: EventDef[] = [
     build: (ctx) => {
       const led = ctx.empire.projects.filter((p) => p.scientistId);
       const project = led.length ? ctx.rng.pick(led) : null;
-      return project ? { officer: String(project.scientistId), gain: ctx.rng.int(2, 5) } : null;
+      return project ? { officer: String(project.scientistId), colony: project.colonyId, gain: ctx.rng.int(2, 5) } : null;
     },
     describe: (p, ctx) => {
       const officer = ctx.empire.officers.get(String(p.officer));
@@ -130,7 +150,8 @@ export const EVENTS: EventDef[] = [
       const officer = ctx.empire.officers.get(String(p.officer));
       if (!officer) return "The scientist has left the service.";
       officer.skills.research = (officer.skills.research ?? 0) + Number(p.gain);
-      return `Research skill rises by ${p.gain} points, to ${officer.skills.research}.`;
+      const ferment = lasting(ctx, "research", String(p.colony), 1.08, 200, "Intellectual ferment");
+      return `Research skill rises by ${p.gain} points, to ${officer.skills.research}, and the laboratory buzzes: ${ferment}.`;
     }),
   },
   {
@@ -151,7 +172,8 @@ export const EVENTS: EventDef[] = [
       if (!colony) return "The colony is gone.";
       const extra = colony.population * Number(p.percent) / 100;
       colony.population += extra;
-      return `Population rises by ${extra.toFixed(2)} million.`;
+      const lift = lasting(ctx, "growth", colony.bodyId, 1.5, 180, "Optimism");
+      return `Population rises by ${extra.toFixed(2)} million, and the mood lasts: ${lift}.`;
     }),
   },
   {
@@ -200,7 +222,8 @@ export const EVENTS: EventDef[] = [
     }),
     options: (p, ctx) => auto(() => {
       ctx.empire.treasury -= Number(p.amount);
-      return `The treasury loses ${fmt(Number(p.amount))}.`;
+      const squeeze = lasting(ctx, "wealth", "empire", 0.9, 150, "Credit squeeze");
+      return `The treasury loses ${fmt(Number(p.amount))}, and borrowing stays dear: ${squeeze}.`;
     }),
   },
   {
@@ -261,14 +284,15 @@ export const EVENTS: EventDef[] = [
       {
         id: "carry-on",
         label: "Keep the line running",
-        detail: "Free, but a bad fire could take a tenth of the factories.",
+        detail: "Free, but a bad fire could take a tenth of the factories, and the damaged lines run at a fifth less for three months.",
         apply: () => {
           const colony = colonyOf(ctx, p);
           if (!colony) return "The colony is gone.";
           const share = ctx.rng.float(0.04, 0.1);
           const lost = destroy(colony, "construction-factory", installationCount(colony, "construction-factory") * share);
           colony.population = Math.max(0, colony.population * 0.995);
-          return `The fire spreads. ${lost} factories are destroyed and a few workers are lost.`;
+          const damage = lasting(ctx, "industry", colony.bodyId, 0.8, 90, "Fire-damaged lines");
+          return `The fire spreads. ${lost} factories are destroyed and a few workers are lost. ${damage}.`;
         },
       },
     ],
@@ -292,22 +316,25 @@ export const EVENTS: EventDef[] = [
       {
         id: "negotiate",
         label: "Meet their demands",
-        detail: `Costs ${fmt(Number(p.cost))}. Work resumes at once.`,
+        detail: `Costs ${fmt(Number(p.cost))}. Work resumes at once, and a content workforce lifts industry by a tenth for six months.`,
         disabled: ctx.empire.treasury < Number(p.cost) ? "The treasury cannot cover it." : undefined,
         apply: () => {
           ctx.empire.treasury -= Number(p.cost);
-          return `A settlement is signed for ${fmt(Number(p.cost))} and work resumes.`;
+          const glow = lasting(ctx, "industry", String(p.colony), 1.1, 180, "Contented workforce");
+          return `A settlement is signed for ${fmt(Number(p.cost))} and work resumes. ${glow}.`;
         },
       },
       {
         id: "hold",
         label: "Hold firm",
-        detail: "Free, but half the progress on the current build is spoiled.",
+        detail: "Free, but half the progress on the current build is spoiled, output drops for months, and the stoppage may come back.",
         apply: () => {
           const colony = colonyOf(ctx, p);
           const head = colony?.buildQueue[0];
           if (head) head.progress = Math.round(head.progress * 0.5);
-          return "The stoppage collapses after a fortnight; the current build has lost half its progress.";
+          const slow = lasting(ctx, "industry", String(p.colony), 0.7, 180, "Work-to-rule");
+          if (ctx.rng.chance(0.5)) followUp(ctx, "strike-returns", { colony: String(p.colony), cost: scaled(ctx, 0.06, 2500) }, 40, 70);
+          return `The stoppage collapses after a fortnight, but resentment lingers. The current build has lost half its progress. ${slow}.`;
         },
       },
     ],
@@ -337,18 +364,21 @@ export const EVENTS: EventDef[] = [
           const colony = colonyOf(ctx, p);
           ctx.empire.treasury -= Number(p.cost);
           if (colony) colony.population *= 0.995;
-          return `The outbreak is contained; the quarantine costs ${fmt(Number(p.cost))} and a few lives.`;
+          const limits = lasting(ctx, "growth", String(p.colony), 0.8, 60, "Quarantine restrictions");
+          return `The outbreak is contained; the quarantine costs ${fmt(Number(p.cost))} and a few lives. ${limits}.`;
         },
       },
       {
         id: "ignore",
         label: "Let it run its course",
-        detail: "Free, but it could take up to eight per cent of the population.",
+        detail: "Free, but it could take up to eight per cent of the population and halves growth for five months.",
         apply: () => {
           const colony = colonyOf(ctx, p);
           const share = ctx.rng.float(0.03, 0.08);
           if (colony) colony.population *= 1 - share;
-          return `The fever burns through the colony. ${(share * 100).toFixed(1)}% of the population is lost.`;
+          const sick = lasting(ctx, "growth", String(p.colony), 0.5, 150, "Sickness lingers");
+          followUp(ctx, "epidemic-aftermath", { colony: String(p.colony), cost: scaled(ctx, 0.03, 1500) }, 100, 150);
+          return `The fever burns through the colony. ${(share * 100).toFixed(1)}% of the population is lost. ${sick}.`;
         },
       },
     ],
@@ -385,13 +415,14 @@ export const EVENTS: EventDef[] = [
       {
         id: "burn",
         label: "Let it burn out",
-        detail: "Free, but it may take up to half the stored fuel.",
+        detail: "Free, but it may take up to half the stored fuel and halves fuel production for four months.",
         apply: () => {
           const colony = colonyOf(ctx, p);
           const share = ctx.rng.float(0.3, 0.5);
           const lost = colony ? colony.fuel * share : 0;
           if (colony) colony.fuel -= lost;
-          return `The depot burns for two days: ${fmt(lost)} litres are lost.`;
+          const down = lasting(ctx, "fuel", String(p.colony), 0.5, 120, "Depot being rebuilt");
+          return `The depot burns for two days: ${fmt(lost)} litres are lost. ${down}.`;
         },
       },
     ],
@@ -431,12 +462,220 @@ export const EVENTS: EventDef[] = [
       {
         id: "hush",
         label: "Keep it quiet",
-        detail: `Costs ${fmt(Number(p.cost))} in missing funds, and the governor stays.`,
+        detail: `Costs ${fmt(Number(p.cost))} in missing funds and dents confidence for six months. The governor stays, and it may leak.`,
         apply: () => {
           ctx.empire.treasury -= Number(p.cost);
-          return `The matter is buried. ${fmt(Number(p.cost))} is written off.`;
+          const doubt = lasting(ctx, "wealth", "empire", 0.92, 180, "Loss of confidence");
+          if (ctx.rng.chance(0.5)) followUp(ctx, "scandal-leak", { colony: String(p.colony), officer: String(p.officer), cost: scaled(ctx, 0.01, 600) }, 60, 100);
+          return `The matter is buried. ${fmt(Number(p.cost))} is written off. ${doubt}.`;
         },
       },
+    ],
+  },
+
+  // -------------------------------------------------------- new, lasting
+  {
+    id: "trade-boom",
+    tone: "good",
+    weight: () => 0.8,
+    build: () => ({ percent: 15 }),
+    describe: () => ({
+      title: "A trade boom",
+      text: "Merchants from every quarter are racing to supply the colonies, and tax receipts follow.",
+    }),
+    options: (_p, ctx) => auto(() => `${lasting(ctx, "wealth", "empire", 1.15, 200, "Trade boom")}.`),
+  },
+  {
+    id: "shaft-collapse",
+    tone: "bad",
+    decision: true,
+    fallback: "work-around",
+    weight: (ctx) => ([...ctx.empire.colonies.values()].some((c) => installationCount(c, "mine") >= 20) ? 0.9 : 0),
+    build: (ctx) => {
+      const colony = pickColony(ctx, (c) => installationCount(c, "mine") >= 20);
+      return colony ? { colony: colony.bodyId, cost: scaled(ctx, 0.025, 1500) } : null;
+    },
+    describe: (p, ctx) => ({
+      title: "Shaft collapse",
+      text: `The main shaft at the mines on ${bodyName(ctx, String(p.colony))} has caved in. Nobody is hurt, but half the workings are cut off.`,
+      link: link(ctx, p),
+    }),
+    options: (p, ctx) => [
+      {
+        id: "shore-up",
+        label: "Shore up the workings",
+        detail: `Costs ${fmt(Number(p.cost))}. Mining is down by a fifth for two months.`,
+        disabled: ctx.empire.treasury < Number(p.cost) ? "The treasury cannot cover it." : undefined,
+        apply: () => {
+          ctx.empire.treasury -= Number(p.cost);
+          return `Engineers shore up the shaft for ${fmt(Number(p.cost))}. ${lasting(ctx, "mining", String(p.colony), 0.8, 60, "Shaft being rebuilt")}.`;
+        },
+      },
+      {
+        id: "work-around",
+        label: "Work around it",
+        detail: "Free, but mining is down by two-fifths for five months.",
+        apply: () => `The crews dig around the collapse. ${lasting(ctx, "mining", String(p.colony), 0.6, 150, "Workings cut off")}.`,
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------- follow-ups
+  {
+    id: "strike-returns",
+    tone: "bad",
+    decision: true,
+    fallback: "force",
+    weight: () => 0,
+    valid: (p, ctx) => ctx.empire.colonies.has(String(p.colony)),
+    build: () => null,
+    describe: (p, ctx) => ({
+      title: "The stoppage returns",
+      text: `The grievances on ${bodyName(ctx, String(p.colony))} were never settled, and the workers are out again - angrier, and better organised.`,
+      link: link(ctx, p),
+    }),
+    options: (p, ctx) => [
+      {
+        id: "force",
+        label: "Send in security forces",
+        detail: "Free. Ends it quickly but costs lives and halves industry for two months.",
+        apply: () => {
+          const colony = colonyOf(ctx, p);
+          if (colony) colony.population *= 0.99;
+          return `Order is restored, at a price. ${lasting(ctx, "industry", String(p.colony), 0.5, 60, "Martial law")}.`;
+        },
+      },
+      {
+        id: "settle",
+        label: "Settle on their terms",
+        detail: `Costs ${fmt(Number(p.cost))}. Industry then runs 15% higher for eight months.`,
+        disabled: ctx.empire.treasury < Number(p.cost) ? "The treasury cannot cover it." : undefined,
+        apply: () => {
+          ctx.empire.treasury -= Number(p.cost);
+          return `A generous settlement is signed for ${fmt(Number(p.cost))}. ${lasting(ctx, "industry", String(p.colony), 1.15, 240, "A loyal workforce")}.`;
+        },
+      },
+    ],
+  },
+  {
+    id: "epidemic-aftermath",
+    tone: "neutral",
+    decision: true,
+    fallback: "heal",
+    weight: () => 0,
+    valid: (p, ctx) => ctx.empire.colonies.has(String(p.colony)),
+    build: () => null,
+    describe: (p, ctx) => ({
+      title: "After the fever",
+      text: `${bodyName(ctx, String(p.colony))} is recovering from the outbreak. The clinics are overstretched, and many want a proper health service built.`,
+      link: link(ctx, p),
+    }),
+    options: (p, ctx) => [
+      {
+        id: "fund",
+        label: "Fund a health programme",
+        detail: `Costs ${fmt(Number(p.cost))}. Population grows half again as fast for most of a year.`,
+        disabled: ctx.empire.treasury < Number(p.cost) ? "The treasury cannot cover it." : undefined,
+        apply: () => {
+          ctx.empire.treasury -= Number(p.cost);
+          return `Clinics are built for ${fmt(Number(p.cost))}. ${lasting(ctx, "growth", String(p.colony), 1.5, 270, "Healthy generation")}.`;
+        },
+      },
+      { id: "heal", label: "Let it recover by itself", detail: "Free. Nothing changes.", apply: () => "The colony recovers at its own pace." },
+    ],
+  },
+  {
+    id: "scandal-leak",
+    tone: "bad",
+    decision: true,
+    fallback: "deny",
+    weight: () => 0,
+    valid: (p, ctx) => ctx.empire.colonies.has(String(p.colony)),
+    build: () => null,
+    describe: (p, ctx) => ({
+      title: "The story breaks",
+      text: `Someone has leaked the audit of ${bodyName(ctx, String(p.colony))}'s books to the press. Everyone is asking what you knew.`,
+      link: link(ctx, p),
+    }),
+    options: (p, ctx) => [
+      {
+        id: "inquiry",
+        label: "Hold a public inquiry",
+        detail: `Costs ${fmt(Number(p.cost))}. The governor is removed; confidence recovers sooner.`,
+        disabled: ctx.empire.treasury < Number(p.cost) ? "The treasury cannot cover it." : undefined,
+        apply: () => {
+          ctx.empire.treasury -= Number(p.cost);
+          ctx.empire.assignOfficer(String(p.officer), null);
+          return `The inquiry finds against the governor, who is removed. ${lasting(ctx, "wealth", "empire", 0.96, 90, "Lingering doubt")}.`;
+        },
+      },
+      {
+        id: "deny",
+        label: "Deny everything",
+        detail: "Free, but confidence drops by 15% for eight months.",
+        apply: () => `The denials convince no one. ${lasting(ctx, "wealth", "empire", 0.85, 240, "Crisis of confidence")}.`,
+      },
+    ],
+  },
+  {
+    id: "derelict-beacon",
+    tone: "neutral",
+    decision: true,
+    fallback: "ignore",
+    weight: () => 0,
+    build: () => null,
+    describe: () => ({
+      title: "The wreck is transmitting",
+      text: "The transponder on the old wreck has woken up and is sending a repeating pattern towards somewhere outside the system. Analysts think it is a map.",
+    }),
+    options: (p, ctx) => [
+      {
+        id: "follow",
+        label: "Decode the signal",
+        detail: `Costs ${fmt(Number(p.cost))}. It may point to a jump point - or to nothing.`,
+        disabled: ctx.empire.treasury < Number(p.cost) ? "The treasury cannot cover it." : undefined,
+        apply: () => {
+          ctx.empire.treasury -= Number(p.cost);
+          const jp = hiddenJump(ctx);
+          if (jp && ctx.rng.chance(0.7)) {
+            ctx.empire.knownJumpPoints.add(jp);
+            return `The pattern resolves into coordinates: ${bodyName(ctx, jp)} is now on the chart.`;
+          }
+          const project = ctx.empire.projects[0];
+          if (project) {
+            const gain = Math.round((TECH_BY_ID.get(project.techId)?.cost ?? 1000) * 0.15);
+            project.progress += gain;
+            return `The signal is a lesson in physics rather than a map. Research advances by ${fmt(gain)} points.`;
+          }
+          return "The signal turns out to be an echo of itself, and leads nowhere.";
+        },
+      },
+      { id: "ignore", label: "Ignore it", detail: "Free. Nothing happens.", apply: () => "The signal is filed away and slowly fades." },
+    ],
+  },
+  {
+    id: "foundation-review",
+    tone: "good",
+    decision: true,
+    fallback: "decline",
+    weight: () => 0,
+    build: () => null,
+    describe: () => ({
+      title: "The foundation calls",
+      text: "The foundation that endowed the treasury has sent a delegation to see what became of its money. They are in a generous mood.",
+    }),
+    options: (p, ctx) => [
+      {
+        id: "host",
+        label: "Show them the laboratories",
+        detail: `Costs ${fmt(Number(p.cost))} to host. They give ${fmt(Number(p.amount) * 2)} more and research runs 5% faster for a year.`,
+        disabled: ctx.empire.treasury < Number(p.cost) ? "The treasury cannot cover it." : undefined,
+        apply: () => {
+          ctx.empire.treasury += Number(p.amount) * 2 - Number(p.cost);
+          return `The visit goes brilliantly: the foundation gives ${fmt(Number(p.amount) * 2)}. ${lasting(ctx, "research", "empire", 1.05, 365, "A patron's attention")}.`;
+        },
+      },
+      { id: "decline", label: "Politely decline", detail: "Free. Nothing changes.", apply: () => "The delegation goes home, a little puzzled." },
     ],
   },
   {
@@ -468,13 +707,15 @@ export const EVENTS: EventDef[] = [
             const mineral = ctx.rng.pick(MINERALS) as MineralName;
             const tons = Math.round(ctx.rng.float(8_000, 30_000));
             home.stockpile[mineral] += tons;
-            return `The wreck is a cargo hulk. ${fmt(tons)} t of ${mineral} is recovered.`;
+            if (ctx.rng.chance(0.6)) followUp(ctx, "derelict-beacon", { cost: 3000 }, 60, 110);
+            return `The wreck is a cargo hulk. ${fmt(tons)} t of ${mineral} is recovered. Its transponder is still warm.`;
           }
           const project = ctx.empire.projects[0];
           if (roll < 0.8 && project) {
             const gain = Math.round((TECH_BY_ID.get(project.techId)?.cost ?? 1000) * 0.2);
             project.progress += gain;
-            return `Recorded data from the wreck advances research by ${fmt(gain)} points.`;
+            if (ctx.rng.chance(0.6)) followUp(ctx, "derelict-beacon", { cost: 3000 }, 60, 110);
+            return `Recorded data from the wreck advances research by ${fmt(gain)} points. One log entry mentions a beacon.`;
           }
           return "The wreck is a hoax - a pile of old plating. The expedition returns with nothing.";
         },

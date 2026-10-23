@@ -119,6 +119,37 @@ export interface ReviewMark {
   ships: number;
 }
 
+/** What a timed effect changes. */
+export type EffectKind = "industry" | "mining" | "fuel" | "research" | "wealth" | "growth";
+
+/**
+ * A lasting change, applied as a multiplier for a while: a work-to-rule at one
+ * colony, a credit squeeze across the empire. Output is always computed from
+ * these, so ending one needs no undoing.
+ */
+export interface ActiveEffect {
+  id: string;
+  kind: EffectKind;
+  /** A colony's body id, or "empire" for all of them. */
+  target: string;
+  factor: number;
+  started: number;
+  until: number;
+  label: string;
+  /** The event that caused it, for the log. */
+  source?: string;
+}
+
+/** An event waiting its turn: the next link in a chain. */
+export interface ScheduledEvent {
+  id: string;
+  defId: string;
+  params: Record<string, string | number>;
+  due: number;
+  /** Title of the event this follows, to tell the player why it has happened. */
+  follows?: string;
+}
+
 /** The saved form of an empire: plain data, safe to pass through JSON. */
 export interface EmpireState {
   researched: string[];
@@ -145,6 +176,8 @@ export interface EmpireState {
   civilianShipping: boolean;
   lastTick: number;
   events?: GameEvent[];
+  effects?: ActiveEffect[];
+  scheduled?: ScheduledEvent[];
   eventFrequency?: number;
   eventRng?: number;
   lastEventTime?: number;
@@ -202,6 +235,11 @@ export class Empire {
    * own. Turn it off to run logistics entirely on ships you have built.
    */
   civilianShipping = true;
+  /** Timed effects currently in force. */
+  effects: ActiveEffect[] = [];
+  /** Follow-up events waiting for their time. */
+  scheduled: ScheduledEvent[] = [];
+  private nextEffectId = 1;
   /** Random events so far, newest first. */
   events: GameEvent[] = [];
   /** How often events happen: 0 is off, 1 is normal, 0.4 rare, 2.5 often. */
@@ -722,6 +760,50 @@ export class Empire {
     if (this.history.length > 240) this.history.shift();
   }
 
+  /** Start a lasting effect. A second of the same kind on the same target stacks. */
+  addEffect(
+    spec: { kind: EffectKind; target: string; factor: number; label: string; source?: string },
+    now: number,
+    days: number,
+  ): ActiveEffect {
+    const effect: ActiveEffect = {
+      id: `effect-${this.nextEffectId++}`,
+      ...spec,
+      started: now,
+      until: now + days * 86_400,
+    };
+    this.effects.push(effect);
+    return effect;
+  }
+
+  /** The combined multiplier on one kind of output at a colony. 1 when nothing applies. */
+  effectFactor(kind: EffectKind, colonyId: string): number {
+    let factor = 1;
+    for (const effect of this.effects) {
+      if (effect.kind === kind && (effect.target === colonyId || effect.target === "empire")) {
+        factor *= effect.factor;
+      }
+    }
+    return factor;
+  }
+
+  /** Queue a follow-up event. */
+  scheduleEvent(
+    defId: string,
+    params: Record<string, string | number>,
+    now: number,
+    days: number,
+    follows?: string,
+  ): void {
+    this.scheduled.push({
+      id: `sched-${this.nextEventId++}`,
+      defId,
+      params,
+      due: now + days * 86_400,
+      follows,
+    });
+  }
+
   newEventId(): string {
     return `event-${this.nextEventId++}`;
   }
@@ -780,6 +862,8 @@ export class Empire {
       civilianShipping: this.civilianShipping,
       lastTick: this.lastTick,
       events: this.events,
+      effects: this.effects,
+      scheduled: this.scheduled,
       eventFrequency: this.eventFrequency,
       eventRng: this.eventRng.state,
       lastEventTime: this.lastEventTime,
@@ -825,6 +909,9 @@ export class Empire {
     this.civilianShipping = data.civilianShipping;
     this.lastTick = data.lastTick;
     this.events = data.events ?? [];
+    this.effects = data.effects ?? [];
+    this.scheduled = data.scheduled ?? [];
+    this.nextEffectId = this.effects.reduce((m, e) => Math.max(m, Number(e.id.replace("effect-", "")) + 1), 1);
     this.eventFrequency = data.eventFrequency ?? 0;
     if (data.eventRng !== undefined) this.eventRng.state = data.eventRng;
     this.lastEventTime = data.lastEventTime ?? 0;

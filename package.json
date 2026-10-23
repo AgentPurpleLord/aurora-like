@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "check": "esbuild tools/sanity.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/sanity.mjs --log-level=warning && node node_modules/.cache/sanity.mjs",
     "ui": "node tools/ui-test.mjs",
+    "theme": "esbuild tools/make-theme.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/make-theme.mjs --log-level=warning && node node_modules/.cache/make-theme.mjs",
     "bench": "esbuild tools/bench.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/bench.mjs --log-level=warning && node node_modules/.cache/bench.mjs"
   },
   "devDependencies": {

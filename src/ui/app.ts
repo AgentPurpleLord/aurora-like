@@ -24,7 +24,7 @@ import { distance, el, lightTime, num } from "./format";
 import { CommandPalette } from "./palette";
 import { SettingsMenu } from "./settingsMenu";
 import { Toasts } from "./toasts";
-import { applyDensity, saveSettings, settings } from "./settings";
+import { applyDensity, applyTheme, saveSettings, settings } from "./settings";
 import { LENSES, LENS_BY_ID, hoverLines, type LensId } from "./lenses";
 import { IMPORTANT_CATEGORIES, type LogEntry, type LogLink } from "../state/empire";
 import { QUICKSAVE_ID, listSaves, requestLoad, saveAuto, saveQuick, type SaveMeta } from "../state/save";
@@ -168,6 +168,7 @@ export class App {
           : this.game.empire.exploredJumpPoints.has(body.id) ? "explored" : "unexplored",
     );
     this.shownSystemId = this.game.viewSystem.id;
+    this.renderer.setTheme(settings.theme);
     this.tree = new BodyTreePanel(roots.tree, this.game, (b) => this.zoomTo(b));
     this.detail = new DetailPanel(roots.detail, this.game, {
       zoomTo: (b) => this.zoomTo(b),
@@ -258,6 +259,12 @@ export class App {
         this.navigate({ view: "fleets", fleetId });
         this.game.emit();
       },
+      toggleTheme: () => {
+        settings.theme = settings.theme === "terminal" ? "classic" : "terminal";
+        applyTheme();
+        saveSettings();
+        this.renderer.setTheme(settings.theme);
+      },
       toggleDensity: () => {
         settings.density = settings.density === "compact" ? "comfortable" : "compact";
         applyDensity();
@@ -269,7 +276,10 @@ export class App {
       },
     });
     // The menu owns its own button and panel; it only needs to tell us when to redraw.
-    new SettingsMenu(roots.settingsHost, () => this.renderActiveView(), this.game);
+    new SettingsMenu(roots.settingsHost, () => {
+      this.renderer.setTheme(settings.theme);
+      this.renderActiveView();
+    }, this.game);
     roots.paletteButton.addEventListener("click", () => this.palette.open());
     roots.saveButton.addEventListener("click", () => this.openSaves());
 

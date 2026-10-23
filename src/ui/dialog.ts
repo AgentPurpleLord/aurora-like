@@ -18,7 +18,7 @@ let openDialog: DialogHandle | null = null;
 export function showDialog(
   title: string,
   build: (body: HTMLElement, handle: DialogHandle) => void,
-  options: { wide?: boolean; onClose?: () => void; label?: string } = {},
+  options: { wide?: boolean; onClose?: () => void; label?: string; terminalTitle?: string } = {},
 ): DialogHandle {
   openDialog?.close();
 
@@ -29,7 +29,10 @@ export function showDialog(
   card.setAttribute("aria-label", options.label ?? title);
 
   const head = el("div", "dialog-head");
-  head.append(el("h2", "dialog-title", title));
+  const heading = el("h2", "dialog-title");
+  if (options.terminalTitle) heading.append(el("span", "th-c", title), el("span", "th-t", options.terminalTitle));
+  else heading.textContent = title;
+  head.append(heading);
   const closeButton = el("button", "icon-btn", "Close");
   closeButton.setAttribute("aria-label", `Close ${options.label ?? title}`);
   head.append(closeButton);
